@@ -1,47 +1,46 @@
-time	2026-11-11 03:37:00
+time	2026-11-11 20:56:55
 keep	lines	0	pinned	0
-briefword	2D	unlisted	no shot at evidence/play.png
-checklist	L1	unlisted	-	Look: buồn man mác rồi ấm dần, có lúc kỳ vĩ. 2D nhiều lớp có chiều sâu, vẽ tay phát sáng. Hình khối tròn mềm cho cư dân, góc gãy cho những thứ đang héo. Ba bảng màu: tầng Giữa xám lam (nền), tầng Trong vàng mật và xanh rêu (sự sống), tầng Ngoài tím than với đốm hổ phách (kẻ khổng lồ); nhân vật mình sáng nhất màn hình. Chi tiết dồn vào gương mặt và bầu trời. Dấu ấn riêng: bầu trời tầng Trong mang gương mặt mờ của chính mình, đổi sắc theo tâm trạng. Every figure drawn, no emoji, no plain circles.	
-checklist	L2	unlisted	-	References: không có game hay ảnh nào được nêu.	
-checklist	L3	unlisted	-	View: 2D · Camera: nhìn ngang, đi theo nhân vật, các lớp nền trôi lệch tạo chiều sâu; trận đánh là cảnh tĩnh nhìn ngang.	
-checklist	F1	unlisted	-	Ba tầng đi xuyên được (Trong, Giữa, Ngoài), mỗi tầng một bảng màu; khe hẹp mở ra cảnh rộng, nhạc dâng	
-checklist	F2	unlisted	-	Tâm trạng 5 nấc điều khiển bầu trời, cây cối và lời cư dân tầng Trong, đổi ngay khi mình chọn	
-checklist	F3	unlisted	-	Lời thoại có lựa chọn: nhân vật có tên, gương mặt đổi theo câu; lựa chọn được nhớ và nhắc lại sau; dòng chữ hiện khi đang đi	
-checklist	F4	unlisted	-	4 việc chăm mình (nghỉ, ăn, thở, ngủ), mỗi việc ở một chỗ trong tầng Giữa	
-checklist	F5	unlisted	-	Trận theo lượt: Đánh / Kỹ năng / Vật phẩm / Thủ, dải thứ tự lượt, đòn lớn báo trước; 3 loại địch, mỗi loại tấn công khác nhau, một loại là trùm	
-checklist	F6	unlisted	-	Đồ vật và ghi chép nhặt được, sáng nhẹ khi lại gần (thin stand-in)	
-checklist	F7	unlisted	-	4 kết thúc; màn kết gọi tên kết thúc và cho biết có bao nhiêu; lưu ở mỗi lựa chọn, tốc độ chữ tự đặt, có nhật ký lời thoại	
-checklist	S1	unlisted	-	đi xuyên các tầng lồng nhau · in the slice	
-checklist	S2	unlisted	-	thế giới của họ lụi tàn theo tâm trạng của mình · in the slice	
-checklist	S3	unlisted	-	chăm lấy mình (nghỉ, ăn, thở, ngủ) · in the slice *(guessed)*	
-checklist	S4	unlisted	-	trò chuyện có lựa chọn · in the slice *(guessed)*	
-checklist	S5	unlisted	-	đánh theo lượt kiểu JRPG · in the slice *(guessed)*	
-checklist	S6	unlisted	-	kẻ khổng lồ đang héo dần · in the slice *(guessed)*	
-checklist	S7	unlisted	-	đồ vật và ghi chép nhặt được · thin stand-in *(guessed)*	
-checklist	M1	unlisted	-	Mở mắt trong tầng Giữa: một căn phòng xám, một vệt sáng lọt ra từ ngực mình.	
-checklist	M2	unlisted	-	Đi vài bước, dòng chữ hiện dưới màn hình mà không chặn bước.	
-checklist	M3	unlisted	-	Nhấn E vào vệt sáng, mình rơi vào tầng Trong: khe hẹp mở ra một ngôi làng tí hon dưới bầu trời mang gương mặt mình, đang xám, nhạc dâng lên.	
-checklist	M4	unlisted	-	Một cư dân ngẩng lên gọi "Trời ơi" và hỏi vì sao hôm nay trời nặng thế.	
-checklist	M5	unlisted	-	Lựa chọn đầu tiên: tự trách hay dịu với mình.	
-checklist	M6	unlisted	-	Chọn xong, bầu trời đổi màu ngay, cây nở hoặc rụng lá, và cư dân nói về điều đó.	
-checklist	C1	unlisted	-	Phút 3–5, trận đầu: một "Lời Chê" chặn đường, báo trước đòn lớn một lượt để mình kịp thủ.	
-checklist	C2	unlisted	-	Thua không tải lại: tâm trạng tụt một nấc và làng héo thêm.	
-checklist	C3	unlisted	-	Tâm trạng chạm đáy thì thế giới Trong chết thật, game dừng ở kết buồn và chơi lại từ lựa chọn đầu.	
-checklist	C4	unlisted	-	Về sau: trùm "Cơn Héo" đứng trước lối ra tầng Ngoài, mạnh yếu tùy tâm trạng mình mang vào trận.	
-checklist	C5	unlisted	-	*(tên địch: guessed)*	
+briefword	2d	unlisted
+checklist	L1	unlisted	-	Look: kỳ vĩ mà ấm, đời thường. 2D nhìn ngang nhiều lớp, vẽ tay phát sáng. Bầu trời là vỏ trong của tinh cầu: lục địa mọc ngược trên trời, ở giữa treo Lõi Nhịp Tim đập chậm. Thung Lũng Phế Liệu gỉ đồng và hổ phách; Chợ Nổi gỗ ấm trên lưng một cá voi xanh thẫm. Nhân vật chính sáng nhất màn hình. Dấu ấn riêng: Lõi Nhịp Tim đập theo nhịp; sau khi Linh nghe thấy nhịp thứ hai, màn hình khẽ đập đôi. Every figure drawn, no emoji, no plain circles.	
+checklist	L2	unlisted	-	References: Undertale (đấu né đòn trong khung, tha hay giết, phản hồi vi mô) — lấy tinh thần, không lấy menu, trái tim, nhân vật hay giao diện.	
+checklist	L3	unlisted	-	View: 2D · Camera: nhìn ngang theo nhân vật; màn né: boss ở trên cảnh, khung né ở dưới, cảnh thế giới vẫn thấy phía sau.	
+checklist	F1	unlisted	-	Hai vùng nhìn ngang: Thung Lũng Phế Liệu và Chợ Nổi Lưng Kình Ngư, bầu trời tinh cầu rỗng với Lõi Nhịp Tim đập	
+checklist	F2	unlisted	-	Màn né đòn: boss ở trên, khung né ở dưới, linh hồn hai nhịp tim, sượt đạn tích cộng hưởng, khoảng lặng chọn hành động, tha hoặc đánh	
+checklist	F3	unlisted	-	3 màn đấu khác nhau: Cua Giáp Lò Rèn (boss), Cân Định Giá nổ (sống sót), Bọ Ký Sinh (tuỳ chọn)	
+checklist	F4	unlisted	-	StoryStateManager + Event Bus giữ đủ biến Bước 4 của handover; giá chợ, mô tả vật phẩm, lời bạn đồng hành, vũng nước đổi theo	
+checklist	F5	unlisted	-	Vũng nước lưu game với dòng chữ theo giai đoạn và theo tha hoá; túi đồ với mô tả đổi theo lựa chọn; Thanh Tẩy đồng xu ký ức	
+checklist	F6	unlisted	-	Ba bạn đồng hành Linh, Kaelen, Mira với câu thoại gieo hạt Hồi 1; Kịch bản 1 (Chợ Đen) và Kịch bản 2 (Lửa Trại) theo đúng lời handover	
+checklist	F7	unlisted	-	Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện	
+checklist	S1	unlisted	-	đấu boss né đòn và phản đòn · in the slice	
+checklist	S2	unlisted	-	StoryStateManager / biến cốt truyện · in the slice	
+checklist	S3	unlisted	-	kinh tế Lumen / Memoria · thin stand-in	
+checklist	S4	unlisted	-	bạn đồng hành, gắn kết · thin stand-in	
+checklist	S5	unlisted	-	sinh vật, sinh thái · thin stand-in	
+checklist	S6	unlisted	-	vũng nước lưu game · in the slice	
+checklist	M1	unlisted	-	Kén hổ phách nứt, mình bò ra giữa bãi phế liệu dưới một mặt trời đang đập.	
+checklist	M2	unlisted	-	Túi áo có một tờ giấy trắng.	
+checklist	M3	unlisted	-	Đi vài bước, dòng chữ hiện mà không chặn bước.	
+checklist	M4	unlisted	-	Một vũng nước mưa: cúi xuống, dòng chữ "Trông cậu hơi ướt và lem luốc, nhưng không sao cả" và game lưu.	
+checklist	M5	unlisted	-	Một con hồ ly bốn tai đói nhìn mẩu bánh mì của mình: chia, giữ, hay bắt nó bán.	
+checklist	M6	unlisted	-	Chia thì nó nhại tiếng bụng mình "Ọc… ọc…" rồi dụi đầu vào giày.	
+checklist	C1	unlisted	-	Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Linh.	
+checklist	C2	unlisted	-	Màn né đầu tiên: tia lửa rơi, xỉ sắt lăn, cột lửa báo trước.	
+checklist	C3	unlisted	-	Trúng đòn mất máu; hết máu thì đứng dậy thử lại từ đầu trận (không mất gì).	
+checklist	C4	unlisted	-	Tha nó cần làm dịu cơn giận rồi gỡ mảnh sắt; đánh thì nhanh hơn nhưng có giá.	
+checklist	C5	unlisted	-	Về sau: Cân Định Giá nổ (né mảnh vỡ), Bọ Ký Sinh trên lưng cá voi (tuỳ chọn).	
 browser	HeadlessChrome/153.0.8010.12
 scene	play	0	title
 scene	play	1	play
-digits	log	16px Georgia, "Times New Roman", serif	tabular	0
-measure	step-time	play	0.009	0.700	280
-lane	play	stop	4.7	129
+digits	log	18px Georgia, "Times New Roman", serif	tabular	0
+measure	step-time	play	0.017	4.100	306
+lane	play	stop	5.1	151
 uncaught	play	0
-text	play	canvas	418,662,861,681	27.0	7.07	inside	Lại một buổi dậy muộn. Hốc của mình xám như mọi hôm.
-text	play	canvas	24,18,95,34	24.0	12.26	inside	Tâm trạng
-text	play	canvas	274,18,303,33	24.0	13.18	inside	Đục
-text	play	canvas	24,47,115,62	22.5	12.06	inside	Giọt Sương: 1
-text	play	canvas	1074,17,1257,34	24.0	12.26	inside	Tầng Giữa · Hốc của mình
-text	play	canvas	986,46,1256,62	22.5	9.27	inside	Việc đang làm: Đến vũng lặng ở giữa Hốc
+text	play	canvas	52,23,134,36	24.0	13.93	inside	250 Lumen
+text	play	canvas	1011,21,1256,38	24.0	10.19	inside	Thung Lũng Phế Liệu · Tầng Ngoài
+text	play	canvas	980,49,1257,64	21.0	10.04	inside	Việc đang làm: Tìm đường ra khỏi thung lũng
+text	play	canvas	80,549,1181,568	27.0	15.44	inside	(Bầu trời không ở trên đầu. Bầu trời ở khắp nơi: những lục đ
+text	play	canvas	80,576,258,595	27.0	14.87	inside	trời đang đập như tim.)
+text	play	canvas	1179,672,1210,684	18.0	5.41	inside	Space
 screen	play	drawn
 shot	play	prototypes/trong/evidence/play.png
-responds	changed	4
+responds	changed	34

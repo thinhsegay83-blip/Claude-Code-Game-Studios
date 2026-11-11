@@ -1,5 +1,5 @@
-2D nhiều lớp có chiều sâu	canvas side-view, parallax: vault ribs/hills/houses scroll at 0.3-0.95x of the ground	evidence/play.png
-vẽ tay phát sáng	every figure is quadratic-curve paths with shadowBlur glow (player, lantern, pool, sky)	evidence/play.png
-mỗi tầng một bảng màu	Giữa blue-gray, Trong honey-gold+moss (mood-lerped), Ngoài dark purple+amber motes	evidence/play.png
-nhân vật đi ngang màn hình	side-scrolling walk, camera follows, battles are a static side-on scene	evidence/play.png
-2D	canvas 2D side-view: flat layered scene, no 3D camera	evidence/play.png
+boss sẽ đứng ở phía trên màn hình	boss drawn above the dodge box in every fight (drawFight: crab/scale/bugs at a.y-40)	evidence/fight-crab.png
+né skill	soul moves in the arena box with arrows, Shift to slow; bullets: sparks, slag, fire pillars, glass shards, acid spit	evidence/fight-crab.png
+đợi phản đòn	after each wave a Khoảng Lặng panel opens with per-creature actions and a timer	evidence/fight-quiet.png
+giống của undertale nhưng ta sẽ cải tiến thêm	box dodging + spare/kill, improved with graze resonance, companion warnings, wider arena with party, no fixed menu (see nearest-game.txt)	evidence/fight-crab.png
+2D	canvas side-view, layered parallax; the only "2d" in the brief is the old commit id 2d8a4da	evidence/play.png

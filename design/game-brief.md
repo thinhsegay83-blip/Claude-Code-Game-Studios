@@ -1,93 +1,90 @@
-# Game Brief: Trong
+# Game Brief: Trong — Hồi 1 · Kẻ Trắng Tay
 
 ## In your words
-Game nhập vai kể chuyện phong cách viễn tưởng, cốt truyện thật hay để truyền cảm xúc cho người chơi; thế giới đa dạng, sâu sắc, liền mạch, không gắn với thực tế. Thế giới "Trong": mỗi sinh vật chứa một thế giới bên trong và chính nó đang sống bên trong một sinh vật khác. Người chơi là kẻ đầu tiên đi xuyên được các tầng lồng nhau: đi vào trong gặp những cư dân tí hon coi mình là bầu trời, thế giới của họ lụi tàn theo tâm trạng của mình; đi ra ngoài gặp kẻ khổng lồ đang chứa mình, nó cũng đang héo dần. Chủ đề: mình vừa là bầu trời của ai đó vừa là hạt bụi của ai đó; chăm lấy mình là cứu cả một thế giới.
+(Lời gốc đầy đủ của game làng Li nằm trong git, ở mốc `one-shot/trong` / `2d8a4da`. Game này thay thế nó theo lựa chọn của bạn.)
 
-1. Làm gì: a+b (khám phá, trò chuyện có lựa chọn; có thêm đánh theo lượt kiểu JRPG)
-2. Tâm trạng: c (cả lựa chọn lời nói lẫn việc chăm sóc nhỏ)
-3. Kể chuyện: a+b (lời thoại và dòng chữ khi đi; đồ vật, ghi chép)
-4. Cảm giác: a+b (buồn man mác rồi ấm dần; choáng ngợp, kỳ vĩ)
-5. Hình ảnh: a (2D nhiều lớp, vẽ tay phát sáng, mỗi tầng một bảng màu)
-6. Bỏ bê bản thân: b (thế giới bên trong có thể chết thật)
-7. Kết thúc: a (ra tới kẻ khổng lồ, lựa chọn cuối, 3 kết thúc)
-8. Lát cắt: a (phiên ngắn từ đầu đến cuối, lời thoại tiếng Việt)
+Tài liệu cốt truyện: `prototypes/trong/HANDOVER_STORY_V2.md` (HANDOVER STORY & WORLD BIBLE — Cốt Truyện Chính 4 Hồi, Thế Giới Tinh Cầu Rỗng, Sinh Vật Viễn Tưởng, Nhóm Bạn Đồng Hành, Kinh Tế Kép, thoại "tôi - cậu").
 
-**Pitch:** Bạn là bầu trời của một ngôi làng tí hon sống trong ngực mình và là hạt bụi trong một kẻ khổng lồ đang héo; cách bạn đối xử với chính mình quyết định cả hai thế giới sống hay tàn.
+After play: bỏ phần đánh theo lượt, thiết kế lại cơ chế gameplay mới, khi mà tiến vào ột màn đấu boss thì boss sẽ đứng ở phía trên màn hình tung skill chúng ta phải né skill và đợi phản đòn. giống của undertale nhưng ta sẽ cải tiến thêm
+After play: Cốt truyện = File 2 thay thế Trong · Lượt đầu = Hồi 1 file 2 + né đòn
+After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
-**Genre:** nhập vai kể chuyện: đi khám phá + lời thoại có lựa chọn + đánh theo lượt
+**Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
 
-**Controls:** A/D hoặc mũi tên để đi, E để tương tác và đi xuyên tầng, phím 1–4 hoặc chuột để chọn lời và lệnh đánh *(guessed)*
+**Genre:** nhập vai kể chuyện màn hình ngang + đấu boss né đòn (bullet hell trong khung)
 
-**Question:** Người chơi có thấy xót khi bầu trời làng tí hon xám đi vì một câu tự trách của chính mình không? *(guessed)*
+**Controls:** A/D hoặc mũi tên: đi · E: tương tác · Space/Enter: lời thoại · phím số: chọn · I: túi đồ · L: nhật ký · P: tạm dừng · M: tắt tiếng · Trong màn né: mũi tên để né, Shift để đi chậm, phím số để chọn đòn trong khoảng lặng *(guessed)*
 
-**Hooks:** Tâm trạng của mình là thời tiết của một thế giới; mình cũng là cư dân tí hon của kẻ khác.
+**Question:** Người chơi có chọn tha con cua đang nổi điên dù đánh nó nhanh hơn và được 200 Lumen không? *(guessed)*
 
-**Intent:**
+**Hooks:** Linh hồn trong màn né là hai nhịp tim xoay quanh nhau; đạn sượt qua làm cộng hưởng, khoảng lặng giữa các đợt là lúc chọn tha hay đánh. Mọi lựa chọn đều ghi vào sổ của thế giới: sổ nợ của Linh, bát súp của Kaelen, giá chợ, vũng nước.
+
+**Intent:** payoff builds *(you said: các câu thoại gieo hạt Hồi 1 trả lại ở Hồi 3–4)*
 
 ## Look and references
-- Look: buồn man mác rồi ấm dần, có lúc kỳ vĩ. 2D nhiều lớp có chiều sâu, vẽ tay phát sáng. Hình khối tròn mềm cho cư dân, góc gãy cho những thứ đang héo. Ba bảng màu: tầng Giữa xám lam (nền), tầng Trong vàng mật và xanh rêu (sự sống), tầng Ngoài tím than với đốm hổ phách (kẻ khổng lồ); nhân vật mình sáng nhất màn hình. Chi tiết dồn vào gương mặt và bầu trời. Dấu ấn riêng: bầu trời tầng Trong mang gương mặt mờ của chính mình, đổi sắc theo tâm trạng. Every figure drawn, no emoji, no plain circles.
-- References: không có game hay ảnh nào được nêu.
-- View: 2D · Camera: nhìn ngang, đi theo nhân vật, các lớp nền trôi lệch tạo chiều sâu; trận đánh là cảnh tĩnh nhìn ngang.
+- Look: kỳ vĩ mà ấm, đời thường. 2D nhìn ngang nhiều lớp, vẽ tay phát sáng. Bầu trời là vỏ trong của tinh cầu: lục địa mọc ngược trên trời, ở giữa treo Lõi Nhịp Tim đập chậm. Thung Lũng Phế Liệu gỉ đồng và hổ phách; Chợ Nổi gỗ ấm trên lưng một cá voi xanh thẫm. Nhân vật chính sáng nhất màn hình. Dấu ấn riêng: Lõi Nhịp Tim đập theo nhịp; sau khi Linh nghe thấy nhịp thứ hai, màn hình khẽ đập đôi. Every figure drawn, no emoji, no plain circles.
+- References: Undertale (đấu né đòn trong khung, tha hay giết, phản hồi vi mô) — lấy tinh thần, không lấy menu, trái tim, nhân vật hay giao diện.
+- View: 2D · Camera: nhìn ngang theo nhân vật; màn né: boss ở trên cảnh, khung né ở dưới, cảnh thế giới vẫn thấy phía sau.
 
 ## First minute
-Mở mắt trong tầng Giữa: một căn phòng xám, một vệt sáng lọt ra từ ngực mình. Đi vài bước, dòng chữ hiện dưới màn hình mà không chặn bước. Nhấn E vào vệt sáng, mình rơi vào tầng Trong: khe hẹp mở ra một ngôi làng tí hon dưới bầu trời mang gương mặt mình, đang xám, nhạc dâng lên. Một cư dân ngẩng lên gọi "Trời ơi" và hỏi vì sao hôm nay trời nặng thế. Lựa chọn đầu tiên: tự trách hay dịu với mình. Chọn xong, bầu trời đổi màu ngay, cây nở hoặc rụng lá, và cư dân nói về điều đó.
+Kén hổ phách nứt, mình bò ra giữa bãi phế liệu dưới một mặt trời đang đập. Túi áo có một tờ giấy trắng. Đi vài bước, dòng chữ hiện mà không chặn bước. Một vũng nước mưa: cúi xuống, dòng chữ "Trông cậu hơi ướt và lem luốc, nhưng không sao cả" và game lưu. Một con hồ ly bốn tai đói nhìn mẩu bánh mì của mình: chia, giữ, hay bắt nó bán. Chia thì nó nhại tiếng bụng mình "Ọc… ọc…" rồi dụi đầu vào giày.
 
 ## Challenge
-Phút 3–5, trận đầu: một "Lời Chê" chặn đường, báo trước đòn lớn một lượt để mình kịp thủ. Thua không tải lại: tâm trạng tụt một nấc và làng héo thêm. Tâm trạng chạm đáy thì thế giới Trong chết thật, game dừng ở kết buồn và chơi lại từ lựa chọn đầu. Về sau: trùm "Cơn Héo" đứng trước lối ra tầng Ngoài, mạnh yếu tùy tâm trạng mình mang vào trận. *(tên địch: guessed)*
+Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Linh. Màn né đầu tiên: tia lửa rơi, xỉ sắt lăn, cột lửa báo trước. Trúng đòn mất máu; hết máu thì đứng dậy thử lại từ đầu trận (không mất gì). Tha nó cần làm dịu cơn giận rồi gỡ mảnh sắt; đánh thì nhanh hơn nhưng có giá. Về sau: Cân Định Giá nổ (né mảnh vỡ), Bọ Ký Sinh trên lưng cá voi (tuỳ chọn).
 
 ## Core loop
-- Đi trong một tầng, nhặt đồ vật, nghe dòng chữ, gặp nhân vật.
-- Chọn lời nói hoặc làm một việc chăm mình (nghỉ, ăn, thở, ngủ); tâm trạng lên hoặc xuống.
-- Tầng Trong đổi theo: trời, cây, lời cư dân; tâm trạng cũng là sức mình trong trận.
-- Đánh một trận theo lượt để mở đường, rồi đi xuyên sang tầng khác.
-- Tâm trạng chạm đáy: kết buồn, bắt đầu lại.
-- Leads: đi và camera theo walking-sim · cảnh, lựa chọn, điều được nhớ theo visual-novel · trận đánh theo JRPG · thua và lưu theo lời bạn (câu 6b), thay cho "đánh lại ngay" của JRPG · không có cấp độ, tâm trạng là chỉ số duy nhất *(guessed)*
-- Skeleton: tâm trạng (dựng thật) nối với bầu trời Trong, lời thoại, sức đánh và kẻ khổng lồ.
+- Đi qua một vùng, soi vũng nước để lưu, nhặt và đọc đồ vật.
+- Gặp sinh vật hay người: chọn lời, chọn tha, giúp, bán hay bắt.
+- Đấu boss: né đòn trong khung, sượt đạn để tích cộng hưởng, chọn hành động trong khoảng lặng.
+- Mỗi lựa chọn đổi biến của thế giới (gắn kết, sinh thái, tha hoá, Lumen, Memoria); thế giới phản hồi lặng lẽ.
+- Leads: đi lại và cảnh theo walking-sim · lời thoại, lựa chọn theo visual-novel · đấu theo bullet hell trong khung · thua thì thử lại trận (không game over)
+- Skeleton: StoryStateManager (dựng thật) → giá chợ, mô tả vật phẩm, lời bạn đồng hành, vũng nước, sinh vật.
 
 ## Goal & fail state
-- Đích: ra tới kẻ khổng lồ, hiểu vì sao nó héo, và lựa chọn cuối đưa tới 1 trong 3 kết thúc.
-- Thua: thế giới Trong chết khi tâm trạng chạm đáy; đó là kết thúc thứ tư, kết buồn. *(cách ghép 3 + 1: guessed)*
+- Đích: hết Hồi 1 — sau đêm lửa trại, Linh nghe thấy hai nhịp tim; màn kết Hồi 1 tóm tắt những gì thế giới đã ghi về cậu.
+- Thua: hết máu trong màn né thì thử lại trận đó; không có game over.
 
 ## Features
-- [x] Ba tầng đi xuyên được (Trong, Giữa, Ngoài), mỗi tầng một bảng màu; khe hẹp mở ra cảnh rộng, nhạc dâng
-- [x] Tâm trạng 5 nấc điều khiển bầu trời, cây cối và lời cư dân tầng Trong, đổi ngay khi mình chọn
-- [x] Lời thoại có lựa chọn: nhân vật có tên, gương mặt đổi theo câu; lựa chọn được nhớ và nhắc lại sau; dòng chữ hiện khi đang đi
-- [x] 4 việc chăm mình (nghỉ, ăn, thở, ngủ), mỗi việc ở một chỗ trong tầng Giữa
-- [x] Trận theo lượt: Đánh / Kỹ năng / Vật phẩm / Thủ, dải thứ tự lượt, đòn lớn báo trước; 3 loại địch, mỗi loại tấn công khác nhau, một loại là trùm
-- [x] Đồ vật và ghi chép nhặt được, sáng nhẹ khi lại gần (thin stand-in)
-- [x] 4 kết thúc; màn kết gọi tên kết thúc và cho biết có bao nhiêu; lưu ở mỗi lựa chọn, tốc độ chữ tự đặt, có nhật ký lời thoại
+- [x] Hai vùng nhìn ngang: Thung Lũng Phế Liệu và Chợ Nổi Lưng Kình Ngư, bầu trời tinh cầu rỗng với Lõi Nhịp Tim đập
+- [x] Màn né đòn: boss ở trên, khung né ở dưới, linh hồn hai nhịp tim, sượt đạn tích cộng hưởng, khoảng lặng chọn hành động, tha hoặc đánh
+- [x] 3 màn đấu khác nhau: Cua Giáp Lò Rèn (boss), Cân Định Giá nổ (sống sót), Bọ Ký Sinh (tuỳ chọn)
+- [x] StoryStateManager + Event Bus giữ đủ biến Bước 4 của handover; giá chợ, mô tả vật phẩm, lời bạn đồng hành, vũng nước đổi theo
+- [x] Vũng nước lưu game với dòng chữ theo giai đoạn và theo tha hoá; túi đồ với mô tả đổi theo lựa chọn; Thanh Tẩy đồng xu ký ức
+- [x] Ba bạn đồng hành Linh, Kaelen, Mira với câu thoại gieo hạt Hồi 1; Kịch bản 1 (Chợ Đen) và Kịch bản 2 (Lửa Trại) theo đúng lời handover
+- [x] Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện
 
 ## Your systems
-- đi xuyên các tầng lồng nhau · in the slice
-- thế giới của họ lụi tàn theo tâm trạng của mình · in the slice
-- chăm lấy mình (nghỉ, ăn, thở, ngủ) · in the slice *(guessed)*
-- trò chuyện có lựa chọn · in the slice *(guessed)*
-- đánh theo lượt kiểu JRPG · in the slice *(guessed)*
-- kẻ khổng lồ đang héo dần · in the slice *(guessed)*
-- đồ vật và ghi chép nhặt được · thin stand-in *(guessed)*
+- đấu boss né đòn và phản đòn · in the slice
+- StoryStateManager / biến cốt truyện · in the slice
+- kinh tế Lumen / Memoria · thin stand-in
+- bạn đồng hành, gắn kết · thin stand-in
+- sinh vật, sinh thái · thin stand-in
+- vũng nước lưu game · in the slice
+- Mảnh Phản Chiếu (0–12) · later *(guessed)*
+- Hồi 2–4 · later
 
 ## Keep
 -
 
 ## Avoid
-- Gắn với thực tế: không địa danh, không văn hóa, không công nghệ có thật
+- Copy Undertale: tên, nhân vật, trái tim đỏ, menu FIGHT/ACT/ITEM/MERCY, nhạc, giao diện
+- Ngôn ngữ kiếm hiệp, anime cường điệu, self-help sáo rỗng
 
 ## Out of scope
-- Nhiều tầng lồng sâu hơn, nhiều chương, dàn nhân vật đầy đủ: grow it
-- Thị trấn, cửa hàng, nhiệm vụ phụ: grow it
-- Hậu quả hiện ra nhiều chương sau; tuyến truyện tách rồi nhập: add it as a feature
-- Trang bị dạy kỹ năng, nghề, luật đội hình: add it as a feature
-- Nơi chốn tự đổi theo điều mình đã thấy: add it as a feature
-- Danh sách đồ sưu tầm; điểm nghỉ hồi máu: change it after play
+- Hồi 2, Hồi 3, Hồi 4 và ba kết thúc lớn: grow it
+- Mảnh Phản Chiếu và mở khoá dòng chữ trên Khế Ước: add it as a feature
+- Chợ cung–cầu đầy đủ, đầu tư Khu Chợ Di Động: add it as a feature
+- Đòn phối hợp tổ đội (Combo Assist): add it as a feature
+- Nuôi và cộng sinh sinh vật lâu dài: grow it
 
 ## Build order
-1. Lát cắt: tầng Giữa, xuống tầng Trong, lựa chọn đầu làm trời đổi màu, 2 trận thường, trùm, ra tầng Ngoài, lựa chọn cuối, 4 kết thúc.
-2. Thêm cư dân và lời thoại để tầng Trong sâu hơn.
-3. Thêm tầng lồng thứ tư và chương kế.
+1. Lát cắt Hồi 1: thung lũng → hồ ly → cua (né đòn) → Kaelen và Mira → Chợ Nổi → cân nổ (né) → Chợ Đen → lửa trại → hết Hồi 1.
+2. Mảnh Phản Chiếu và Bọ Ký Sinh đầy đủ, chợ cung–cầu.
+3. Hồi 2.
 
 ---
-**Kill condition:** sau hai vòng chỉnh mà người chơi vẫn không thấy gì khi trời làng đổi màu. *(guessed)*
+**Kill condition:** sau hai vòng chỉnh, màn né vẫn chỉ là né cho qua, không ai dừng lại nghĩ có nên tha con cua. *(guessed)*
 
-**Who it's for / what they feel:** người thích game kể chuyện một mình, muốn một phiên ngắn để lại dư âm và thấy nhẹ với bản thân hơn. *(guessed)*
+**Who it's for / what they feel:** người thích game kể chuyện có lựa chọn đạo đức nhỏ; thấy một câu đùa "5 Lumen" ở đầu game làm mình nghẹn ở cuối. *(guessed)*
 
-**Games you love / don't:** chưa nêu.
+**Games you love / don't:** Undertale (né đòn trong khung, tha hay giết, thế giới nhớ mình).

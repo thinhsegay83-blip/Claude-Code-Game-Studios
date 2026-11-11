@@ -1,349 +1,433 @@
 // PROTOTYPE - NOT FOR PRODUCTION
-// Question: Người chơi có thấy xót khi bầu trời làng tí hon xám đi vì một câu tự trách của chính mình không?
-// Date: 2026-11-10
-// Every word the player reads. A scene is a list of steps:
-//   {w, f, t}   a line: who speaks, their face, the text (a string, or a function of the state)
-//   {c: [...]}  a choice: each {t, m, set, go}; m names a mood change, set remembers it, go jumps
-//   {go}        jump to another scene        {do}  an action the game runs (travel, battle, ending)
-//   {when}      on any step: skip it unless when(state) is true
+// Question: Người chơi có chọn tha con cua đang nổi điên dù đánh nó nhanh hơn và được 200 Lumen không?
+// Date: 2026-11-12
+// Every word the player reads, and the layout of each place: data only, no logic.
+// Source: prototypes/trong/HANDOVER_STORY_V2.md. Lines quoted from it are kept word for word and
+// marked "handover". Lines marked "guessed" fill a gap the handover leaves; change them freely.
+//
+// A scene is a list of steps:
+//   {w, f, t, cue}  a line: speaker id, face, text (string or function of the view), stage cue
+//   {c: [...]}      a choice: each {t, fx, go, when}
+//                   fx: effects as strings, run by the StoryStateManager, e.g.
+//                       'var_bond_kael+15'  'var_eco_balance-15'  'flag_kept_royal_egg=true'
+//                       'item+egg'  'item-egg'  'var_identity_revelation_stage=3'
+//   {go}            jump to another scene         {do}  an action: fight:<id>, travel:<map>,
+//                   save, goal:<id>, join:<who>, actend
+//   {when}          on any step: skip it unless when(view) is true
 window.STORY = {
   names: {
-    me: 'Mình', mi: 'Mi', say: 'Bà Sậy', lau: 'Lau', giant: 'Người Mang',
-    scorn: 'Lời Chê', weary: 'Cơn Mỏi', wither: 'Cơn Héo',
+    me: 'Cậu', nar: '', linh: 'Linh', kael: 'Kaelen', mira: 'Mira', vex: 'Vex',
+    fox: 'Hồ Ly Âm Bản', crab: 'Cua Giáp Lò Rèn', scale: 'Cân Định Giá Linh Hồn', bug: 'Bọ Ký Sinh',
+    moc: 'Mốc', whale: 'Kình Ngư Ngược Gió',
   },
-  layers: { giua: 'Tầng Giữa · Hốc của mình', trong: 'Tầng Trong · Làng Li', ngoai: 'Tầng Ngoài · Bờ vai Người Mang' },
-  moodNames: ['Tắt', 'Nặng', 'Đục', 'Lặng', 'Ấm', 'Trong'],
 
-  // ---- Dòng chữ hiện khi đang đi: không chặn bước -----------------------------------------
+  // ---- Bản đồ: mỗi thực thể là dữ liệu; index.html đọc và xử lý ----------------------------
+  //   type: puddle | auto | npc | pickup | creature | boss | travel | shop | deck | optfight | decor
+  //   once: cờ được bật khi cảnh tự kích hoạt chạy (không chạy lại)
+  //   block(s): đúng thì người chơi không đi qua được x này
+  maps: {
+    phelieu: {
+      name: 'Thung Lũng Phế Liệu · Tầng Ngoài', w: 2300, ground: 600,
+      entities: [
+        { x: 130, type: 'decor', id: 'cocoon' },
+        { x: 400, type: 'puddle' },
+        { x: 700, type: 'auto', scene: 'fox_first', once: 'fox_seen' },
+        { x: 760, type: 'creature', id: 'echofox', when: s => !s.flags.fox_fed && !s.flags.fox_caught },
+        { x: 1000, type: 'pickup', id: 'egg', when: s => !s.flags.egg_taken },
+        { x: 1150, type: 'auto', scene: 'crab_pre', once: 'crab_seen' },
+        { x: 1300, type: 'boss', id: 'crab', block: s => !s.flags.crab_done },
+        { x: 1750, type: 'auto', scene: 'kael_mira', once: 'met_kael' },
+        { x: 1850, type: 'decor', id: 'campfire' },
+        { x: 2180, type: 'travel', to: 'chonoi', when: s => s.flags.met_kael },
+      ],
+    },
+    chonoi: {
+      name: 'Chợ Nổi Lưng Kình Ngư', w: 2400, ground: 610,
+      entities: [
+        { x: 230, type: 'auto', scene: 'scale_pre', once: 'scale_seen' },
+        { x: 330, type: 'decor', id: 'scale', block: s => !s.flags.flag_scale_exploded },
+        { x: 560, type: 'puddle' },
+        { x: 820, type: 'shop', id: 'bread' },
+        { x: 1100, type: 'npc', id: 'vex' },
+        { x: 1420, type: 'optfight', id: 'bug', when: s => !s.flags.bugs_cleared },
+        { x: 1700, type: 'deck' },
+        { x: 1880, type: 'puddle' },
+        { x: 2050, type: 'auto', scene: 'camp_pre', once: 'camp_seen', when: s => s.flags.flag_scale_exploded },
+        { x: 2150, type: 'decor', id: 'campfire' },
+        { x: 2250, type: 'npc', id: 'sleep', when: s => s.flags.flag_linh_heard_double_pulse },
+      ],
+    },
+  },
+
   walk: {
-    giua: [
-      { x: 0, t: 'Lại một buổi dậy muộn. Hốc của mình xám như mọi hôm.' },
-      { x: 330, t: 'Vách Hốc từng ấm. Mình không nhớ nó nguội từ bao giờ.' },
-      { x: 700, t: 'Có ánh gì đó… lọt ra từ chính ngực mình. Vũng lặng phía trước đang soi nó.' },
-      { x: 1500, when: s => !s.flags.wellFree, t: 'Cuối Hốc là sương đặc. Chân mình chưa chịu bước về phía ấy.' },
-      { x: 1500, when: s => s.flags.wellFree && !s.flags.witherDown, t: 'Sương đã tan. Nơi vách nguội nhất, có thứ gì cao và khô đứng chắn.' },
-      { x: 2350, when: s => s.flags.witherDown, t: 'Sau lưng Cơn Héo là một tấm Màng mỏng. Bên kia Màng, có gió.' },
+    phelieu: [
+      { x: 0, t: 'Thung Lũng Phế Liệu. Sắt gỉ chất thành đồi, hổ phách vương vãi như mật đông.' },
+      { x: 260, t: 'Ngẩng lên không thấy trời. Chỉ thấy đất, ở rất xa, uốn cong lên rồi treo ngược trên đầu.' },
+      { x: 560, t: 'Ở chính giữa, một mặt trời đang đập. Chậm, đều, như tim ai đó đang ngủ.' },
+      { x: 1500, when: s => s.flags.crab_done, t: 'Phía trên vách đá có khói bếp. Và mùi nấm.' },
     ],
-    trong: [
-      { x: 0, t: 'Khe hẹp mở ra. Dưới mình là cả một ngôi làng. Trên đầu họ là gương mặt mình.' },
-      { x: 1300, when: s => !s.flags.scornDown, t: 'Ngoài bãi có thứ gì sắc cạnh đang lơ lửng. Nó nói bằng giọng mình.' },
-      { x: 2050, t: 'Những mái nhà vỏ hạt thưa dần. Nhà nào còn đèn, nhà ấy còn người.' },
-      { x: 2380, when: s => !s.flags.wellFree, t: 'Giếng sương ở cuối làng. Có thứ gì nặng trĩu đang ngồi lên miệng giếng.' },
-    ],
-    ngoai: [
-      { x: 0, t: 'Khe hẹp. Rồi không còn vách nào nữa.' },
-      { x: 320, t: 'Mình đang đứng trên một bờ vai. Bờ vai ấy dài hơn mọi con đường mình từng đi.' },
-      { x: 760, t: 'Xa kia là một gương mặt, to bằng cả bầu trời làng Li. Mắt nhắm. Da xám màu vách Hốc.' },
-      { x: 1250, t: 'Những đốm hổ phách trôi quanh nó, tắt dần từng đốm. Giống hệt lá rụng dưới làng.' },
-      { x: 1560, when: s => s.flags.lau, t: 'Lau thì thầm trên vai mình: "Trời ơi… Trời của Trời cũng buồn."' },
+    chonoi: [
+      { x: 0, t: 'Sàn gỗ dưới chân cậu thở. Cả khu chợ đang nằm trên lưng một con cá voi.' },
+      { x: 650, t: 'Người ta mua bán bằng ánh sáng đựng trong đồng xu. Có những đồng xu thì thầm.' },
+      { x: 1500, t: 'Gió ở đây ngược. Cá voi bơi ngược gió, nên chợ không bao giờ trôi mất.' },
     ],
   },
 
-  // ---- Lời cư dân treo trên đầu, đổi theo nấc tâm trạng (1..5) -------------------------------
-  ambient: {
-    mi: ['Mầm ơi, ráng thêm hôm nữa…', 'Mầm ơi, ráng thêm hôm nữa…', 'Hôm nay có nắng mỏng.', 'Mầm nhú rồi, bà ơi!', 'Mầm cao hơn cháu rồi!'],
-    say: ['Tôi ghi: nặng.', 'Tôi ghi: đục.', 'Tôi ghi: lặng.', 'Tôi ghi: ấm.', 'Tôi ghi: trong.'],
-    lau: ['Mặt Trời buồn quá.', 'Mặt Trời buồn quá.', 'Trời đang nghĩ gì đó.', 'Trời vừa nhìn xuống!', 'Trời cười kìa!'],
+  // ---- Vũng nước lưu game (handover 3.1) --------------------------------------------------------
+  // Chọn dòng đầu tiên có when() đúng. Hồi 3–4 chưa có trong lát này nhưng dữ liệu để sẵn.
+  puddle: [
+    { when: s => s.v.var_identity_revelation_stage >= 4, t: 'Nước trong vắt. Sau bao nhiêu vết xước, bao nhiêu lần suýt quên mất mình là ai... thật mừng vì người đứng ở đây vẫn là cậu.' },
+    { when: s => s.v.var_identity_revelation_stage >= 3 && s.v.var_architect_corruption >= 70, t: 'Nước rất tĩnh. Cậu nhìn vào trong đó, và lần đầu tiên, cậu không chắc người đang mỉm cười dưới đáy nước là mình hay là ông ta.' },
+    { when: s => s.v.var_identity_revelation_stage >= 3, t: 'Mặt nước rung rinh vì tiếng sấm. Dù bức tượng đá ngoài kia có mang khuôn mặt ai đi nữa... người đang cúi xuống nhìn vũng nước này vẫn chỉ là cậu thôi.' },
+    // [CẦN KIỂM TRA] handover ghi "Bond >= 120" trong khi mỗi bond chạy 0–100: ở đây hiểu là tổng ba bond.
+    { when: s => s.v.var_identity_revelation_stage >= 1 && s.bondSum >= 120 && s.party.length >= 3, t: 'Vũng nước hơi chật. Phải chen chúc lắm mới đủ chỗ cho bốn cái bóng cùng cúi xuống nhìn một lúc.' },
+    { when: () => true, t: 'Chỉ là một vũng nước mưa nhỏ. Trông cậu hơi ướt và lem luốc, nhưng không sao cả.' },
+  ],
+  puddleSaved: '(Đã lưu.)',
+
+  // ---- Vật phẩm: mô tả là hàm của trạng thái (phản hồi vi mô) ---------------------------------
+  items: {
+    deed: {
+      name: 'Tờ Khế Ước Trắng',
+      desc: s => s.flags.flag_linh_heard_double_pulse
+        ? 'Một tờ giấy trắng tinh không có lấy một chữ. Mira bảo con dấu in chìm ở góc nói rằng cả cái Ngân Hàng đang mắc nợ cậu. Cậu vẫn dùng nó gói bánh.' // guessed: tiếp nối lời Mira ở Kịch bản 2
+        : 'Một tờ giấy trắng tinh không có lấy một chữ. Ít nhất thì khi không có chữ nào, cậu có thể dùng nó để gói bánh mì nóng mà không sợ bẩn tay.', // handover
+    },
+    bread: {
+      name: 'Mẩu Bánh Mì',
+      desc: s => s.flags.fox_fed ? 'Nửa mẩu bánh mì. Nửa kia đang nằm trong bụng một con cáo bốn tai.' : 'Mẩu bánh mì. Hơi cứng. Bụng cậu đang kêu.', // guessed
+      use: 'eat',
+    },
+    soup: {
+      name: 'Bát Súp Nấm Của Kaelen',
+      desc: s => s.flags.flag_kael_knows_onion
+        ? 'Hành lá đã được ai đó kiên nhẫn ngồi nhặt sạch ra khỏi bát bằng một đôi bàn tay bọc gốm khổng lồ. Hơi mặn một chút, nhưng nuốt vào thấy ấm từ cổ họng xuống tận mũi giày.' // handover
+        : 'Bát súp nấm phát quang, vành hơi mẻ. Còn nổi mấy cọng hành lá: Kaelen chưa biết cậu không ăn hành. Chưa biết thôi.', // guessed: trước khi Kaelen biết
+      use: 'heal', heal: 'Hồi đầy máu trong màn né.', // handover: hồi 80 HP; thang máu màn né nhỏ hơn nên là hồi đầy
+    },
+    memoria: {
+      name: 'Đồng Xu Ký Ức Lẻ',
+      desc: () => 'Đồng xu lành lạnh. Nếu áp lên tai, cậu sẽ nghe thấy tiếng một đứa trẻ đang cười khúc khích vì trốn tìm thắng bố mình. Ai đó đã phải túng quẫn lắm mới đem bán buổi chiều hôm ấy đi.', // handover
+      use: 'cleanse',
+      cleanse: 'Đồng xu vỡ tan thành một làn gió ấm bay ngược về phía khu dân cư. Cậu chẳng thu được đồng Lumen nào cả, ví tiền vẫn mỏng dính... nhưng bước chân cậu bỗng nhẹ tênh.', // handover
+    },
+    egg: {
+      name: 'Trứng Hồ Ly Hoàng Gia',
+      desc: s => s.flags.flag_kept_royal_egg ? 'Quấn trong khăn quàng của cậu, Linh giữ hộ. Tiếng chuông bên trong mỗi ngày một rõ.' : 'Vỏ còn ấm. Áp tai vào thấy tiếng chuông ngân khe khẽ, như có ai đang tập hát.', // guessed
+    },
+    core: { name: 'Lõi Lửa', desc: () => 'Cục than hồng to bằng nắm tay, vẫn còn ấm. Ở chợ người ta trả 200 Lumen cho thứ này.' }, // guessed
+    foxbag: { name: 'Túi Vải', desc: () => 'Một túi vải đang run. Thỉnh thoảng nó nhại lại tiếng tim cậu.' }, // guessed
   },
 
-  // ---- Việc chăm mình ở tầng Giữa ----------------------------------------------------------
-  care: {
-    sleep: { name: 'Ổ rêu', verb: 'Ngủ', t: 'Mình nằm xuống ổ rêu và, lần này, không tự mắng vì đã nằm.', gain: 'Máu hồi đầy' },
-    eat: { name: 'Bầu sương', verb: 'Ăn', t: 'Mình ăn chậm. Vị ngọt nhạt của sương đọng. Dưới làng chắc đất đang mềm ra.', gain: 'Thêm một Giọt Sương' },
-    rest: { name: 'Phiến ấm', verb: 'Nghỉ', t: 'Mình ngồi lên phiến ấm, không làm gì cả. Hóa ra không làm gì cũng là một việc.', gain: 'Ấm lên nhiều hơn' },
-    breathe: { name: 'Khe gió', verb: 'Thở', t: 'Hít vào. Giữ. Thở ra. Vách Hốc phập phồng theo, rất khẽ.', gain: 'Hơi hồi đầy' },
-    used: 'Vừa làm rồi. Để lát nữa.',
-    back: 'Dưới làng, đất mềm hẳn ra. Có ai đó đang hát.',
+  // ---- Cảnh -----------------------------------------------------------------------------------
+  scenes: {
+    wake: [
+      { w: 'nar', t: '(Một tiếng nứt khô khốc. Lớp hổ phách quanh người cậu vỡ ra như vỏ trứng.)' },
+      { w: 'nar', t: '(Bầu trời không ở trên đầu. Bầu trời ở khắp nơi: những lục địa mọc ngược, những khu rừng phát quang treo lơ lửng, và ở chính giữa là một mặt trời đang đập như tim.)' },
+      { w: 'nar', t: '(Trong túi áo chỉ có một tờ giấy trắng, và một mẩu bánh mì. Không tên. Không chữ. Không nhớ gì.)' },
+      { do: 'item:deed' }, { do: 'item:bread' }, { do: 'goal:valley' },
+    ],
+
+    // Hồ Ly Âm Bản (handover 3.3, CRE_ECHOFOX)
+    fox_first: [
+      { w: 'nar', t: '(Một con hồ ly nhỏ có bốn cái tai. Bộ lông đổi màu theo từng tiếng sắt va nhau. Nó nhìn chằm chằm mẩu bánh mì trong tay cậu.)' },
+      { w: 'nar', t: '(Bụng cậu cũng đang kêu.)' },
+      { do: 'save' },
+      { c: [
+        { t: '[Bẻ đôi mẩu bánh, chìa phần to hơn] Ăn đi, đừng sợ, tôi không làm đau cậu đâu.', fx: ['var_eco_balance+eco_feed', 'flag_fox_fed=true', 'flag_fox_recorded_voice=true'], go: 'fox_fed' },
+        { t: '[Cất bánh vào túi] Xin lỗi. Tôi cũng đói.', fx: [], go: 'fox_keep' },
+        { t: '[Vồ lấy nó] Ở chợ, người ta trả 150 Lumen một con.', fx: ['var_eco_balance-eco_kill', 'var_architect_corruption+corrupt_kill', 'flag_fox_caught=true', 'item+foxbag'], go: 'fox_caught' },
+      ] },
+    ],
+    fox_fed: [
+      { w: 'nar', t: '(Con cáo nhỏ ăn xong, nghiêng đầu nhại lại đúng tiếng bụng cậu đang kêu:)' }, // handover
+      { w: 'fox', f: 'happy', t: '"Ọc... ọc..."' }, // handover
+      { w: 'nar', t: '(rồi dụi đầu vào giày cậu.)' }, // handover
+      { w: 'nar', t: '(Từ giờ, nó lẽo đẽo theo sau. Thỉnh thoảng cái đuôi chuông gió của nó lặp lại một câu rất khẽ, nghe như giọng cậu.)' }, // guessed: gieo hạt cho Hồi 4
+    ],
+    fox_keep: [
+      { w: 'nar', t: '(Con cáo nhìn theo mẩu bánh một lúc lâu, rồi lủi vào đống sắt. Bụng cậu vẫn kêu. Mẩu bánh không ngon như cậu tưởng.)' }, // guessed
+    ],
+    fox_caught: [
+      { w: 'nar', t: '(Nó không cắn. Nó chỉ run, và nhại lại tiếng tim cậu đang đập: nhanh, rất nhanh.)' }, // guessed
+      { w: 'nar', t: '(Cậu bỏ nó vào túi vải. Túi nặng thêm. Lát nữa ví cũng thế.)' },
+    ],
+
+    // Cua Giáp Lò Rèn (handover Hồi 1, CRE_RUSTCRAB)
+    crab_pre: [
+      { w: 'nar', t: '(Một con cua to như túp lều, trên mai là cái lò đỏ rực. Nó đang nổi điên, cào tung cả đồi sắt. Một mảnh sắt gỉ cắm sâu vào khớp càng.)' },
+      { w: 'nar', t: '(Dưới càng nó là một cô gái đeo ống nghe đồng, ôm chặt một con cáo nhỏ.)' },
+      { w: 'linh', f: 'afraid', t: 'Ê! Cậu kia! Đừng đứng nhìn! Nó không ác đâu, nó đau đấy! Có mảnh sắt kẹt trong khớp càng!' }, // guessed
+      { w: 'linh', f: 'afraid', t: 'Tôi nghe được nhịp của nó. Nó sắp phun gì thì tôi hét lên cho cậu né!' }, // guessed: Linh là thợ máy thính âm
+      { do: 'fight:crab' },
+    ],
+    crab_spared: [
+      { w: 'nar', t: '(Mảnh sắt rời ra với một tiếng "cạch". Con cua đứng yên rất lâu.)' },
+      { w: 'nar', when: s => s.flags.crab_warmed, t: '(Con cua khổng lồ khẽ khép bớt cửa lò trên mai lại một nửa để lửa không làm bỏng mặt cậu.)' }, // handover
+      { w: 'nar', when: s => s.flags.crab_warmed, t: '(Trên lớp mai đá xù xì của nó vẫn còn vết khắc nguệch ngoạc từ rất lâu: "Đừng chạm vào, coi chừng phỏng tay nhé.")' }, // handover
+      { w: 'nar', when: s => s.flags.crab_warmed, t: '(Nét chữ ấy... nhìn quen quen.)' }, // guessed: chưa lộ thân phận ở Hồi 1
+      { w: 'nar', when: s => !s.flags.crab_warmed, t: '(Rồi nó lùi về đống sắt, nằm xuống, cửa lò trên mai vẫn mở toang. Nó không còn giận. Nó chỉ chưa tin ai.)' }, // guessed
+      { go: 'linh_bandage' },
+    ],
+    crab_killed: [
+      { w: 'nar', t: '(Con cua sụp xuống. Ngọn lửa trên mai tắt dần, để lại một cục than hồng to bằng nắm tay: Lõi Lửa.)' },
+      { w: 'nar', t: '(Trên lớp mai còn một vết khắc nguệch ngoạc: "Đừng chạm vào, coi chừng phỏng tay nhé." Giờ thì chẳng còn gì để phỏng tay nữa.)' }, // guessed variant of the handover carving
+      { w: 'linh', f: 'sad', t: '...Nó chỉ đau thôi mà.' }, // guessed
+      { go: 'linh_bandage' },
+    ],
+    linh_bandage: [
+      { w: 'linh', f: 'neutral', cue: 'Linh rút cuộn băng, kéo tay cậu lại', t: 'Đứng im nào! Khám nhịp tim với dán băng cá nhân một lần tính 5 Lumen nhé. Tôi ghi vào cuốn sổ bìa xanh này rồi đấy, cấm có bùng!' }, // handover
+      { do: 'debt' }, { do: 'join:linh' },
+      { w: 'linh', f: 'neutral', t: 'Tôi là Linh. Con này là Mốc. Còn cậu tên gì?' }, // guessed
+      { c: [
+        { t: '[Mở miệng, nhưng không nhớ ra gì cả]', fx: [], go: 'linh_name' },
+        { t: '[Chìa tờ giấy trắng trong túi ra]', fx: ['var_bond_linh+5'], go: 'linh_name' },
+      ] },
+    ],
+    linh_name: [
+      { w: 'linh', f: 'think', t: '...Không tên, không chữ, không xu dính túi. Thôi được, tạm gọi là Kẻ Trắng Tay.' }, // guessed
+      { w: 'linh', f: 'happy', t: 'Đi với tôi. Trên vách đá kia có người đang nấu súp, mũi tôi thính lắm.' }, // guessed
+      { do: 'goal:cliff' },
+    ],
+
+    // Kaelen và Mira bên vách đá (handover Hồi 1)
+    kael_mira: [
+      { w: 'nar', t: '(Bên rìa vách đá, một người khổng lồ khoác giáp gốm chằng chịt vết nứt hàn vàng đang khuấy một nồi súp. Cạnh đó, một cô gái áo dài cổ cao đang gẩy chiếc bàn tính pha lê.)' },
+      { w: 'kael', f: 'neutral', cue: 'Kaelen múc súp vào một chiếc bát mẻ vành, đẩy sang cho cậu', t: 'Cầm lấy cái bát mẻ này đi. Tại tôi lỡ tay cắt dư một củ nấm phát quang nên mới thừa ra phần thứ tư thôi, không phải nấu riêng cho cậu đâu.' }, // handover
+      { w: 'mira', f: 'think', cue: 'Mira nhìn tờ giấy trắng trong túi áo cậu', t: 'Trên người không có nổi một xu, lại còn mất trí nhớ. Theo sổ cái của tôi thì hiện tại cậu đáng giá đúng... 0 Lumen tròn trĩnh. Đừng có chết sớm đấy, lỗ vốn tôi.' }, // handover
+      { do: 'save' },
+      { c: [
+        { t: '[Nhìn mấy cọng hành nổi trong bát] ...Tôi không ăn được hành.', fx: ['var_bond_kael+10', 'flag_kael_knows_onion=true'], go: 'kael_onion' },
+        { t: '[Ăn hết bát súp, không nói gì]', fx: ['var_bond_kael+5'], go: 'kael_eat' },
+        { t: '[Quay sang Mira] 0 Lumen là rẻ hay là đắt?', fx: ['var_bond_mira+10'], go: 'mira_zero' },
+      ] },
+    ],
+    kael_onion: [
+      { w: 'kael', f: 'think', t: '...Ừ. Đưa đây.' }, // guessed
+      { w: 'nar', t: '(Kaelen ngồi nhặt từng cọng hành ra khỏi bát bằng đôi bàn tay bọc gốm to gấp ba bàn tay cậu. Lâu lắm. Không ai giục.)' }, // guessed: nguồn gốc của "vớt hết hành ra như mọi khi" ở Hồi 3
+      { go: 'kael_after' },
+    ],
+    kael_eat: [
+      { w: 'kael', f: 'neutral', t: 'Ăn nhanh thế. Đói lâu rồi hả.' }, // guessed
+      { go: 'kael_after' },
+    ],
+    mira_zero: [
+      { w: 'mira', f: 'happy', t: 'Là chưa định giá được. Loại hàng đó tôi ghét nhất. Và cũng thích nhất.' }, // guessed
+      { go: 'kael_after' },
+    ],
+    kael_after: [
+      { do: 'item:soup' }, { do: 'join:kael' }, { do: 'join:mira' },
+      { w: 'kael', f: 'neutral', t: 'Sáng mai có chuyến tàu lưng cá ghé vách đá. Lên Chợ Nổi mà kiếm việc. Bát kia cứ giữ lấy.' }, // guessed
+      { do: 'goal:ship' },
+    ],
+
+    // Chợ Nổi: Cân Định Giá Linh Hồn (handover Hồi 1, biến cố cuối hồi)
+    scale_pre: [
+      { w: 'nar', t: '(Cổng Chợ Nổi. Một chiếc cân bằng đồng và pha lê, cao hơn cả Kaelen. Ai qua cổng cũng phải đặt tay lên.)' },
+      { w: 'nar', t: '(Linh đặt tay: kim cân rung rồi dừng ở một con số nhỏ. Kaelen: con số lớn hơn. Mira: chiếc cân kêu lên một tiếng như cười.)' },
+      { w: 'nar', t: '(Đến lượt cậu.)' },
+      { do: 'fight:scale' },
+    ],
+    scale_after: [
+      { w: 'nar', t: '(Trên mặt kính vỡ còn một dòng chữ cổ ngữ đang sáng:)' },
+      { w: 'nar', t: 'OVERFLOW: ORIGIN_ENTITY' }, // handover
+      { w: 'linh', f: 'afraid', t: 'Mảnh sắt sượt qua vai cậu mà... không chảy giọt máu nào. Chỉ có mấy hạt bụi sáng bay lên.' }, // guessed, theo lời Linh ở Kịch bản 2
+      { w: 'mira', f: 'think', t: 'Một chiếc cân của Thương Đoàn vừa nổ tung vì cậu. Tôi bắt đầu thấy khoản đầu tư này thú vị rồi đấy.' }, // guessed
+      { w: 'kael', f: 'neutral', t: 'Đêm nay đốt lửa ở mũi tàu. Có chuyện gì thì nói sau khi ăn.' }, // guessed
+      { do: 'goal:camp' },
+    ],
+
+    // Chợ Đen: Kịch bản 1 (handover DLG_BAZAAR_EGG_DILEMMA, giữ nguyên văn)
+    vex: [
+      { w: 'vex', f: 'think', when: s => s.has.foxbag, t: 'Túi vải kia đang run. Hồ Ly Âm Bản sống, phải không? 150 Lumen. Tôi không hỏi gì thêm.' }, // guessed
+      { do: 'sellfox', when: s => s.has.foxbag },
+      { w: 'vex', f: 'think', when: s => s.has.core, t: 'Lõi Lửa còn ấm. 200 Lumen. Lò nào thế? ...Thôi, đừng kể.' }, // guessed
+      { do: 'sellcore', when: s => s.has.core },
+      { go: 'vex_egg', when: s => s.has.egg && !s.flags.egg_resolved },
+      { w: 'vex', f: 'neutral', when: s => !(s.has.egg && !s.flags.egg_resolved), t: 'Không có gì để bán thì đứng xa sạp tôi ra một chút. Ánh sáng các vị che mất khách.' }, // guessed
+    ],
+    vex_egg: [
+      { do: 'flag:egg_resolved' },
+      { w: 'vex', f: 'think', cue: 'Đưa chiếc kính lúp pha lê soi sát quả trứng đang phát ra tiếng chuông ngân khe khẽ', t: 'Vỏ còn ấm. Tiếng chuông trong ruột trứng rất trong. Giao nó cho tôi, các vị cầm ngay 3.000 Lumen—hoặc 2 Đồng Xu Ký Ức nguyên niêm phong. Đủ để mua lại bất kỳ thứ gì các vị từng đánh mất.' },
+      { w: 'linh', f: 'afraid', cue: 'Bàn tay dính dầu máy của Linh bỗng nắm chặt lấy tay áo cậu; cô ấy không nhìn quả trứng mà nhìn chằm chằm vào hai đồng xu trên bàn', t: 'Này... cậu nhìn kìa. Hai đồng xu đó... số hiệu seri trên mép xu đúng là lô hàng ở khu phố cũ của tôi rồi. Chỉ cần hai đồng đó thôi là tối nay tôi với cậu lấy lại được chiếc hộp nhạc của mẹ tôi rồi...' },
+      { w: 'kael', f: 'neutral', cue: 'Không trách mắng Linh, chỉ lặng lẽ nhìn chú cáo Mốc đang rụt cổ trốn sau gáy cô', t: 'Linh này. Con cáo nhỏ trên vai cậu đang run đấy. Cậu thử đưa ống nghe vào quả trứng xem nó đang nói gì đi.' },
+      { w: 'linh', f: 'sad', cue: 'Bàn tay Linh từ từ buông vạt áo cậu ra, cô cúi gằm mặt nhìn mũi giày rách của mình, giọng nhỏ như tiếng muỗi', t: 'Tôi không cần đeo ống nghe cũng biết mà Kael... Tôi chỉ là... tôi sợ ngày mai người khác mua mất hộp nhạc đó thôi. Nếu quên mất giọng bà ấy, tôi sợ một ngày nào đó tôi cũng quên luôn cách hát...' },
+      { do: 'save' },
+      { c: [
+        { t: '[Bọc quả trứng vào chiếc khăn quàng của cậu rồi đưa cho Linh giữ] Cầm lấy cho nó ấm. Hộp nhạc của mẹ cậu, tôi với cậu tự cày cuốc thêm vài chuyến hàng nữa rồi chuộc về.',
+          fx: ['var_bond_kael+15', 'var_bond_linh+10', 'var_eco_balance+10', 'flag_kept_royal_egg=true'], go: 'vex_keep' },
+        { t: '[Đặt quả trứng lên bàn của Vex] Đưa 2 đồng xu đó cho cô ấy đi.',
+          fx: ['item-egg', 'var_memoria_coins+2', 'var_bond_linh+5', 'var_bond_kael-25', 'var_eco_balance-15', 'var_architect_corruption+15', 'flag_sold_royal_egg=true'], go: 'vex_sell' },
+        { t: '[Huých nhẹ vai Mira] Mira, cậu có cách nào vừa giữ được trứng vừa lấy được tiền đặt cọc không?', when: s => s.party.includes('mira'),
+          fx: ['var_lumen_gold+1200', 'var_bond_linh+15', 'var_bond_kael+10', 'var_bond_mira+15', 'flag_kept_royal_egg=true'], go: 'vex_mira' },
+      ] },
+    ],
+    vex_keep: [
+      { w: 'linh', f: 'sad', cue: 'Linh ôm chặt quả trứng, sụt sịt', t: '...Đồ ngốc. Giao trứng cho một đứa đang túng tiền như tôi mà cậu không sợ tôi đem trốn mất à? Đi thôi, ở đây thêm một phút nữa là tôi khóc thật đấy, mất mặt lắm.' },
+    ],
+    vex_sell: [
+      { w: 'kael', f: 'neutral', cue: 'Kaelen quay lưng đi, không nói thêm gì', t: '...Linh cầm được xu rồi thì chúng ta về trại thôi. Tối nay trời có vẻ trở lạnh đấy.' },
+    ],
+    vex_mira: [
+      { w: 'mira', f: 'happy', cue: 'Mira búng một đồng xu lên bàn', t: 'Bán đứt con gà đẻ trứng vàng là nghiệp dư rồi Vex ạ. Chúng tôi giữ quả trứng, nhưng bán độc quyền bản thu âm tiếng ngân đầu tiên khi nó nở cho sạp của anh với giá 1.200 Lumen tiền mặt. Ký nhanh đi, tôi còn phải dẫn Linh đi đặt cọc giữ chỗ chiếc hộp nhạc trước giờ đóng cửa.' },
+    ],
+
+    // Sạp bánh: giá theo sinh thái (Event Bus)
+    bread_shop: [
+      { w: 'nar', t: s => `(Sạp bánh. Hôm nay một mẩu bánh mì giá ${s.breadPrice} Lumen.${s.flags.bugs_cleared ? ' Chủ sạp bảo từ lúc cá voi hết ngứa, thuế chợ cũng hạ.' : ''})` },
+      { c: [
+        { t: s => `[Mua một mẩu] ${s.breadPrice} Lumen`, when: s => s.v.var_lumen_gold >= s.breadPrice, fx: ['buy:bread'], go: 'bread_bought' },
+        { t: '[Thôi]', fx: [], go: 'bread_no' },
+      ] },
+    ],
+    bread_bought: [{ w: 'nar', t: '(Bánh còn ấm. Cậu gói nó vào tờ giấy trắng.)' }],
+    bread_no: [{ w: 'nar', t: '(Cậu đi tiếp. Bụng vẫn kêu khe khẽ.)' }],
+
+    // Bọ Ký Sinh trên lưng Kình Ngư (tuỳ chọn; handover CRE_LEVIATHAN)
+    bug_pre: [
+      { w: 'nar', t: '(Mấy con bọ to bằng nắm tay bám chặt vào lớp da xanh thẫm giữa hai tấm ván. Chỗ đó, da cá voi đỏ ửng lên.)' },
+      { w: 'linh', f: 'think', t: 'Bọ Ký Sinh. Chúng phun dịch chua khi bị động vào. Né cho khéo rồi gỡ từng con một.' }, // guessed
+      { do: 'fight:bug' },
+    ],
+    bug_after: [
+      { w: 'nar', t: '(Con cuối cùng rời ra. Dưới chân cậu, cả sàn gỗ khẽ rung lên một hồi dài, như một tiếng thở phào.)' },
+      { w: 'mira', f: 'happy', t: 'Cá voi hết ngứa thì chợ bớt chòng chành, thuế chợ hạ. Cậu vừa làm giảm giá cả khu chợ đấy, biết không?' }, // guessed: handover "giảm 20% thuế"
+    ],
+
+    deck: [
+      { w: 'nar', t: s => s.flags.bugs_cleared
+        ? '(Con cá voi già 500 tuổi khẽ nghiêng mình một góc cực nhỏ để che gió lùa cho đống lửa trại của nhóm bạn không bị tắt.)' // handover
+        : '(Dưới bàn tay cậu, sàn gỗ ấm và đang thở. Rất chậm. Con cá voi bơi ngược gió, và có chỗ nào đó trên lưng nó đang ngứa.)' }, // guessed
+    ],
+
+    // Lửa trại cuối Hồi 1: Kịch bản 2 (handover DLG_CAMP_HEARTBEAT_MYSTERY, giữ nguyên văn)
+    camp_pre: [
+      { w: 'mira', f: 'think', cue: 'Cầm tờ Khế Ước Trắng của cậu, cẩn thận phủi mấy vụn bánh mì nướng còn dính trên mặt giấy', t: 'Tôi thực sự bái phục cậu đấy. Tờ giấy được dệt từ tơ Nhện Khúc Xạ cổ đại có một không hai trong lịch sử Ngân Hàng... mà cậu lấy dùng để gói bánh mì kẹp thịt xiên lúc chiều.' },
+      { w: 'kael', f: 'neutral', cue: 'Múc súp ra một chiếc bát gốm hơi mẻ ở vành, đẩy sang phía bên trái cho cậu', t: 'Giấy nào gói được đồ ăn cho khỏi nguội thì đều là giấy tốt cả. Cầm lấy bát súp đi cậu. Tôi lỡ tay thái dư một củ nấm nên mới chia ra bốn bát đấy, đừng có nghĩ nhiều.' },
+      { w: 'nar', when: s => s.flags.flag_kael_knows_onion, t: '(Trong bát không có cọng hành nào.)' }, // guessed: phản hồi vi mô
+      { w: 'linh', f: 'neutral', cue: 'Rút cuốn sổ bìa xanh nhỏ xíu và chiếc ống nghe đồng ra, ngồi phịch xuống cạnh cậu', t: 'Khoan ăn đã! Lúc chiều chiếc cân ở cổng chợ nổ tung, mảnh sắt sượt qua vai cậu mà tôi chẳng thấy giọt máu nào, chỉ thấy mấy hạt bụi sáng bay lên. Ngồi im tôi khám nhịp tim cho—tính 5 Lumen thôi, tôi ghi vào sổ xanh nhé!' },
+      { do: 'save' },
+      { c: [
+        { t: '[Ngồi thẳng lưng] Cứ tự nhiên. Nhớ khám kỹ vào cho đáng 5 Lumen của tôi đấy.', fx: ['var_bond_linh+10', 'var_identity_revelation_stage+1', 'flag_linh_heard_double_pulse=true', 'debt'], go: 'camp_listen' },
+        { t: '[Cầm bát súp che trước ngực] Khám bệnh mà thu tiền bạn bè là không tốt đâu nhé. Tôi ăn súp của Kaelen đây.', fx: ['var_bond_kael+10', 'var_bond_linh+5', 'flag_linh_heard_double_pulse=true'], go: 'camp_tease' },
+      ] },
+    ],
+    camp_listen: [
+      { w: 'linh', f: 'awe', cue: 'Linh khựng lại, ống nghe vẫn áp vào ngực cậu', t: '...Ơ kìa. Sao trong ngực cậu lại đông vui thế? Có tới hai nhịp đập đang đuổi bắt nhau này... Một nhịp rất ấm, còn nhịp kia... nghe giống hệt tiếng gió thổi qua Lõi Nhịp Tim mỗi buổi sáng.' },
+      { go: 'camp_close' },
+    ],
+    camp_tease: [
+      { w: 'linh', f: 'awe', cue: 'Linh lén áp ống nghe vào', t: 'Bắt được rồi nhé—ủa? Khoan đã... Kael ơi, Mira ơi, sao trong người cậu ấy lại có tiếng chuông ngân thứ hai thế này? Nghe êm tai cực kỳ, giống hệt bài hát ru của mấy con Kình Ngư ấy...' },
+      { go: 'camp_close' },
+    ],
+    camp_close: [
+      { do: 'stage1' }, // handover: Kịch bản 2 nâng var_identity_revelation_stage ở nhánh nghe; nhánh trêu vẫn nghe thấy, nên ít nhất là 1 [CẦN KIỂM TRA]
+      { w: 'mira', f: 'happy', cue: 'Mira trả lại tờ Khế Ước cho cậu', t: 'Hai nhịp tim thì càng khó chết chứ sao, đỡ làm tôi mất trắng khoản đầu tư. Cất tờ giấy gói bánh của cậu kỹ vào nhé—con dấu in chìm ở góc giấy nói rằng không phải cậu nợ Ngân Hàng đâu, mà là cả cái Ngân Hàng này đang mắc nợ cậu đấy.' },
+      { w: 'nar', t: '(Đêm đó, Lõi Nhịp Tim đập. Và lần đầu tiên cậu nhận ra: ngực mình đập cùng nhịp với nó.)' }, // guessed
+      { do: 'goal:sleep' },
+    ],
+    sleep: [
+      { w: 'nar', t: '(Ngủ bên lửa trại? Hồi 1 sẽ khép lại ở đây.)' },
+      { c: [
+        { t: '[Nằm xuống]', fx: [], go: 'act_end' },
+        { t: '[Chưa, đi dạo thêm một chút]', fx: [], go: 'sleep_no' },
+      ] },
+    ],
+    sleep_no: [{ w: 'nar', t: '(Lửa vẫn cháy. Không ai giục.)' }],
+    act_end: [{ do: 'actend' }],
   },
 
-  // ---- Đồ vật và ghi chép ---------------------------------------------------------------------
-  objects: {
-    shell: { name: 'Mảnh vỏ khắc chữ', verb: 'Đọc', t: ['Nét khắc của chính mình, từ mùa nào không rõ:', '"Mai sẽ dậy sớm. Mai sẽ ăn tử tế. Mai."'] },
-    jar: { name: 'Hũ hạt lép', verb: 'Xem', t: ['Một hũ hạt giống lép. Nhãn viết bằng nét chữ nhỏ xíu:', '"Gieo khi Trời khá hơn." Nhãn đã ố.'] },
-    bowl: { name: 'Bát hứng sương', verb: 'Nhặt', dew: true, t: ['Một cái bát con đặt dưới mái, hứng được đúng một giọt.', 'Ai đó đã để dành nó cho một hôm trời nặng. Mình xin một giọt.'] },
-    book: { name: 'Sổ Trời', verb: 'Lật', t: ['Trang gần nhất: "Nặng. Nặng. Nặng. Lặng. Nặng."', 'Lật về trước rất xa: "Trong. Trong vắt. Trời cười, cả làng phơi chăn."', 'Thì ra mình từng như thế.'] },
-    fleck: { name: 'Vảy sáng đã tắt', verb: 'Nhặt', t: ['Một đốm hổ phách rơi xuống bờ vai, đã nguội.', 'Cầm lên mới thấy bên trong nó có vân, như một mái nhà vỏ hạt.'] },
-  },
-
-  hints: {
-    pool: 'Cúi nhìn vũng lặng', poolAgain: 'Vào trong', pillar: 'Leo cột sáng về Hốc', talk: 'Nói chuyện',
-    membrane: 'Bước qua Màng', ear: 'Gọi vào vành tai', goal0: 'Đi về phía ánh sáng',
+  // ---- Màn đấu né đòn -------------------------------------------------------------------------
+  fights: {
+    crab: {
+      title: 'Cua Giáp Lò Rèn',
+      intro: 'Con cua gầm lên. Lò trên mai phun lửa.',
+      // Linh nghe trước đợt đòn (bạn đồng hành báo trước)
+      warn: { sparks: 'Linh: "Nó sắp rũ lửa trên mai xuống! Né mấy đốm sáng!"', slag: 'Linh: "Xỉ sắt! Nó sẽ lăn ngang! Nhảy qua khe hở!"', pillars: 'Linh: "Lò nóng quá rồi! Chỗ nào đỏ lên là chỗ đó phụt lửa!"' },
+      quiet: s => s.rage > 70 ? 'Con cua thở phì phò. Càng nó vẫn cào xuống đất.' : s.rage > 35 ? 'Con cua khựng lại, nhìn cậu. Lửa trên mai hạ xuống một chút.' : 'Con cua đứng im. Nó giơ cái càng bị kẹt ra, như đang chờ.',
+      actions: [
+        { id: 'whisper', label: 'Nói khẽ', hint: 'Làm dịu cơn giận' },
+        { id: 'warm', label: 'Ngồi sưởi cạnh nó', hint: 'Dịu chậm, nhưng nó sẽ nhớ' },
+        { id: 'pull', label: 'Gỡ mảnh sắt', hint: 'Chỉ được khi nó đã dịu' },
+        { id: 'strike', label: 'Đánh', hint: 'Nhanh hơn. Có giá.' },
+        { id: 'soup', label: 'Ăn súp', hint: 'Hồi đầy máu', needs: 'soup' },
+      ],
+      lines: {
+        whisper: 'Cậu nói rất khẽ, không biết mình đang nói gì. Con cua nghiêng đầu nghe.',
+        warm: 'Cậu ngồi xuống cạnh cái lò, chìa tay ra sưởi. Hơi nóng rát mặt. Con cua nhìn cậu, rất lâu.',
+        warm2: 'Cậu vẫn ngồi đó. Con cua khép bớt cửa lò trên mai lại một nửa.',
+        pullNo: 'Cậu chạm vào mảnh sắt. Nó giật càng lại, gầm lên. Còn đau quá, còn giận quá.',
+        strike: 'Cậu đánh vào khớp càng. Con cua rú lên. Lửa trên mai bùng cao hơn.',
+        soup: 'Cậu húp vội bát súp. Ấm từ cổ họng xuống tận mũi giày.',
+        resonance: 'Hai nhịp tim trong ngực cậu đập cùng một lúc. Hành động này mạnh gấp đôi.',
+        wait: 'Cậu chần chừ. Khoảng lặng trôi qua.',
+        down: 'Cậu gục xuống. Linh hét gì đó. Cậu chống tay đứng dậy.',
+      },
+    },
+    scale: {
+      title: 'Cân Định Giá Linh Hồn',
+      intro: 'Kim cân quay tít. Mặt kính nứt toác. Nó sắp nổ!',
+      warn: { burst: 'Kaelen: "Nằm xuống! Mảnh kính bay tứ phía!"' },
+      end: 'Tiếng nổ tắt. Kaelen hạ chiếc khiên gốm xuống.',
+      down: 'Một mảnh kính sượt qua vai cậu. Kaelen kéo cậu ra sau khiên.',
+    },
+    bug: {
+      title: 'Bọ Ký Sinh',
+      intro: 'Mấy con bọ dựng lưng, phun dịch chua.',
+      warn: { spit: 'Linh: "Chúng phun theo hướng cậu đứng! Đi vòng, đừng đứng yên!"' },
+      quiet: () => 'Mấy con bọ phun mệt, đang hít hơi.',
+      actions: [
+        { id: 'pick', label: 'Gỡ một con', hint: 'Gỡ con gần nhất ra khỏi da cá voi' },
+        { id: 'soup', label: 'Ăn súp', hint: 'Hồi đầy máu', needs: 'soup' },
+      ],
+      lines: {
+        pick: 'Cậu luồn tay gỡ một con. Da cá voi bên dưới đỏ ửng, nhưng dịu dần.',
+        soup: 'Cậu húp vội bát súp.',
+        wait: 'Cậu chần chừ. Khoảng lặng trôi qua.',
+        down: 'Dịch chua bắn trúng mắt. Linh lau cho cậu. Thử lại nào.',
+      },
+    },
   },
 
   goals: {
-    start: 'Đến vũng lặng ở giữa Hốc',
-    village: 'Gặp bà Sậy, rồi ra bãi',
-    scorn: 'Đối mặt Lời Chê ngoài bãi',
-    well: 'Giải giếng sương cuối làng',
-    up: 'Về Hốc, đi tới cuối Hốc',
-    wither: 'Vượt Cơn Héo ở cuối Hốc',
-    out: 'Bước qua Màng',
-    giant: 'Đi tới gương mặt Người Mang',
+    valley: 'Tìm đường ra khỏi thung lũng', cliff: 'Lên vách đá, chỗ có khói bếp', ship: 'Lên lưng Kình Ngư ở cuối thung lũng',
+    camp: 'Tìm chỗ đốt lửa ở mũi tàu', sleep: 'Ngủ bên lửa trại',
   },
 
-  scenes: {
-    // ---- Tầng Giữa ---------------------------------------------------------------------------
-    pool: [
-      { w: 'me', f: 'think', t: 'Dưới mặt nước lặng, ngực mình hở một khe sáng.' },
-      { w: 'me', f: 'awe', t: 'Trong khe có… mái nhà. Có khói bếp. Nhỏ hơn hạt bụi.' },
-      { w: 'me', f: 'think', t: 'Chưa ai ở Hốc từng kể rằng có thể đi vào trong chính mình. Mình cúi xuống thêm một chút.' },
-      { do: 'travel:trong' },
-    ],
-
-    // ---- Tầng Trong: lựa chọn đầu tiên ---------------------------------------------------------
-    mi_first: [
-      { w: 'mi', f: 'awe', t: 'Trời ơi! Trời rơi xuống một giọt kìa!' },
-      { w: 'mi', f: 'happy', t: 'Cháu là Mi, cháu trông vườn mầm. Bà Sậy dặn hễ thấy Trời thì phải cúi đầu, mà cháu quên mất rồi.' },
-      { w: 'mi', f: 'sad', t: 'Trời cho cháu hỏi… vì sao hôm nay trời nặng thế? Mầm của cháu ba hôm rồi không chịu mở mắt.' },
-      { do: 'save' },
-      { c: [
-        { t: 'Tại ta. Ta vô dụng, đến dậy cho ra hồn cũng không xong.', m: 'harsh', set: ['c1', 'blame'], go: 'mi_blame' },
-        { t: 'Ta mệt, Mi ạ. Mệt thì trời nặng. Ta đang học cách nghỉ.', m: 'kind', set: ['c1', 'kind'], go: 'mi_kind' },
-        { t: 'Trời thì có lúc nặng lúc nhẹ. Đừng hỏi nhiều.', m: 'deflect', set: ['c1', 'deflect'], go: 'mi_deflect' },
-      ] },
-    ],
-    mi_blame: [
-      { w: 'mi', f: 'afraid', t: 'Trời… trời vừa tối đi. Lá rụng kìa!' },
-      { w: 'mi', f: 'sad', t: 'Cháu xin lỗi. Cháu không cố ý làm Trời tự mắng mình. Mỗi lần Trời mắng mình, dưới này rụng một lớp lá.' },
-      { w: 'me', f: 'think', t: 'Một câu của mình. Cả một hàng cây.' },
-      { go: 'mi_after' },
-    ],
-    mi_kind: [
-      { w: 'mi', f: 'happy', t: 'Ơ… trời vừa sáng lên! Trời thấy không, mầm nhú kìa!' },
-      { w: 'mi', f: 'neutral', t: 'Bà Sậy bảo: Trời không cần vui, Trời chỉ cần đừng ghét mình. Giờ cháu mới hiểu.' },
-      { w: 'me', f: 'think', t: 'Mình chỉ nói thật một câu. Dưới này người ta gọi thế là nắng.' },
-      { go: 'mi_after' },
-    ],
-    mi_deflect: [
-      { w: 'mi', f: 'sad', t: 'Dạ… Trời xám thêm một chút rồi.' },
-      { w: 'mi', f: 'neutral', t: 'Cháu không hỏi nữa. Nhưng mầm thì vẫn hỏi đấy ạ, bằng cách không mọc.' },
-      { w: 'me', f: 'think', t: 'Mình gạt đi một câu hỏi. Dưới này, người ta hứng lấy nó như hứng mưa.' },
-      { go: 'mi_after' },
-    ],
-    mi_after: [
-      { w: 'mi', f: 'neutral', t: 'Trời đi gặp bà Sậy đi. Bà giữ Sổ Trời, bà biết hết các mùa của Trời.' },
-      { w: 'mi', f: 'happy', t: 'À! Hôm nào Trời ăn, đất dưới này mềm ra. Hôm nào Trời ngủ đủ, sương xuống đều. Trời cứ leo cột sáng kia là về lại Hốc của Trời.' },
-      { do: 'goal:village' },
-    ],
-    mi_again: [
-      { w: 'mi', f: 'neutral', t: s => s.level >= 4 ? 'Mầm của cháu mở mắt rồi! Trời đừng đi đâu vội nhé.' : s.level <= 2 ? 'Mầm vẫn ngủ. Cháu ngồi canh, lỡ đâu trời đổi.' : 'Cháu đang đếm lá. Hôm nay rụng ít hơn hôm qua.' },
-    ],
-
-    // ---- Bà Sậy và cuốn Sổ Trời --------------------------------------------------------------
-    say_first: [
-      { w: 'say', f: 'neutral', t: 'Vậy là Trời xuống thật. Tôi già rồi, không cúi nổi nữa, Trời bỏ quá cho.' },
-      { w: 'say', f: 'neutral', t: 'Tôi giữ Sổ Trời. Ngày nào tôi cũng ghi: trời trong, trời đục, trời lặng. Dạo này toàn một chữ: nặng.' },
-      { w: 'say', f: 'sad', t: 'Mùa tối trước, chúng tôi mất một phần ba làng. Không phải vì Trời ác. Chỉ vì Trời quên rằng mình có chúng tôi.' },
-      { w: 'say', f: 'sad', when: s => s.flags.c1 === 'blame', t: 'Con bé Mi kể Trời tự gọi mình là vô dụng. Trời ạ, một thứ vô dụng thì không nuôi nổi bốn mươi nóc nhà.' },
-      { w: 'say', f: 'happy', when: s => s.flags.c1 === 'kind', t: 'Con bé Mi kể Trời bảo đang học cách nghỉ. Câu ấy tôi sẽ chép vào Sổ, bằng mực tốt.' },
-      { w: 'say', f: 'neutral', when: s => s.flags.c1 === 'deflect', t: 'Con bé Mi kể Trời bảo nó đừng hỏi. Trẻ con không hỏi thì ai hỏi hộ chúng tôi?' },
-      { w: 'say', f: 'neutral', t: 'Ngoài bãi có một Lời Chê vừa rơi xuống. Chúng rơi mỗi khi Trời nặng lời với chính mình. Nó chặn đường ra ruộng. Trời định làm gì với nó?' },
-      { do: 'save' },
-      { c: [
-        { t: 'Ta ra nhìn thẳng vào nó. Lời của ta thì ta nhận.', m: 'small', set: ['c2', 'own'], go: 'say_own' },
-        { t: 'Nó nói đúng mà. Cứ để nó ở đó.', m: 'harsh', set: ['c2', 'agree'], go: 'say_agree' },
-        { t: 'Chỉ cho ta cách đánh.', m: 'none', set: ['c2', 'fight'], go: 'say_teach' },
-      ] },
-    ],
-    say_own: [
-      { w: 'say', f: 'happy', t: 'Nhận, chứ không phải nuốt. Trời nói được câu ấy là nó đã nhỏ đi một nửa rồi.' },
-      { go: 'say_teach' },
-    ],
-    say_agree: [
-      { w: 'say', f: 'sad', t: 'Nó nói đúng một phần mười, rồi lấy phần ấy làm cớ mà chém cả mười. Trời nhìn lên mà xem, trời vừa sập thêm.' },
-      { go: 'say_teach' },
-    ],
-    say_teach: [
-      { w: 'say', f: 'neutral', t: 'Nghe này. Nó hay gom lời một nhịp rồi mới giáng. Thấy nó gom thì Trời hãy THỦ.' },
-      { w: 'say', f: 'neutral', t: 'Còn muốn nó nhỏ lại thì GỌI TÊN nó ra. Thứ gì bị gọi đúng tên cũng bớt dữ.' },
-      { w: 'say', f: 'happy', t: 'Cầm lấy giọt sương này. Uống khi đau. Và Trời ạ… thua cũng đừng mắng mình. Mắng là nó lại rơi thêm.' },
-      { do: 'dew' },
-      { do: 'goal:scorn' },
-    ],
-    say_again: [
-      { w: 'say', f: 'neutral', t: s => s.flags.wellFree ? 'Giếng thở lại rồi. Tôi ghi vào Sổ: hôm nay Trời tự xuống múc nước cho làng.' : s.flags.scornDown ? 'Lời Chê tan rồi. Còn giếng sương cuối làng, Trời ạ. Không có sương, làng không chờ nổi.' : 'Thấy nó gom lời thì THỦ. Muốn nó nhỏ lại thì GỌI TÊN. Tôi ngồi đây ghi.' },
-    ],
-
-    // ---- Trận 1: Lời Chê ---------------------------------------------------------------------
-    scorn_pre: [
-      { w: 'scorn', f: 'neutral', t: 'Ngươi lại dậy muộn. Ngươi lúc nào cũng thế.' },
-      { w: 'me', f: 'think', t: 'Giọng nó là giọng mình. Mình đã ném thứ này xuống đầu họ bao nhiêu lần rồi?' },
-      { do: 'battle:scorn' },
-    ],
-    scorn_win: [
-      { w: 'me', f: 'think', t: 'Lời Chê vỡ ra thành bụi, rồi bụi cũng lắng. Nó không chết. Nó chỉ thôi to.' },
-      { w: 'lau', f: 'awe', t: 'Tôi thấy hết từ ngọn lau! Trời đánh nhau với lời của chính Trời.' },
-      { w: 'lau', f: 'neutral', t: 'Tôi là Lau. Tôi leo cao nhất làng, vì tôi muốn nhìn gần mặt Trời. Gần rồi mới thấy: mặt Trời buồn.' },
-      { w: 'lau', f: 'sad', t: 'Nên tôi có một câu, giữ mãi chưa hỏi được ai. Trời ơi… Trời có trời không?' },
-      { w: 'me', f: 'awe', t: 'Mình chưa từng ngẩng lên mà hỏi thế. Hốc của mình cũng có vách. Vách ấy ấm hay nguội… là theo ai?' },
-      { do: 'save' },
-      { c: [
-        { t: 'Ta không biết. Đi cùng ta, mình lên xem.', m: 'small', set: ['c3', 'together'], go: 'lau_join' },
-        { t: 'Có thì cũng chẳng ngó ngàng gì tới ta đâu.', m: 'deflect', set: ['c3', 'alone'], go: 'lau_alone' },
-        { t: 'Nếu có… chắc nó cũng đang nặng như ta.', m: 'small', set: ['c3', 'guess'], go: 'lau_guess' },
-      ] },
-    ],
-    lau_alone: [
-      { w: 'lau', f: 'sad', t: 'Trời vừa nói đúng câu mà cả làng tôi sợ nhất. Chúng tôi cũng từng nghĩ thế về Trời.' },
-      { go: 'lau_join' },
-    ],
-    lau_guess: [
-      { w: 'lau', f: 'awe', t: 'Vậy thì phải có ai lên hỏi nó, như cháu Mi hỏi Trời sáng nay.' },
-      { go: 'lau_join' },
-    ],
-    lau_join: [
-      { w: 'lau', f: 'happy', t: 'Tôi theo Trời. Tôi nhỏ, nhưng đèn tôi sáng, và chuông tôi biết dỗ.' },
-      { do: 'join' },
-      { w: 'lau', f: 'neutral', t: 'Nhưng khoan đã. Giếng sương cuối làng bị một Cơn Mỏi ngồi lên rồi. Không có sương, làng không chờ nổi Trời đi xa.' },
-      { do: 'goal:well' },
-    ],
-
-    // ---- Trận 2: Cơn Mỏi ----------------------------------------------------------------------
-    weary_pre: [
-      { w: 'weary', f: 'neutral', t: 'Ngồi xuống đi… để mai… mai rồi tính…' },
-      { w: 'lau', f: 'afraid', when: s => s.flags.lau, t: 'Đừng nghe nó, Trời ơi! Nó không đánh mạnh đâu. Nó chỉ nặng dần, nặng dần, cho tới khi mình thôi đứng dậy.' },
-      { do: 'battle:weary' },
-    ],
-    weary_win: [
-      { w: 'me', f: 'think', t: 'Cơn Mỏi trượt khỏi miệng giếng như một tấm chăn ướt. Giếng sương thở lại.' },
-      { w: 'me', f: 'awe', t: 'Nước dâng, mát đến tận ngực mình. Ngực thật, ở trên kia.' },
-      { w: 'lau', f: 'happy', t: 'Giờ thì đi được rồi. Lên Hốc đi Trời. Rồi lên nữa.' },
-      { w: 'lau', f: 'neutral', t: 'Mà này. Trước khi đi xa, Trời ăn gì đi đã, ngủ một giấc đã. Dưới này cả làng nhìn thấy đấy.' },
-      { do: 'dew' },
-      { do: 'goal:up' },
-    ],
-
-    // ---- Trùm: Cơn Héo ------------------------------------------------------------------------
-    fog: [
-      { w: 'me', f: 'think', t: 'Sương ở cuối Hốc đặc như vách. Mình chưa từng nghĩ có gì ở phía sau nó.' },
-    ],
-    wither_pre: [
-      { w: 'wither', f: 'neutral', t: 'Ra ngoài làm gì. Ngoài ấy không ai cần ngươi. Trong này cũng thế.' },
-      { w: 'lau', f: 'afraid', when: s => s.flags.lau, t: 'Nó cao quá… Nhưng Trời ơi, nó mọc từ đúng chỗ Trời hay nằm nhất.' },
-      { w: 'me', f: 'think', t: s => s.level >= 4 ? 'Hôm nay mình đã ăn, đã nghỉ. Nó trông gầy hơn mình tưởng.' : s.level <= 2 ? 'Mình đến đây với một bầu trời đang nặng. Nó trông cao gấp đôi.' : 'Mình hít một hơi. Nó cao, nhưng nó khô.' },
-      { do: 'battle:wither' },
-    ],
-    wither_win: [
-      { w: 'me', f: 'think', t: 'Cơn Héo đổ xuống không một tiếng động, như thứ đã rỗng từ lâu.' },
-      { w: 'me', f: 'awe', t: 'Sau nó là Màng: tấm da mỏng nhất của Hốc. Có gió lùa qua một kẽ rách.' },
-      { w: 'lau', f: 'awe', when: s => s.flags.lau, t: 'Bên kia là trời của Trời. Tôi run quá. Đi thôi.' },
-      { do: 'goal:out' },
-    ],
-
-    // ---- Thua một trận: không tải lại -------------------------------------------------------------
-    lost: [
-      { w: 'me', f: 'sad', t: 'Mình gục xuống. Trên đầu làng Li, trời sập thêm một nấc.' },
-      { w: 'me', f: 'think', t: 'Nó vẫn đứng đó. Mình có thể thử lại. Nhưng trước hết, có lẽ nên về Hốc, ăn một miếng, ngủ một giấc.' },
-    ],
-
-    // ---- Tầng Ngoài: Người Mang ---------------------------------------------------------------
-    giant: [
-      { w: 'me', f: 'think', t: 'Mình gọi. Tiếng mình bé như tiếng Mi gọi mình sáng nay.' },
-      { w: 'me', f: 'speak', t: 'Này… vì sao hôm nay trời nặng thế?' },
-      { w: 'giant', f: 'sad', when: s => s.flags.c1 === 'blame', t: '…Tại ta. Ta vô dụng. Đến ngồi thẳng lên ta cũng không xong.' },
-      { w: 'me', f: 'awe', when: s => s.flags.c1 === 'blame', t: 'Đó là câu của mình. Nguyên từng chữ. Nghe từ ngoài vào mới biết nó nặng đến thế.' },
-      { w: 'giant', f: 'sad', when: s => s.flags.c1 === 'kind', t: '…Ta mệt. Lâu lắm rồi không ai hỏi ta câu ấy. Kể cả ta.' },
-      { w: 'me', f: 'awe', when: s => s.flags.c1 === 'kind', t: 'Giọng nó rung lên một chút, như vách Hốc những hôm còn ấm.' },
-      { w: 'giant', f: 'sad', when: s => s.flags.c1 === 'deflect', t: '…Đừng hỏi. Hỏi cũng thế thôi.' },
-      { w: 'me', f: 'awe', when: s => s.flags.c1 === 'deflect', t: 'Câu ấy mình đã nói với một đứa trẻ. Giờ mới biết đứng nghe nó thì lạnh thế nào.' },
-      { w: 'giant', f: 'sad', t: 'Ta chỉ là một hạt bụi dưới trời của ta. Hạt bụi có héo, cũng đâu ai hay.' },
-      { w: 'lau', f: 'happy', when: s => s.flags.lau, t: 'Có cả làng hay đấy! Và trong làng có tôi!' },
-      { w: 'me', f: 'think', t: 'Nó không biết. Nó không biết trong nó có Hốc, trong Hốc có mình, trong mình có bốn mươi nóc nhà.' },
-      { do: 'save' },
-      { c: [
-        { t: 'Kể cho nó nghe về làng Li. Rồi về nhà ăn một bữa tử tế, vì cả hai.', m: 'none', set: ['c4', 'tell'], go: 'end_trong' },
-        { t: 'Bảo nó phải gắng lên: cả một thế giới đang trông vào nó.', m: 'none', set: ['c4', 'push'], go: 'end_ganh' },
-        { t: 'Chào nó, rồi đi tiếp ra ngoài: xem trời của nó là ai.', m: 'none', set: ['c4', 'leave'], go: 'end_bui' },
-      ] },
-    ],
-    end_trong: [{ do: 'ending:trong' }],
-    end_ganh: [{ do: 'ending:ganh' }],
-    end_bui: [{ do: 'ending:bui' }],
+  pickups: {
+    egg: ['Một quả trứng to bằng nắm tay, nằm lọt giữa hai thanh sắt. Vỏ còn ấm. Bên trong có tiếng chuông ngân khe khẽ.', 'Quanh đó không có tổ, chỉ có một vệt kéo lê và dấu chân cua. Cậu bọc nó vào vạt áo.'], // guessed: handover không nói trứng ở đâu ra
   },
 
-  // ---- Bốn kết thúc ----------------------------------------------------------------------------
-  endingOrder: ['trong', 'ganh', 'bui', 'tat'],
-  endings: {
-    trong: {
-      name: 'Trời Trong',
-      lines: [
-        'Mình kể. Về Mi quên cúi đầu. Về bà Sậy và cuốn Sổ. Về Lau leo ngọn lau để nhìn gần một gương mặt buồn.',
-        'Người Mang nghe rất lâu. Rồi nó làm một việc nhỏ: nó hít vào, thật sâu. Gió ấm chạy dọc vách Hốc.',
-        'Mình về nhà, ăn một bữa tử tế. Dưới làng, bà Sậy chấm mực tốt, ghi một chữ đã lâu không ghi: Trong.',
-        'Mình là hạt bụi của ai đó, và là bầu trời của ai đó. Chăm lấy mình, hóa ra là việc lớn nhất mình làm được cho cả hai.',
-      ],
-      low: 'Trời làng Li chưa sáng hẳn. Nhưng lần đầu tiên sau nhiều mùa, nó sáng dần.',
-    },
-    ganh: {
-      name: 'Gánh Trời',
-      lines: [
-        'Mình bảo nó: cố lên, đừng yếu đuối, bao nhiêu người đang trông vào.',
-        'Người Mang gồng thẳng dậy. Vách Hốc ấm lên thật: nóng, căng, như sắp nứt.',
-        'Mình nhận ra giọng mình. Đó là giọng mình vẫn dùng để nói với chính mình mỗi sáng.',
-        'Thế giới sáng lên được một mùa. Không ai nở mãi được vì sợ.',
-      ],
-    },
-    bui: {
-      name: 'Hạt Bụi Đi Mãi',
-      lines: [
-        'Mình chào Người Mang, rồi đi tiếp. Ngoài nó là một bờ vai khác. Ngoài nữa, một gương mặt khác, cũng nhắm mắt.',
-        'Tầng nào cũng có một bầu trời đang nặng. Mình đi mãi để tìm tầng ngoài cùng, nơi có ai đó không buồn.',
-        'Dưới làng Li, trời không tối, chỉ xa dần. Bà Sậy ghi: "Lặng."',
-        'Trên vai mình, đèn của Lau vẫn sáng. "Trời ơi," nó hỏi khẽ, "bao giờ mình về?"',
-      ],
-    },
-    tat: {
-      name: 'Trời Tắt',
-      lines: [
-        'Trời làng Li tối hẳn.',
-        'Không ai ác cả. Mình chỉ quên rằng có một ngôi làng đang sống nhờ cách mình đối xử với chính mình.',
-        'Bà Sậy đặt bút. Trang cuối của Sổ Trời để trắng.',
-      ],
-    },
+  hints: {
+    puddle: 'Cúi nhìn vũng nước', travel: 'Lên lưng Kình Ngư', shop: 'Sạp bánh', vex: 'Sạp của Vex',
+    bug: 'Gỡ Bọ Ký Sinh', deck: 'Áp tay lên sàn gỗ', sleep: 'Ngủ bên lửa trại', egg: 'Nhặt quả trứng ấm',
   },
 
-  // ---- Chữ trong trận đánh ----------------------------------------------------------------------
-  battle: {
-    commands: ['Đánh', 'Kỹ năng', 'Vật phẩm', 'Thủ'],
-    skills: { me: 'Gọi Tên', lau: 'Chuông Nhỏ' },
-    item: 'Giọt Sương',
-    noSp: 'Không đủ hơi.',
-    noDew: 'Hết Giọt Sương.',
-    guard: n => `${n} thủ thế, lấy lại hơi.`,
-    attack: n => `${n} đánh.`,
-    nameIt: e => `Mình gọi tên nó: "${e}". Nó nhỏ lại.`,
-    bell: 'Lau rung Chuông Nhỏ. Cả hai dịu đi.',
-    dew: n => `${n} uống một Giọt Sương.`,
-    tired: n => `${n} đang mỏi: đòn này chỉ còn một nửa.`,
-    win: 'Nó lắng xuống.',
-    tally: (m, d) => `Ấm lên +${m} · Hơi hồi đầy${d ? ' · Giọt Sương +1' : ''}`,
-    lose: 'Mình gục.',
-    moves: {
-      scorn_cut: 'Lời Chê cứa một nhát.',
-      scorn_charge: 'Lời Chê đang GOM LỜI. Lượt tới: PHÁN XÉT. Hãy THỦ!',
-      scorn_judge: 'PHÁN XÉT giáng xuống!',
-      weary_press: 'Cơn Mỏi đè lên mình, rút mất hơi.',
-      weary_sag: n => `Cơn Mỏi làm ${n} trĩu xuống.`,
-      weary_yawn: 'Cơn Mỏi ngáp. Nó đầy lại một chút, và nặng thêm.',
-      wither_root: 'Rễ Khô quật cả hai.',
-      wither_leaf: 'Lá Rụng: ba nhát nhỏ.',
-      wither_charge: 'Cơn Héo đang HÚT CẠN. Lượt tới: MÙA TÀN. Cả hai hãy THỦ!',
-      wither_season: 'MÙA TÀN phủ xuống!',
-      wither_whisper_blame: '"Ta vô dụng." Chính miệng ngươi nói. Ta chỉ nhắc lại.',
-      wither_whisper_kind: '"Học cách nghỉ" ư? Nghỉ là lười. Ngươi biết thế mà.',
-      wither_whisper_deflect: '"Đừng hỏi nhiều." Phải, đừng hỏi. Cứ nằm đó.',
-    },
+  // ---- Màn kết Hồi 1: thế giới ghi lại những gì về cậu (không có con số) -----------------
+  actEnd: {
+    title: 'Hết Hồi 1 · Kẻ Trắng Tay',
+    lines: [
+      s => `Sổ xanh của Linh: nợ ${s.v.var_linh_tab_debt} Lumen. Chưa trả.`,
+      s => s.flags.fox_fed ? 'Ở Thung Lũng Phế Liệu, một con cáo bốn tai vẫn còn nhớ tiếng bụng cậu.' : s.flags.fox_caught ? 'Ở Chợ Đen, có một túi vải từng run.' : 'Ở Thung Lũng Phế Liệu, một con cáo bốn tai vẫn đói.',
+      s => s.flags.crab_spared ? (s.flags.crab_warmed ? 'Một con cua già khép lò lại một nửa mỗi khi có ai ngồi cạnh.' : 'Một con cua già nằm nghỉ, càng không còn mảnh sắt.') : 'Ở Thung Lũng Phế Liệu, một cái lò đã tắt.',
+      s => s.flags.flag_kept_royal_egg ? 'Trong khăn quàng của cậu, một quả trứng đang tập hát.' : s.flags.flag_sold_royal_egg ? 'Trong túi Linh có hai đồng xu. Kaelen chưa nói lại câu nào với cậu.' : null,
+      s => s.flags.flag_kael_knows_onion ? 'Kaelen đã biết cậu không ăn hành.' : null,
+      s => `Mira định giá cậu: 0 Lumen.`,
+      s => s.v.var_identity_revelation_stage >= 1 ? 'Trong ngực cậu có hai nhịp tim.' : null,
+    ],
+    next: 'Hồi 2 · Dấu Chân Kẻ Sáng Thế — chưa có trong bản này.',
   },
 
   ui: {
-    title: 'TRONG',
-    sub: 'Mình là bầu trời của ai đó, và là hạt bụi của ai đó.',
+    title: 'TRONG', sub: 'Kẻ đang được cậu điều khiển thực sự là ai?',
     start: 'Enter: bắt đầu', cont: 'C: chơi tiếp chỗ đã lưu',
-    paused: 'Tạm dừng', speed: 'Tốc độ chữ', speedHint: 'Mũi tên trái, phải: đổi tốc độ chữ',
-    resume: 'P: chơi tiếp', log: 'Nhật ký lời thoại', logHint: 'L: đóng · Mũi tên lên, xuống: cuộn',
-    mood: 'Tâm trạng', dew: 'Giọt Sương', goal: 'Việc đang làm',
-    again: 'Enter: quay về lựa chọn đầu tiên', ending: 'Kết thúc', seen: (n, k) => `Bạn đã thấy ${n} trên ${k} kết thúc`,
-    saved: 'Đã lưu', warn: 'Trời làng Li sắp tắt. Về Hốc mà chăm lấy mình.',
+    controls: ['A/D hoặc mũi tên: đi · E: tương tác', 'Space: lời tiếp theo · phím số: chọn', 'I: túi đồ · L: nhật ký · P: tạm dừng · M: tắt tiếng', 'Trong màn né: mũi tên để né · Shift: đi chậm'],
+    lumen: 'Lumen', memoria: 'Xu Ký Ức', goal: 'Việc đang làm', debt: n => `Sổ xanh của Linh: nợ ${n} Lumen`,
+    paused: 'Tạm dừng', speed: 'Tốc độ chữ', speedHint: 'Mũi tên trái, phải: đổi tốc độ chữ', resume: 'P: chơi tiếp',
+    log: 'Nhật ký lời thoại', logHint: 'L: đóng · Mũi tên lên, xuống: cuộn',
+    inv: 'Túi đồ', invHint: 'Mũi tên: chọn · E: dùng · I: đóng', invEmpty: '(Trống.)', cleanse: 'E: Bóp vỡ / Thanh Tẩy', eat: 'E: Ăn',
     advance: 'Space', choose: 'Phím số, hoặc mũi tên rồi Enter',
+    hp: 'Máu', resonance: 'Cộng hưởng', rage: 'Giận', hpBoss: 'Máu', left: n => `Còn ${n} con`, survive: n => `Chịu thêm ${n} giây`,
+    quietTitle: 'Khoảng lặng', quietHint: 'Phím số để chọn', again: 'Enter: chơi lại từ đầu',
   },
 };
