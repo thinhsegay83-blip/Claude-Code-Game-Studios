@@ -75,4 +75,5 @@ window.CONFIG = {
   line_time: { value: 5, min: 2, max: 10, step: 0.5 },             // giây: dòng chữ khi đi
   text_speed: { value: 42, min: 12, max: 120, step: 2 },           // chữ/giây
   heartbeat_bpm: { value: 54, min: 30, max: 100, step: 1 },        // nhịp Lõi Nhịp Tim
+  sprite_scale: { value: 2, min: 1, max: 4, step: 1 },             // điểm ảnh Aseprite → màn hình (640×360 ×2)
 };

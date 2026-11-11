@@ -7,6 +7,7 @@ Tài liệu cốt truyện: `prototypes/trong/HANDOVER_STORY_V2.md` (HANDOVER ST
 
 After play: bỏ phần đánh theo lượt, thiết kế lại cơ chế gameplay mới, khi mà tiến vào ột màn đấu boss thì boss sẽ đứng ở phía trên màn hình tung skill chúng ta phải né skill và đợi phản đòn. giống của undertale nhưng ta sẽ cải tiến thêm
 After play: Cốt truyện = File 2 thay thế Trong · Lượt đầu = Hồi 1 file 2 + né đòn
+After play: sử dụng aseprite trên máy tính để thiết kế · Ai vẽ = Claude trên máy MSI vẽ · Độ phân giải = 640×360, phóng ×2 · Đợt đầu = 4 nhân vật chính
 After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
 **Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
@@ -24,6 +25,7 @@ After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager ch
 ## Look and references
 - Look: kỳ vĩ mà ấm, đời thường. 2D nhìn ngang nhiều lớp, vẽ tay phát sáng. Bầu trời là vỏ trong của tinh cầu: lục địa mọc ngược trên trời, ở giữa treo Lõi Nhịp Tim đập chậm. Thung Lũng Phế Liệu gỉ đồng và hổ phách; Chợ Nổi gỗ ấm trên lưng một cá voi xanh thẫm. Nhân vật chính sáng nhất màn hình. Dấu ấn riêng: Lõi Nhịp Tim đập theo nhịp; sau khi Linh nghe thấy nhịp thứ hai, màn hình khẽ đập đôi. Every figure drawn, no emoji, no plain circles.
 - References: Undertale (đấu né đòn trong khung, tha hay giết, phản hồi vi mô) — lấy tinh thần, không lấy menu, trái tim, nhân vật hay giao diện.
+- Pixel: hi-bit pixel vẽ bằng Aseprite, 640×360 phóng ×2, bảng màu `art/trong.gpl`, đặc tả `art/SPRITE_SPEC.md`; đợt 1 là 4 nhân vật chính, phần còn lại vẫn vẽ bằng code cho tới các đợt sau.
 - View: 2D · Camera: nhìn ngang theo nhân vật; màn né: boss ở trên cảnh, khung né ở dưới, cảnh thế giới vẫn thấy phía sau.
 
 ## First minute
@@ -52,6 +54,9 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - [x] Vũng nước lưu game với dòng chữ theo giai đoạn và theo tha hoá; túi đồ với mô tả đổi theo lựa chọn; Thanh Tẩy đồng xu ký ức
 - [x] Ba bạn đồng hành Linh, Kaelen, Mira với câu thoại gieo hạt Hồi 1; Kịch bản 1 (Chợ Đen) và Kịch bản 2 (Lửa Trại) theo đúng lời handover
 - [x] Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện
+
+- [x] Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa
+- [ ] Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)
 
 ## Your systems
 - đấu boss né đòn và phản đòn · in the slice
