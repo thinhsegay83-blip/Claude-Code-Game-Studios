@@ -1,0 +1,1395 @@
+<!doctype html>
+<!-- PROTOTYPE - NOT FOR PRODUCTION -->
+<!-- Question: Người chơi có thấy xót khi bầu trời làng tí hon xám đi vì một câu tự trách của chính mình không? -->
+<!-- Date: 2026-11-10 -->
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trong</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { font-variant-numeric: tabular-nums; }
+  canvas { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script src="config.js"></script>
+<script src="story.js"></script>
+<script>
+'use strict';
+// Trong — một game kể chuyện: ba tầng lồng nhau, tâm trạng của mình là bầu trời của một ngôi làng.
+
+// ---- Built to be checked ----------------------------------------------------------------
+const params = new URLSearchParams(location.search);
+const tune = new Proxy({}, { get: (_, k) => CONFIG[k].value }); // live: tune.speed is CONFIG.speed.value
+const STEP = 1 / 60;            // simulation step in seconds; motion is per second, never per frame
+const W = 1280, H = 720;        // logical size
+const PIXEL = false;
+const FONT = 'Georgia, "Times New Roman", serif'; // nét kể chuyện, hợp vẽ tay phát sáng
+const S = window.STORY;
+const TITLE = S.ui.title;
+const CONTROLS = ['A/D hoặc mũi tên: đi', 'E: tương tác', 'Space: lời thoại tiếp theo', 'Phím số: chọn lời', 'L: nhật ký · P: tạm dừng · M: tắt tiếng'];
+const clock = window.GAME_CLOCK || { now: () => performance.now() / 1000 };
+const CHEAP = params.get('render') === 'cheap';
+let seed;
+function rng() { // mulberry32; every gameplay random call reads this, never Math.random
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), seed | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+const events = [];
+
+// ---- Screen ---------------------------------------------------------------------------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  const s = PIXEL ? Math.max(1, Math.floor(k)) : k;
+  const r = PIXEL ? 1 : s * (devicePixelRatio || 1);
+  canvas.width = Math.round(W * r); canvas.height = Math.round(H * r);
+  canvas.style.width = Math.round(W * s) + 'px'; canvas.style.height = Math.round(H * s) + 'px';
+  canvas.style.marginTop = Math.max(0, Math.floor((innerHeight - H * s) / 2)) + 'px';
+  canvas.style.imageRendering = PIXEL ? 'pixelated' : 'auto';
+  ctx.setTransform(r, 0, 0, r, 0, 0); ctx.imageSmoothingEnabled = !PIXEL;
+}
+addEventListener('resize', fit); fit();
+function clear(c) { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); }
+function text(s, x, y, size, c, align = 'center') {
+  ctx.fillStyle = c; ctx.font = `${size}px ${FONT}`; ctx.textAlign = align;
+  ctx.textBaseline = 'middle'; ctx.fillText(s, x, y);
+}
+function wrap(s, maxW, size) { // chia một đoạn thành các dòng vừa khung
+  ctx.font = `${size}px ${FONT}`;
+  const words = String(s).split(' '), lines = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+function mix(c1, c2, t) { // c1, c2: [r,g,b]
+  return `rgb(${Math.round(lerp(c1[0], c2[0], t))},${Math.round(lerp(c1[1], c2[1], t))},${Math.round(lerp(c1[2], c2[2], t))})`;
+}
+function glow(c, b) { ctx.shadowColor = c; ctx.shadowBlur = CHEAP ? 0 : b; }
+function noglow() { ctx.shadowBlur = 0; }
+
+// ---- Input ------------------------------------------------------------------------------
+const down = new Set(), hit = new Set();
+const pressed = code => hit.has(code);
+addEventListener('keydown', e => {
+  startAudio();
+  if (!e.repeat) { down.add(e.code); hit.add(e.code); }
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => down.delete(e.code));
+addEventListener('pointerdown', () => startAudio());
+addEventListener('blur', () => down.clear());
+
+// ---- Audio ------------------------------------------------------------------------------
+let audio = null, muted = false;
+function startAudio() {
+  if (!audio) {
+    const ac = window.GAME_AUDIO || new (window.AudioContext || window.webkitAudioContext)();
+    const out = ac.createGain(); out.gain.value = muted ? 0 : tune.volume;
+    out.connect(ac.destination); audio = { ac, out };
+  }
+  if (audio.ac.state === 'suspended') audio.ac.resume();
+}
+function setMuted(m) { muted = m; if (audio) audio.out.gain.value = m ? 0 : tune.volume; }
+addEventListener('tune', () => setMuted(muted));
+function tone(freq, dur, type = 'sine', vol = 0.3, when = 0) {
+  if (!audio || muted) return;
+  const t = audio.ac.currentTime + when, o = audio.ac.createOscillator(), g = audio.ac.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audio.out); o.start(t); o.stop(t + dur);
+}
+function blip() { tone(620, 0.03, 'triangle', 0.05); }
+function chime(up) { // tâm trạng đổi
+  if (up) { tone(392, 0.25, 'sine', 0.12); tone(523, 0.4, 'sine', 0.12, 0.08); }
+  else { tone(311, 0.3, 'sine', 0.14); tone(233, 0.5, 'sine', 0.14, 0.1); }
+}
+function swell() { // nhạc dâng khi khe hẹp mở ra cảnh rộng
+  [262, 330, 392, 523, 659].forEach((f, i) => tone(f, 0.9, 'sine', 0.1, i * 0.12));
+}
+function hitSnd(big) { tone(big ? 90 : 140, big ? 0.3 : 0.12, 'square', big ? 0.2 : 0.12); }
+function healSnd() { tone(523, 0.15, 'sine', 0.1); tone(659, 0.3, 'sine', 0.1, 0.1); }
+
+// ---- Lưu --------------------------------------------------------------------------------
+function store(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+function load(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+if (load('trong_speed')) CONFIG.text_speed.value = load('trong_speed');
+
+// ---- Thế giới ---------------------------------------------------------------------------
+// Mỗi tầng: bề rộng, các thứ nhấn E được, các dòng chữ khi đi (story.walk), địch trên bãi.
+const WORLD = {
+  giua: {
+    w: 2600, ground: H - 110,
+    spots: [ // việc chăm mình
+      { x: 500, care: 'sleep' }, { x: 1150, care: 'rest' }, { x: 1350, care: 'eat' }, { x: 1700, care: 'breathe' },
+    ],
+    objects: [{ x: 330, id: 'shell' }],
+    pool: 900, wither: 2300, membrane: 2500, fogAt: 1450,
+  },
+  trong: {
+    w: 2800, ground: H - 100,
+    npcs: [{ x: 450, id: 'mi' }, { x: 1000, id: 'say' }],
+    objects: [{ x: 700, id: 'jar' }, { x: 1120, id: 'book' }, { x: 1900, id: 'bowl' }],
+    pillar: 190, scorn: 1500, well: 2450,
+  },
+  ngoai: {
+    w: 2000, ground: H - 130,
+    objects: [{ x: 900, id: 'fleck' }],
+    ear: 1760,
+  },
+};
+
+// ---- Trạng thái -------------------------------------------------------------------------
+let scene, state;
+function freshState() {
+  return {
+    t: 0, score: 0, gained: '',
+    mode: 'field', layer: 'giua', x: 110, facing: 1, wob: 0,
+    mood: tune.mood_start, moodShow: tune.mood_start, level: 2,
+    dew: tune.dew_start, flags: {}, careUsed: {}, seen: {}, visited: { giua: true },
+    me: { hp: tune.hero_hp, sp: tune.hero_sp },
+    lau: { hp: tune.lau_hp, sp: tune.lau_sp },
+    goal: 'start',
+    dlg: null, b: null, travel: null, care: null,
+    walkline: null, walkq: [], log: [], logOff: 0, modeBack: 'field',
+    endLines: 0,
+  };
+}
+function reset() {
+  seed = Number(params.get('seed')) || CONFIG.seed;
+  state = freshState();
+}
+function levelOf(m) { return m <= 0 ? 0 : Math.max(1, Math.min(5, Math.ceil(m / 20))); }
+function moodAdd(v, silent) {
+  if (!v) return;
+  const before = state.mood;
+  state.mood = Math.max(0, Math.min(100, state.mood + v));
+  state.level = levelOf(state.mood);
+  events.push({ type: 'mood', v: state.mood });
+  if (!silent && state.mood !== before) chime(v > 0);
+  if (state.mood <= 0) startEnding('tat');
+}
+function pushLog(who, t) { state.log.push({ who, t }); if (state.log.length > 80) state.log.shift(); state.logOff = 0; }
+function view() { return { flags: state.flags, level: state.level }; } // cho story when()/t()
+
+function saveGame() {
+  store('trong_save', {
+    layer: state.layer, x: state.x, mood: state.mood, dew: state.dew,
+    flags: state.flags, goal: state.goal, visited: state.visited,
+    me: state.me, lau: state.lau, seen: state.seen,
+  });
+  state.savedFlash = state.t;
+}
+function loadGame() {
+  const s = load('trong_save'); if (!s) return false;
+  reset();
+  Object.assign(state, { layer: s.layer, x: s.x, mood: s.mood, dew: s.dew, flags: s.flags, goal: s.goal, visited: s.visited, me: s.me, lau: s.lau, seen: s.seen || {} });
+  state.moodShow = s.mood; state.level = levelOf(s.mood);
+  return true;
+}
+function endingsSeen() { return load('trong_endings') || []; }
+
+// ---- Lời thoại --------------------------------------------------------------------------
+function startScene(id) {
+  state.mode = 'dialog';
+  state.dlg = { id, i: -1, chars: 0, line: null, choice: null, pick: 0, done: false };
+  nextStep();
+}
+function sceneSteps(id) { return S.scenes[id]; }
+function nextStep() {
+  const d = state.dlg, steps = sceneSteps(d.id);
+  while (true) {
+    d.i++;
+    if (d.i >= steps.length) { endScene(); return; }
+    const st = steps[d.i];
+    if (st.when && !st.when(view())) continue;
+    if (st.go) { state.dlg = { id: st.go, i: -1, chars: 0, line: null, choice: null, pick: 0 }; nextStep(); return; }
+    if (st.do) { if (doAction(st.do)) return; continue; }
+    if (st.c) {
+      const opts = st.c.filter(o => !o.when || o.when(view()));
+      d.choice = opts; d.pick = 0; d.line = null; return;
+    }
+    const txt = typeof st.t === 'function' ? st.t(view()) : st.t;
+    d.line = { w: st.w, f: st.f || 'neutral', t: txt }; d.chars = 0; d.choice = null;
+    pushLog(S.names[st.w] || '', txt);
+    return;
+  }
+}
+function endScene() { state.dlg = null; if (state.mode === 'dialog') state.mode = 'field'; }
+function pickChoice(o) {
+  const m = { kind: tune.mood_kind, harsh: -tune.mood_harsh, deflect: -tune.mood_deflect, small: tune.mood_small, none: 0 }[o.m || 'none'] || 0;
+  pushLog(S.names.me, o.t);
+  if (o.set) state.flags[o.set[0]] = o.set[1];
+  moodAdd(m);
+  state.dlg = { id: o.go, i: -1, chars: 0, line: null, choice: null, pick: 0 };
+  nextStep();
+}
+// Một hành động trong kịch bản. Trả true khi nó đổi hẳn chế độ (scene dừng ở đây).
+function doAction(a) {
+  const [k, arg] = a.split(':');
+  if (k === 'save') { saveGame(); return false; }
+  if (k === 'dew') { state.dew = Math.min(tune.dew_max, state.dew + 1); return false; }
+  if (k === 'goal') { state.goal = arg; return false; }
+  if (k === 'join') { state.flags.lau = true; state.lau = { hp: tune.lau_hp, sp: tune.lau_sp }; return false; }
+  if (k === 'travel') { endScene(); startTravel(arg); return true; }
+  if (k === 'battle') { endScene(); startBattle(arg); return true; }
+  if (k === 'ending') { startEnding(arg); return true; }
+  return false;
+}
+
+// ---- Đi xuyên tầng ----------------------------------------------------------------------
+const ARRIVE = { trong: 380, giua: 950, ngoai: 100 }; // x khi tới nơi
+function startTravel(to) {
+  state.mode = 'travel';
+  state.travel = { to, t: 0, half: false };
+  state.careUsed = {};
+}
+function travelStep(dt) {
+  const tr = state.travel; tr.t += dt;
+  const T = tune.travel_time;
+  if (!tr.half && tr.t >= T / 2) {
+    tr.half = true;
+    state.layer = tr.to; state.x = ARRIVE[tr.to];
+    if (tr.to === 'giua' && state.flags.witherDown) state.x = 950;
+    if (!state.visited[tr.to]) { state.visited[tr.to] = true; swell(); } // khe hẹp mở ra cảnh rộng
+    if (tr.to === 'ngoai' && state.goal === 'out') state.goal = 'giant';
+    state.shown = {};
+  }
+  if (tr.t >= T) { state.mode = 'field'; state.travel = null; }
+}
+
+// ---- Việc chăm mình ---------------------------------------------------------------------
+function startCare(id) {
+  state.mode = 'care';
+  state.care = { id, t: 0 };
+}
+function careStep(dt) {
+  const c = state.care; c.t += dt;
+  if (c.t >= tune.care_time) {
+    const id = c.id;
+    state.careUsed[id] = true;
+    moodAdd(tune.mood_care + (id === 'rest' ? tune.mood_rest_bonus : 0));
+    if (id === 'sleep') state.me.hp = tune.hero_hp;
+    if (id === 'breathe') { state.me.sp = tune.hero_sp; state.lau.sp = tune.lau_sp; }
+    if (id === 'eat') state.dew = Math.min(tune.dew_max, state.dew + 1);
+    queueLine(S.care[id].t); queueLine(S.care.back);
+    events.push({ type: 'care', id });
+    state.mode = 'field'; state.care = null;
+  }
+}
+
+// ---- Dòng chữ khi đang đi ---------------------------------------------------------------
+function queueLine(t) { state.walkq.push(t); }
+function walklineStep(dt) {
+  if (state.walkline) {
+    state.walkline.t += dt;
+    if (state.walkline.t >= tune.line_time) state.walkline = null;
+  } else if (state.walkq.length) {
+    const t = state.walkq.shift();
+    state.walkline = { t: 0, text: t };
+    pushLog('', t);
+  }
+}
+
+// ---- Trận đánh --------------------------------------------------------------------------
+function heroPower() { return tune.mood_power_base + tune.mood_power_step * state.level; }
+function spread(d) { return Math.max(1, Math.round(d * (1 + (rng() * 2 - 1) * tune.dmg_spread))); }
+function startBattle(enemy) {
+  const hp = { scorn: tune.scorn_hp, weary: tune.weary_hp, wither: tune.wither_hp }[enemy];
+  state.mode = 'battle';
+  state.b = {
+    enemy, ehp: hp, emax: hp, round: 1, step: 0, actor: -1,
+    msgs: [], timer: 0, phase: 'msg', menu: 0, sub: null,
+    charging: false, shrink: 0, grow: 0, shake: 0, flash: 0,
+  };
+  bmsg(`${S.names[enemy]} chắn trước mặt.`, tune.enemy_time);
+}
+function bmsg(t, dur) { state.b.msgs.push({ t, dur: dur || tune.act_time }); pushLog('', t); }
+function heroes() { const a = [state.me]; if (state.flags.lau) a.push(state.lau); return a; }
+function actorList() { const a = ['me']; if (state.flags.lau) a.push('lau'); a.push('enemy'); return a; }
+function enemyDmgMult() {
+  const b = state.b;
+  let m = b.shrink > 0 ? tune.name_shrink : 1;
+  if (b.enemy === 'wither') m *= 1 + tune.wither_mood_scale * (5 - state.level);
+  return m;
+}
+function hurtHero(who, dmg, big) {
+  const h = state[who];
+  const d = spread(dmg * enemyDmgMult() * (h.guard ? tune.guard_mult : 1));
+  h.hp = Math.max(0, h.hp - d);
+  state.b.shake = 0.3; hitSnd(big);
+  bmsg(`${S.names[who]} trúng ${d}.`, tune.act_time);
+  return d;
+}
+function hurtEnemy(dmg) {
+  const b = state.b;
+  const d = spread(dmg * heroPower());
+  b.ehp = Math.max(0, b.ehp - d); b.flash = 0.25; hitSnd(false);
+  bmsg(`Trúng ${d}.`, tune.act_time);
+}
+function battleNext() { // sang người hành động kế tiếp
+  const b = state.b, order = actorList();
+  b.actor++;
+  if (b.actor >= order.length) { // hết vòng
+    b.actor = 0; b.round++;
+    if (b.enemy === 'wither' && b.round % 3 === 0) {
+      const line = S.battle.moves['wither_whisper_' + (state.flags.c1 || 'blame')];
+      bmsg(line, tune.enemy_time); moodAdd(-tune.mood_whisper, true); chime(false);
+    }
+  }
+  const who = order[b.actor];
+  if (who === 'enemy') { enemyAct(); return; }
+  const h = state[who];
+  h.guard = false;
+  if (h.hp <= 0) { battleNext(); return; }
+  b.phase = 'menu'; b.turnWho = who; b.menu = 0; b.sub = null;
+}
+function heroAct(who, cmd) {
+  const b = state.b, h = state[who];
+  b.phase = 'msg';
+  if (cmd === 'attack') {
+    let base = who === 'me' ? tune.hero_atk : tune.lau_atk;
+    if (h.tired) { base *= 0.5; bmsg(S.battle.tired(S.names[who])); h.tired = false; }
+    bmsg(S.battle.attack(S.names[who]));
+    hurtEnemy(base);
+  } else if (cmd === 'skill') {
+    if (h.sp < tune.skill_cost) { bmsg(S.battle.noSp); b.phase = 'menu'; b.msgs.length && popMsgNow(); return; }
+    h.sp -= tune.skill_cost;
+    if (who === 'me') {
+      bmsg(S.battle.nameIt(S.names[b.enemy]), tune.enemy_time);
+      let base = tune.hero_atk * tune.name_mult;
+      if (h.tired) { base *= 0.5; h.tired = false; }
+      hurtEnemy(base);
+      b.shrink = tune.name_turns;
+    } else {
+      bmsg(S.battle.bell, tune.enemy_time); healSnd();
+      state.me.hp = Math.min(tune.hero_hp, state.me.hp + tune.bell_heal);
+      state.lau.hp = Math.min(tune.lau_hp, state.lau.hp + tune.bell_heal);
+    }
+  } else if (cmd === 'item') {
+    if (state.dew <= 0) { bmsg(S.battle.noDew); b.phase = 'menu'; return; }
+    state.dew--; healSnd();
+    bmsg(S.battle.dew(S.names[who]), tune.enemy_time);
+    state.me.hp = Math.min(tune.hero_hp, state.me.hp + tune.dew_heal);
+    if (state.flags.lau) state.lau.hp = Math.min(tune.lau_hp, state.lau.hp + tune.dew_heal);
+  } else { // guard
+    h.guard = true; h.sp = Math.min(who === 'me' ? tune.hero_sp : tune.lau_sp, h.sp + tune.guard_sp);
+    bmsg(S.battle.guard(S.names[who]));
+  }
+  if (b.ehp <= 0) winBattle();
+}
+function popMsgNow() { const b = state.b; b.msgs.shift(); b.timer = 0; }
+function enemyAct() {
+  const b = state.b; b.phase = 'msg';
+  const M = S.battle.moves, e = b.enemy;
+  const targets = heroes().length === 2 && state.lau.hp > 0 ? ['me', 'lau'] : ['me'];
+  const pick = targets[Math.floor(rng() * targets.length)];
+  if (e === 'scorn') {
+    const pat = ['cut', 'cut', 'charge', 'judge'][b.step % 4]; b.step++;
+    if (pat === 'cut') { bmsg(M.scorn_cut); hurtHero(pick, tune.scorn_cut); }
+    else if (pat === 'charge') { bmsg(M.scorn_charge, tune.enemy_time * 1.4); b.charging = true; }
+    else { bmsg(M.scorn_judge, tune.enemy_time); b.charging = false; hurtHero('me', tune.scorn_judge, true); if (state.flags.lau && state.lau.hp > 0) hurtHero('lau', tune.scorn_judge * 0.6, true); }
+  } else if (e === 'weary') {
+    const pat = ['press', 'sag', 'press', 'yawn'][b.step % 4]; b.step++;
+    if (pat === 'press') { bmsg(M.weary_press); hurtHero(pick, tune.weary_press + b.grow); state[pick].sp = Math.max(0, state[pick].sp - tune.weary_drain); }
+    else if (pat === 'sag') { bmsg(M.weary_sag(S.names[pick]), tune.enemy_time); hurtHero(pick, tune.weary_sag + b.grow); state[pick].tired = true; }
+    else { bmsg(M.weary_yawn, tune.enemy_time); b.ehp = Math.min(b.emax, b.ehp + tune.weary_heal); b.grow += tune.weary_grow; }
+  } else { // wither
+    const pat = ['root', 'leaf', 'charge', 'season'][b.step % 4]; b.step++;
+    if (pat === 'root') { bmsg(M.wither_root); hurtHero('me', tune.wither_root); if (state.flags.lau && state.lau.hp > 0) hurtHero('lau', tune.wither_root); }
+    else if (pat === 'leaf') { bmsg(M.wither_leaf); for (let i = 0; i < 3; i++) hurtHero(pick, tune.wither_leaf); }
+    else if (pat === 'charge') { bmsg(M.wither_charge, tune.enemy_time * 1.4); b.charging = true; }
+    else { bmsg(M.wither_season, tune.enemy_time); b.charging = false; hurtHero('me', tune.wither_season, true); if (state.flags.lau && state.lau.hp > 0) hurtHero('lau', tune.wither_season, true); }
+  }
+  if (b.shrink > 0) b.shrink--;
+  if (state.me.hp <= 0) { loseBattle(); return; }
+}
+function winBattle() {
+  const b = state.b;
+  bmsg(S.battle.win, tune.enemy_time);
+  bmsg(S.battle.tally(tune.mood_win, false), tune.enemy_time * 1.3);
+  tone(523, 0.2, 'sine', 0.12); tone(659, 0.2, 'sine', 0.12, 0.15); tone(784, 0.45, 'sine', 0.12, 0.3); // khúc thắng ngắn
+  b.won = true; b.phase = 'end';
+}
+function loseBattle() {
+  const b = state.b;
+  bmsg(S.battle.lose, tune.enemy_time);
+  b.won = false; b.phase = 'end';
+}
+function endBattle() {
+  const b = state.b, e = b.enemy;
+  state.b = null; state.mode = 'field'; state.careUsed = {};
+  if (b.won) {
+    state.flags[e + 'Down'] = true;
+    if (e === 'weary') state.flags.wellFree = true;
+    moodAdd(tune.mood_win, true);
+    state.me.sp = tune.hero_sp; state.lau.sp = tune.lau_sp;
+    events.push({ type: 'win', e });
+    startScene(e + '_win');
+  } else {
+    moodAdd(-tune.mood_loss);
+    if (state.mood <= 0) return; // startEnding đã chạy
+    state.me.hp = Math.max(1, Math.round(tune.hero_hp * tune.lose_hp_frac));
+    if (state.flags.lau) state.lau.hp = Math.max(1, Math.round(tune.lau_hp * tune.lose_hp_frac));
+    state.x = Math.max(80, state.x - 320);
+    events.push({ type: 'lose', e });
+    startScene('lost');
+  }
+}
+function battleStep(dt) {
+  const b = state.b;
+  b.shake = Math.max(0, b.shake - dt); b.flash = Math.max(0, b.flash - dt);
+  if (b.msgs.length) {
+    b.timer += dt;
+    if (pressed('Space') || pressed('Enter')) b.timer = b.msgs[0].dur; // đọc nhanh
+    if (b.timer >= b.msgs[0].dur) { b.msgs.shift(); b.timer = 0; }
+    return;
+  }
+  if (b.phase === 'end') { endBattle(); return; }
+  if (b.phase === 'msg') { battleNext(); return; }
+  // menu
+  const cmds = ['attack', 'skill', 'item', 'guard'];
+  if (pressed('ArrowUp') || pressed('KeyW')) { b.menu = (b.menu + 3) % 4; blip(); }
+  if (pressed('ArrowDown') || pressed('KeyS')) { b.menu = (b.menu + 1) % 4; blip(); }
+  for (let i = 0; i < 4; i++) if (pressed('Digit' + (i + 1))) { b.menu = i; heroAct(b.turnWho, cmds[i]); return; }
+  if (pressed('Enter') || pressed('Space') || pressed('KeyE')) heroAct(b.turnWho, cmds[b.menu]);
+}
+
+// ---- Kết thúc ---------------------------------------------------------------------------
+function startEnding(id) {
+  const seen = endingsSeen();
+  if (!seen.includes(id)) { seen.push(id); store('trong_endings', seen); }
+  const e = S.endings[id];
+  state.gained = `${S.ui.ending}: ${e.name}`;
+  state.ending = id; state.endT = 0;
+  state.mode = 'field'; state.dlg = null; state.b = null;
+  events.push({ type: 'ending', id });
+  scene = id === 'tat' ? 'over' : 'results';
+}
+function restartFromFirstChoice() {
+  const keepSeen = state.seen;
+  reset();
+  state.layer = 'trong'; state.x = 300; state.visited = { giua: true, trong: true };
+  state.mood = tune.mood_first_choice; state.moodShow = state.mood; state.level = levelOf(state.mood);
+  state.seen = keepSeen; state.shown = {};
+  scene = 'play';
+}
+
+// ---- Field ------------------------------------------------------------------------------
+function layerMaxX() {
+  const L = state.layer;
+  if (L === 'giua') {
+    if (!state.flags.wellFree) return WORLD.giua.fogAt;
+    if (!state.flags.witherDown) return WORLD.giua.wither - 150;
+    return WORLD.giua.w - 60;
+  }
+  if (L === 'trong') {
+    if (!state.flags.scornDown) return WORLD.trong.scorn - 140;
+    if (!state.flags.wearyDown) return WORLD.trong.well - 130;
+    return WORLD.trong.w - 60;
+  }
+  return WORLD.ngoai.w - 60;
+}
+function near(x) { return Math.abs(state.x - x) < tune.reach; }
+// Thứ nhấn E được gần nhất, kèm nhãn
+function interactable() {
+  const L = state.layer, Wd = WORLD[L];
+  if (L === 'giua') {
+    for (const s of Wd.spots) if (near(s.x)) return state.careUsed[s.care] ? { label: S.care.used, none: true } : { label: `${S.care[s.care].verb} · ${S.care[s.care].name}`, act: () => startCare(s.care) };
+    if (near(Wd.pool)) return { label: state.visited.trong ? S.hints.poolAgain : S.hints.pool, act: () => state.visited.trong ? startTravel('trong') : startScene('pool') };
+    if (state.flags.witherDown && near(Wd.membrane)) return { label: S.hints.membrane, act: () => startTravel('ngoai') };
+  }
+  if (L === 'trong') {
+    if (near(Wd.pillar)) return { label: S.hints.pillar, act: () => startTravel('giua') };
+    for (const n of Wd.npcs) if (near(n.x)) {
+      if (n.id === 'mi') return { label: `${S.hints.talk} · ${S.names.mi}`, act: () => startScene(state.flags.c1 ? 'mi_again' : 'mi_first') };
+      return { label: `${S.hints.talk} · ${S.names.say}`, act: () => startScene(state.flags.c2 ? 'say_again' : 'say_first') };
+    }
+  }
+  if (L === 'ngoai' && near(WORLD.ngoai.ear)) return { label: S.hints.ear, act: () => startScene('giant') };
+  for (const o of WORLD[L].objects) if (near(o.x) && !(o.id === 'bowl' && state.flags.bowl)) {
+    return { label: `${S.objects[o.id].verb} · ${S.objects[o.id].name}`, act: () => readObject(o.id) };
+  }
+  return null;
+}
+function readObject(id) {
+  const o = S.objects[id];
+  if (o.dew) { state.flags.bowl = true; state.dew = Math.min(tune.dew_max, state.dew + 1); }
+  state.mode = 'dialog';
+  state.dlg = { id: null, i: 0, chars: 0, choice: null, obj: o.t.slice(), line: { w: null, f: null, t: o.t[0] } };
+  o.t.forEach(t => pushLog('', t));
+}
+function fieldStep(dt) {
+  if (pressed('KeyP') || pressed('Escape')) { scene = 'pause'; return; }
+  if (pressed('KeyL')) { state.modeBack = 'field'; state.mode = 'log'; return; }
+  const sp = state.layer === 'ngoai' ? tune.walk_speed_out : tune.walk_speed;
+  let v = 0;
+  if (down.has('ArrowLeft') || down.has('KeyA')) v -= sp;
+  if (down.has('ArrowRight') || down.has('KeyD')) v += sp;
+  if (v) {
+    state.facing = v > 0 ? 1 : -1;
+    state.x = Math.max(60, Math.min(layerMaxX(), state.x + v * dt));
+    state.wob += dt * 9;
+    moodAdd(-tune.mood_drain * dt, true); // bỏ bê mình thì ấm hao dần
+  }
+  // dòng chữ theo quãng đường, mỗi dòng một lần
+  state.shown = state.shown || {};
+  const lines = S.walk[state.layer];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i], key = state.layer + i;
+    if (!state.shown[key] && state.x >= ln.x && (!ln.when || ln.when(view()))) { state.shown[key] = true; queueLine(ln.t); }
+  }
+  // tự kích hoạt
+  const L = state.layer;
+  if (L === 'trong') {
+    if (!state.flags.c1 && state.x >= WORLD.trong.npcs[0].x - 60) { startScene('mi_first'); return; }
+    if (!state.flags.scornDown && state.x >= WORLD.trong.scorn - 150) { startScene('scorn_pre'); return; }
+    if (state.flags.scornDown && !state.flags.wearyDown && state.goal === 'well' && state.x >= WORLD.trong.well - 140) { startScene('weary_pre'); return; }
+  }
+  if (L === 'giua') {
+    if (!state.flags.wellFree && !state.flags.fogSeen && state.x >= WORLD.giua.fogAt - 60) { state.flags.fogSeen = true; startScene('fog'); return; }
+    if (state.flags.wellFree && !state.flags.witherDown && state.x >= WORLD.giua.wither - 160) { startScene('wither_pre'); return; }
+  }
+  const it = interactable();
+  if (it && !it.none && pressed('KeyE')) { it.act(); return; }
+}
+function dialogStep(dt) {
+  const d = state.dlg;
+  if (pressed('KeyL')) { state.modeBack = 'dialog'; state.mode = 'log'; return; }
+  if (d.obj) { // đọc đồ vật: chuỗi dòng
+    d.chars += tune.text_speed * dt;
+    if (pressed('Space') || pressed('Enter') || pressed('KeyE')) {
+      if (d.chars < d.line.t.length) d.chars = d.line.t.length;
+      else { d.i++; if (d.i >= d.obj.length) { endScene(); return; } d.line = { w: null, f: null, t: d.obj[d.i] }; d.chars = 0; }
+    }
+    return;
+  }
+  if (d.choice) {
+    const n = d.choice.length;
+    if (pressed('ArrowUp') || pressed('KeyW')) { d.pick = (d.pick + n - 1) % n; blip(); }
+    if (pressed('ArrowDown') || pressed('KeyS')) { d.pick = (d.pick + 1) % n; blip(); }
+    for (let i = 0; i < n; i++) if (pressed('Digit' + (i + 1))) { pickChoice(d.choice[i]); return; }
+    if (pressed('Enter') || pressed('Space') || pressed('KeyE')) pickChoice(d.choice[d.pick]);
+    return;
+  }
+  if (d.line) {
+    const was = Math.floor(d.chars);
+    d.chars += tune.text_speed * dt;
+    if (Math.floor(d.chars) !== was && d.chars < d.line.t.length && Math.floor(d.chars) % 3 === 0) blip();
+    if (pressed('Space') || pressed('Enter') || pressed('KeyE')) {
+      if (d.chars < d.line.t.length) d.chars = d.line.t.length;
+      else nextStep();
+    }
+  }
+}
+function logStep() {
+  if (pressed('KeyL') || pressed('Escape')) { state.mode = state.modeBack; return; }
+  if (pressed('ArrowUp')) state.logOff = Math.min(state.log.length - 1, state.logOff + 1);
+  if (pressed('ArrowDown')) state.logOff = Math.max(0, state.logOff - 1);
+}
+
+// ==== VẼ ==================================================================================
+// Bảng màu từng tầng (brief: Giữa xám lam, Trong vàng mật + xanh rêu, Ngoài tím than + hổ phách)
+const PAL = {
+  giua: { top: [26, 32, 44], bot: [48, 58, 74], ground: '#46525f', rib: '#39465a', glowc: '#cfe3ef' },
+  trong: { grayTop: [78, 82, 90], grayBot: [120, 122, 126], goldTop: [224, 166, 80], goldBot: [248, 216, 140], ground: '#4c5f3b', ground2: '#5d7347' },
+  ngoai: { top: [24, 20, 44], bot: [46, 38, 74], ground: '#3a3148', mote: '#e8a84c' },
+};
+function camX() {
+  const Wd = WORLD[state.layer];
+  return Math.max(0, Math.min(Wd.w - W, state.x - W / 2));
+}
+// ---- Hình người và sinh vật: mỗi loại một dáng riêng, không emoji, không hình tròn trơn ----
+function drawMe(x, y, s, facing, t, dim) { // Mình: dáng choàng mũ, khe sáng ở ngực, sáng nhất màn hình
+  ctx.save(); ctx.translate(x, y); ctx.scale(facing * s, s);
+  const bob = Math.sin(t * 9) * 1.5;
+  glow('#f6eecf', 24);
+  ctx.fillStyle = dim ? '#cdbfa2' : '#f3ead8';
+  ctx.beginPath(); // áo choàng
+  ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-17, -42, -8, -58 + bob);
+  ctx.quadraticCurveTo(0, -70 + bob, 9, -57 + bob);
+  ctx.quadraticCurveTo(16, -40, 12, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); // đầu trùm mũ
+  ctx.ellipse(1, -62 + bob, 10.5, 12, -0.12, 0, Math.PI * 2); ctx.fill();
+  noglow();
+  ctx.fillStyle = '#5d5648'; // bóng trong mũ, mặt quay theo hướng đi
+  ctx.beginPath(); ctx.ellipse(4, -61 + bob, 6, 8, -0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f3ead8';
+  ctx.beginPath(); ctx.ellipse(5, -60 + bob, 3.5, 5.5, -0.1, 0, Math.PI * 2); ctx.fill(); // sống mũi sáng
+  glow('#ffd98a', 18); ctx.fillStyle = '#ffdf9a'; // khe sáng ở ngực
+  ctx.beginPath(); ctx.moveTo(0, -46 + bob); ctx.lineTo(3, -36 + bob); ctx.lineTo(0, -26 + bob); ctx.lineTo(-2.5, -36 + bob); ctx.closePath(); ctx.fill();
+  noglow();
+  ctx.restore();
+}
+function drawLauOnShoulder(x, y, s, facing, t) { // Lau ngồi trên vai, đèn giơ cao
+  ctx.save(); ctx.translate(x, y); ctx.scale(facing * s, s);
+  const bob = Math.sin(t * 9) * 1.5;
+  ctx.fillStyle = '#9fae6a';
+  ctx.beginPath(); ctx.moveTo(-9, -66 + bob); ctx.quadraticCurveTo(-12, -78 + bob, -8, -82 + bob); ctx.quadraticCurveTo(-4, -84 + bob, -3, -76 + bob); ctx.lineTo(-3, -66 + bob); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(-6, -84 + bob, 4, 0, Math.PI * 2); ctx.fill(); // đầu
+  ctx.strokeStyle = '#9fae6a'; ctx.lineWidth = 1.4; // bông lau trên đầu
+  ctx.beginPath(); ctx.moveTo(-6, -88 + bob); ctx.quadraticCurveTo(-4, -94 + bob, -7, -97 + bob); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-3, -80 + bob); ctx.lineTo(4, -90 + bob); ctx.stroke(); // cán đèn
+  glow('#ffd98a', 14); ctx.fillStyle = '#ffdf9a';
+  ctx.beginPath(); ctx.moveTo(4, -94 + bob); ctx.lineTo(8, -90 + bob); ctx.lineTo(4, -85 + bob); ctx.lineTo(0.5, -90 + bob); ctx.closePath(); ctx.fill();
+  noglow(); ctx.restore();
+}
+function drawLau(x, y, s, facing, t) { // Lau đứng riêng (trong trận): nhỏ, đèn lồng, bông lau
+  ctx.save(); ctx.translate(x, y); ctx.scale(facing * s, s);
+  const bob = Math.sin(t * 5) * 1;
+  ctx.fillStyle = '#9fae6a';
+  ctx.beginPath(); ctx.moveTo(-7, 0); ctx.quadraticCurveTo(-9, -18, -5, -26 + bob); ctx.quadraticCurveTo(0, -31 + bob, 5, -25 + bob); ctx.quadraticCurveTo(8, -16, 6, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -32 + bob, 6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#b9c585'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(0, -38 + bob); ctx.quadraticCurveTo(3, -46 + bob, -1, -50 + bob); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(4, -26 + bob); ctx.lineTo(13, -38 + bob); ctx.stroke();
+  glow('#ffd98a', 14); ctx.fillStyle = '#ffdf9a';
+  ctx.beginPath(); ctx.moveTo(13, -43 + bob); ctx.lineTo(17, -38 + bob); ctx.lineTo(13, -33 + bob); ctx.lineTo(9.5, -38 + bob); ctx.closePath(); ctx.fill();
+  noglow(); ctx.restore();
+}
+function drawMi(x, y, s, facing, t) { // Mi: bé con, hai chồi tóc, ôm chậu mầm
+  ctx.save(); ctx.translate(x, y); ctx.scale(facing * s, s);
+  const bob = Math.sin(t * 4) * 0.8;
+  ctx.fillStyle = '#d8b98a';
+  ctx.beginPath(); ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-10, -16, -5, -22 + bob); ctx.quadraticCurveTo(0, -26 + bob, 5, -21 + bob); ctx.quadraticCurveTo(9, -14, 7, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, -28 + bob, 7.5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#7da35c'; ctx.lineWidth = 2; // hai chồi tóc
+  ctx.beginPath(); ctx.moveTo(-3, -34 + bob); ctx.quadraticCurveTo(-6, -40 + bob, -3, -43 + bob); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(3, -34 + bob); ctx.quadraticCurveTo(6, -40 + bob, 3, -43 + bob); ctx.stroke();
+  ctx.fillStyle = '#8a6b4a'; ctx.fillRect(4, -14 + bob, 9, 7); // chậu mầm
+  ctx.strokeStyle = '#9fae6a'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(8, -14 + bob); ctx.quadraticCurveTo(9, -20 + bob, 7, -22 + bob); ctx.stroke();
+  ctx.restore();
+}
+function drawSay(x, y, s, facing, t) { // Bà Sậy: lưng còng, khăn choàng, gậy sậy, cuốn Sổ
+  ctx.save(); ctx.translate(x, y); ctx.scale(facing * s, s);
+  ctx.fillStyle = '#b0a284';
+  ctx.beginPath(); ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-14, -22, -4, -34); ctx.quadraticCurveTo(6, -40, 12, -30); ctx.quadraticCurveTo(15, -22, 10, 0); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(10, -36, 7, 0, Math.PI * 2); ctx.fill(); // đầu cúi về trước
+  ctx.fillStyle = '#8f8268';
+  ctx.beginPath(); ctx.moveTo(2, -42); ctx.quadraticCurveTo(12, -48, 18, -38); ctx.quadraticCurveTo(12, -40, 4, -38); ctx.closePath(); ctx.fill(); // khăn
+  ctx.strokeStyle = '#c9b98e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(18, -30); ctx.lineTo(20, 0); ctx.stroke(); // gậy
+  ctx.strokeStyle = '#b0a284'; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(20, -30); ctx.quadraticCurveTo(22, -36, 19, -39); ctx.stroke(); // bông sậy
+  ctx.fillStyle = '#e8dcc0'; ctx.fillRect(-12, -22, 9, 12); // cuốn Sổ Trời cắp bên hông
+  ctx.strokeStyle = '#8f8268'; ctx.strokeRect(-12, -22, 9, 12);
+  ctx.restore();
+}
+function drawScorn(x, y, s, t, shrink) { // Lời Chê: chùm mảnh sắc lơ lửng quanh một khe miệng
+  ctx.save(); ctx.translate(x, y - 46 + Math.sin(t * 2.2) * 6); const k = s * (shrink ? 0.72 : 1); ctx.scale(k, k);
+  glow('#b9c8d8', 12); ctx.fillStyle = '#9fb2c4';
+  const shards = [[0, -30, 10, 26], [-26, -8, 9, 20], [26, -10, 8, 18], [-14, 20, 7, 16], [16, 22, 8, 17], [0, 34, 6, 13]];
+  for (const [sx, sy, w, h] of shards) {
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(Math.sin(t * 1.7 + sx) * 0.15);
+    ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(w, 0); ctx.lineTo(0, h); ctx.lineTo(-w, 0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  noglow();
+  ctx.strokeStyle = '#2b3442'; ctx.lineWidth = 3; // khe miệng
+  ctx.beginPath(); ctx.moveTo(-14, 2); ctx.quadraticCurveTo(0, 8 + Math.sin(t * 3) * 2, 14, 2); ctx.stroke();
+  ctx.restore();
+}
+function drawWeary(x, y, s, t) { // Cơn Mỏi: đụn chăn ướt xệ xuống, mắt sụp
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const sag = Math.sin(t * 1.2) * 2;
+  ctx.fillStyle = '#6b6d7e';
+  ctx.beginPath();
+  ctx.moveTo(-52, 0); ctx.quadraticCurveTo(-56, -26 + sag, -30, -38 + sag);
+  ctx.quadraticCurveTo(-12, -58 + sag, 12, -50 + sag);
+  ctx.quadraticCurveTo(40, -44 + sag, 50, -20); ctx.quadraticCurveTo(56, -6, 52, 0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#575a69'; ctx.lineWidth = 3; // nếp chăn chảy xuống
+  for (const fx of [-34, -12, 10, 32]) { ctx.beginPath(); ctx.moveTo(fx, -30 + sag); ctx.quadraticCurveTo(fx + 4, -12, fx - 2, 0); ctx.stroke(); }
+  ctx.strokeStyle = '#2b2d38'; ctx.lineWidth = 3; // hai mắt sụp
+  ctx.beginPath(); ctx.moveTo(-18, -34 + sag); ctx.quadraticCurveTo(-10, -30 + sag, -2, -34 + sag); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, -32 + sag); ctx.quadraticCurveTo(16, -28 + sag, 24, -32 + sag); ctx.stroke();
+  ctx.restore();
+}
+function drawWither(x, y, s, t) { // Cơn Héo: thân cây khô cao, tay cành gãy, ngực rỗng
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  const sway = Math.sin(t * 1.1) * 0.02;
+  ctx.rotate(sway);
+  ctx.fillStyle = '#5a4a3c';
+  ctx.beginPath(); // thân
+  ctx.moveTo(-10, 0); ctx.quadraticCurveTo(-16, -60, -8, -96);
+  ctx.quadraticCurveTo(-2, -116, 6, -98); ctx.quadraticCurveTo(14, -58, 10, 0); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#5a4a3c'; ctx.lineWidth = 5; ctx.lineCap = 'round'; // tay cành gãy
+  ctx.beginPath(); ctx.moveTo(-8, -78); ctx.lineTo(-30, -92); ctx.lineTo(-36, -84); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(8, -84); ctx.lineTo(28, -100); ctx.lineTo(40, -96); ctx.stroke();
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-2, -112); ctx.lineTo(-8, -126); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, -112); ctx.lineTo(10, -124); ctx.stroke();
+  ctx.fillStyle = '#241c14'; // hốc ngực rỗng
+  ctx.beginPath(); ctx.ellipse(0, -62, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#38291c'; ctx.lineWidth = 2; // hai khe mắt
+  ctx.beginPath(); ctx.moveTo(-6, -98); ctx.lineTo(-1, -96); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(2, -96); ctx.lineTo(7, -98); ctx.stroke();
+  ctx.restore();
+}
+function drawGiantBust(x, y, s, t, closed) { // Người Mang: gương mặt nghiêng, mắt nhắm
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.fillStyle = '#55506a';
+  ctx.beginPath(); // trán, mũi, cằm nhìn nghiêng
+  ctx.moveTo(-60, 40); ctx.quadraticCurveTo(-66, -30, -30, -58);
+  ctx.quadraticCurveTo(4, -80, 30, -56);
+  ctx.quadraticCurveTo(44, -40, 38, -24); // sống mũi
+  ctx.lineTo(48, -10); ctx.quadraticCurveTo(50, -2, 40, 0); // chóp mũi
+  ctx.quadraticCurveTo(46, 12, 34, 16); // môi
+  ctx.quadraticCurveTo(42, 30, 24, 40); ctx.closePath(); ctx.fill(); // cằm
+  ctx.strokeStyle = '#2e2a40'; ctx.lineWidth = 3; // mắt nhắm
+  ctx.beginPath(); ctx.moveTo(6, -26); ctx.quadraticCurveTo(18, -20 + (closed ? 0 : -6), 30, -26); ctx.stroke();
+  glow('#e8a84c', 10); ctx.fillStyle = '#e8a84c'; // đốm hổ phách quanh mặt
+  for (let i = 0; i < 4; i++) {
+    const a = t * 0.4 + i * 1.7, r = 70 + 8 * Math.sin(t + i);
+    ctx.beginPath(); ctx.arc(-10 + Math.cos(a) * r, -10 + Math.sin(a) * r * 0.5, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  noglow(); ctx.restore();
+}
+// Gương mặt hội thoại: đầu + nét mặt theo cảm xúc
+function drawFace(who, f, x, y, r) {
+  ctx.save(); ctx.translate(x, y);
+  const base = { me: '#f3ead8', mi: '#d8b98a', say: '#b0a284', lau: '#9fae6a', giant: '#55506a', scorn: '#9fb2c4', weary: '#6b6d7e', wither: '#5a4a3c' }[who] || '#ccc';
+  glow(base, who === 'me' ? 16 : 8);
+  ctx.fillStyle = base;
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 1.1, 0, 0, Math.PI * 2); ctx.fill();
+  noglow();
+  ctx.strokeStyle = '#2b2a26'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  const e = r * 0.34;
+  if (f === 'happy') {
+    ctx.beginPath(); ctx.arc(-e, -r * 0.1, e * 0.5, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(e, -r * 0.1, e * 0.5, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, r * 0.35, e * 0.7, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  } else if (f === 'sad') {
+    ctx.beginPath(); ctx.moveTo(-e * 1.4, -r * 0.25); ctx.lineTo(-e * 0.5, -r * 0.12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e * 1.4, -r * 0.25); ctx.lineTo(e * 0.5, -r * 0.12); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, r * 0.55, e * 0.7, 1.15 * Math.PI, 1.85 * Math.PI); ctx.stroke();
+  } else if (f === 'afraid') {
+    ctx.beginPath(); ctx.arc(-e, -r * 0.12, e * 0.32, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(e, -r * 0.12, e * 0.32, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, r * 0.4, e * 0.35, e * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+  } else if (f === 'awe') {
+    ctx.beginPath(); ctx.arc(-e, -r * 0.15, e * 0.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(e, -r * 0.15, e * 0.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, r * 0.4, e * 0.45, 0, Math.PI * 2); ctx.stroke();
+  } else if (f === 'think') {
+    ctx.beginPath(); ctx.moveTo(-e * 1.3, -r * 0.1); ctx.lineTo(-e * 0.4, -r * 0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e * 0.4, -r * 0.1); ctx.lineTo(e * 1.3, -r * 0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-e * 0.6, r * 0.4); ctx.lineTo(e * 0.6, r * 0.38); ctx.stroke();
+  } else if (f === 'speak') {
+    ctx.beginPath(); ctx.moveTo(-e * 1.3, -r * 0.12); ctx.lineTo(-e * 0.4, -r * 0.16); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e * 0.4, -r * 0.16); ctx.lineTo(e * 1.3, -r * 0.12); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, r * 0.4, e * 0.4, e * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+  } else { // neutral
+    ctx.beginPath(); ctx.moveTo(-e * 1.2, -r * 0.1); ctx.lineTo(-e * 0.4, -r * 0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(e * 0.4, -r * 0.1); ctx.lineTo(e * 1.2, -r * 0.1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-e * 0.5, r * 0.4); ctx.lineTo(e * 0.5, r * 0.4); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ---- Nền từng tầng ------------------------------------------------------------------------
+function skyGrad(topc, botc) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, topc); g.addColorStop(1, botc);
+  return g;
+}
+function drawGiuaBG(cam) {
+  const P = PAL.giua;
+  ctx.fillStyle = skyGrad(mix(P.top, P.top, 0), mix(P.bot, P.bot, 0)); ctx.fillRect(0, 0, W, H);
+  // vòm Hốc: những gân cong chạy chậm hơn (lớp xa)
+  ctx.strokeStyle = P.rib; ctx.lineWidth = 14;
+  for (let i = 0; i < 9; i++) {
+    const rx = i * 380 - (cam * 0.3) % 380;
+    ctx.beginPath(); ctx.moveTo(rx - 120, H); ctx.quadraticCurveTo(rx + 60, -140, rx + 260, H); ctx.stroke();
+  }
+  // lớp giữa: gân mảnh hơn
+  ctx.strokeStyle = '#2f3a4b'; ctx.lineWidth = 7;
+  for (let i = 0; i < 12; i++) {
+    const rx = i * 300 - (cam * 0.6) % 300;
+    ctx.beginPath(); ctx.moveTo(rx - 80, H); ctx.quadraticCurveTo(rx + 40, -40, rx + 180, H); ctx.stroke();
+  }
+  ctx.fillStyle = PAL.giua.ground; ctx.fillRect(0, WORLD.giua.ground, W, H - WORLD.giua.ground);
+  ctx.strokeStyle = '#39465a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, WORLD.giua.ground); ctx.lineTo(W, WORLD.giua.ground); ctx.stroke();
+}
+function drawTrongBG(cam) {
+  const P = PAL.trong, t = state.moodShow / 100;
+  ctx.fillStyle = skyGrad(mix(P.grayTop, P.goldTop, t), mix(P.grayBot, P.goldBot, t)); ctx.fillRect(0, 0, W, H);
+  // bầu trời mang gương mặt mờ của chính mình, đổi sắc theo tâm trạng (dấu ấn riêng)
+  ctx.save(); ctx.globalAlpha = 0.14 + 0.08 * t;
+  const f = state.level >= 4 ? 'happy' : state.level <= 2 ? 'sad' : 'neutral';
+  drawFace('me', f, W / 2 - cam * 0.05, 150, 120);
+  ctx.restore();
+  // đồi rêu xa
+  ctx.fillStyle = mix([58, 74, 48], [84, 104, 62], t);
+  for (let i = 0; i < 7; i++) {
+    const hx = i * 520 - (cam * 0.4) % 520;
+    ctx.beginPath(); ctx.ellipse(hx, WORLD.trong.ground + 60, 320, 150, 0, Math.PI, 0); ctx.fill();
+  }
+  // nhà vỏ hạt (lớp gần hơn): đèn sáng theo nấc tâm trạng
+  for (let i = 0; i < 14; i++) {
+    const hx = 260 + i * 190 - cam * 0.85;
+    if (hx < -80 || hx > W + 80) continue;
+    const gy = WORLD.trong.ground + 4;
+    ctx.fillStyle = '#7a5f42';
+    ctx.beginPath(); ctx.moveTo(hx - 26, gy); ctx.quadraticCurveTo(hx - 28, gy - 44, hx, gy - 52);
+    ctx.quadraticCurveTo(hx + 28, gy - 44, hx + 26, gy); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#6a5138'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(hx - 20, gy - 14); ctx.quadraticCurveTo(hx, gy - 22, hx + 20, gy - 14); ctx.stroke();
+    if (i % 5 < state.level) { // nhà nào còn đèn, nhà ấy còn người
+      glow('#ffd98a', 12); ctx.fillStyle = '#ffdf9a';
+      ctx.beginPath(); ctx.arc(hx, gy - 26, 4.5, 0, Math.PI * 2); ctx.fill(); noglow();
+    }
+  }
+  // cây: tán dày theo nấc
+  for (let i = 0; i < 10; i++) {
+    const tx = 140 + i * 280 - cam * 0.95;
+    if (tx < -60 || tx > W + 60) continue;
+    const gy = WORLD.trong.ground + 2;
+    ctx.strokeStyle = '#5c4632'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(tx, gy); ctx.quadraticCurveTo(tx + 4, gy - 30, tx - 2, gy - 48); ctx.stroke();
+    const leaves = state.level;
+    ctx.fillStyle = mix([96, 112, 66], [136, 158, 84], t);
+    for (let L = 0; L < leaves; L++) {
+      ctx.beginPath(); ctx.ellipse(tx - 10 + (L % 3) * 10, gy - 50 - (L % 2) * 12, 14, 9, (L * 0.9) % 1 - 0.5, 0, Math.PI * 2); ctx.fill();
+    }
+    if (leaves <= 2) { // cành trơ khi trời nặng
+      ctx.strokeStyle = '#5c4632'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(tx - 2, gy - 48); ctx.lineTo(tx - 14, gy - 60); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx - 2, gy - 48); ctx.lineTo(tx + 10, gy - 62); ctx.stroke();
+    }
+  }
+  ctx.fillStyle = PAL.trong.ground; ctx.fillRect(0, WORLD.trong.ground, W, H - WORLD.trong.ground);
+  ctx.fillStyle = PAL.trong.ground2;
+  for (let i = 0; i < 16; i++) { // vệt rêu
+    const mx = i * 170 - cam % 170;
+    ctx.beginPath(); ctx.ellipse(mx, WORLD.trong.ground + 20, 46, 7, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+function drawNgoaiBG(cam) {
+  const P = PAL.ngoai;
+  ctx.fillStyle = skyGrad(mix(P.top, P.top, 0), mix(P.bot, P.bot, 0)); ctx.fillRect(0, 0, W, H);
+  // Người Mang ở chân trời
+  drawGiantBust(W - 280 - cam * 0.15, 240, 2.2, state.t, true);
+  // đốm hổ phách trôi, tắt dần
+  glow(P.mote, 10);
+  for (let i = 0; i < 18; i++) {
+    const a = (state.t * 0.12 + i * 0.57) % 1;
+    const mx = ((i * 467) % (W + 200)) - 100 - cam * 0.3 % 60, my = 80 + (i * 83) % 420 + Math.sin(state.t + i) * 10;
+    ctx.globalAlpha = 0.25 + 0.5 * (1 - a);
+    ctx.fillStyle = P.mote;
+    ctx.beginPath(); ctx.arc(((mx % (W + 200)) + W + 200) % (W + 200) - 100, my, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1; noglow();
+  // bờ vai: đường cong da
+  ctx.fillStyle = P.ground;
+  ctx.beginPath(); ctx.moveTo(0, WORLD.ngoai.ground + 30);
+  ctx.quadraticCurveTo(W / 2, WORLD.ngoai.ground - 26, W, WORLD.ngoai.ground + 16);
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#4a4060'; ctx.lineWidth = 2; // vân da
+  for (let i = 0; i < 8; i++) {
+    const vx = i * 200 - cam % 200;
+    ctx.beginPath(); ctx.moveTo(vx, WORLD.ngoai.ground + 26); ctx.quadraticCurveTo(vx + 80, WORLD.ngoai.ground + 8, vx + 170, WORLD.ngoai.ground + 30); ctx.stroke();
+  }
+}
+function groundY() { return WORLD[state.layer].ground + (state.layer === 'ngoai' ? 8 : 0); }
+
+// ---- Các thứ trên bãi ---------------------------------------------------------------------
+function drawFieldStuff(cam) {
+  const L = state.layer, Wd = WORLD[L], gy = groundY();
+  const sx = x => x - cam;
+  if (L === 'giua') {
+    for (const s of Wd.spots) { // 4 chỗ chăm mình, mỗi chỗ một hình
+      const x = sx(s.x); if (x < -80 || x > W + 80) continue;
+      const used = state.careUsed[s.care];
+      if (s.care === 'sleep') { // ổ rêu
+        ctx.fillStyle = used ? '#5a6a4e' : '#6d8058';
+        ctx.beginPath(); ctx.ellipse(x, gy - 6, 34, 13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4e5c44'; ctx.beginPath(); ctx.ellipse(x, gy - 9, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
+      } else if (s.care === 'rest') { // phiến ấm
+        glow('#ffd98a', used ? 0 : 10); ctx.fillStyle = used ? '#6a6054' : '#8a7a5e';
+        ctx.beginPath(); ctx.moveTo(x - 30, gy); ctx.quadraticCurveTo(x - 24, gy - 20, x, gy - 22); ctx.quadraticCurveTo(x + 26, gy - 20, x + 30, gy); ctx.closePath(); ctx.fill(); noglow();
+      } else if (s.care === 'eat') { // bầu sương treo
+        ctx.strokeStyle = '#39465a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(x, gy - 92); ctx.lineTo(x, gy - 62); ctx.stroke();
+        glow('#cfe3ef', used ? 0 : 10); ctx.fillStyle = used ? '#7d93a3' : '#a8c6d8';
+        ctx.beginPath(); ctx.moveTo(x, gy - 62); ctx.quadraticCurveTo(x + 15, gy - 52, x + 10, gy - 34);
+        ctx.quadraticCurveTo(x + 5, gy - 24, x, gy - 24); ctx.quadraticCurveTo(x - 5, gy - 24, x - 10, gy - 34);
+        ctx.quadraticCurveTo(x - 15, gy - 52, x, gy - 62); ctx.closePath(); ctx.fill(); noglow();
+      } else { // khe gió
+        ctx.strokeStyle = used ? '#4a5768' : '#7d93a3'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath(); ctx.moveTo(x - 16 + i * 14, gy - 4);
+          ctx.quadraticCurveTo(x - 10 + i * 14 + Math.sin(state.t * 2 + i) * 4, gy - 40, x - 18 + i * 14, gy - 72); ctx.stroke();
+        }
+      }
+    }
+    { // vũng lặng với khe sáng
+      const x = sx(Wd.pool);
+      glow('#cfe3ef', 16); ctx.fillStyle = '#9dc0d4';
+      ctx.beginPath(); ctx.ellipse(x, gy + 6, 56, 12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffdf9a';
+      ctx.beginPath(); ctx.ellipse(x, gy + 6, 10, 4, 0, 0, Math.PI * 2); ctx.fill(); noglow();
+    }
+    if (!state.flags.wellFree) { // sương đặc cuối Hốc
+      const x = sx(Wd.fogAt + 110);
+      ctx.save(); ctx.globalAlpha = 0.85; ctx.fillStyle = '#5b6878';
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(x + i * 26, H - 130 - i * 60, 90, 90, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    } else if (!state.flags.witherDown) drawWither(sx(Wd.wither), gy, 1.15, state.t);
+    if (state.flags.witherDown) { // tấm Màng
+      const x = sx(Wd.membrane);
+      glow('#cfe3ef', 14); ctx.strokeStyle = '#cfe3ef'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(x, gy - 70, 34, 74, 0, 0, Math.PI * 2); ctx.stroke(); noglow();
+      ctx.strokeStyle = '#8aa5b5'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(x - 6, gy - 120); ctx.quadraticCurveTo(x + 8, gy - 70, x - 4, gy - 24); ctx.stroke(); // kẽ rách
+    }
+    for (const o of Wd.objects) { // mảnh vỏ
+      const x = sx(o.x);
+      ctx.fillStyle = '#c9b98e';
+      ctx.beginPath(); ctx.moveTo(x - 12, gy); ctx.quadraticCurveTo(x - 4, gy - 16, x + 12, gy - 8); ctx.quadraticCurveTo(x + 6, gy, x - 12, gy); ctx.closePath(); ctx.fill();
+    }
+  }
+  if (L === 'trong') {
+    { // cột sáng về Hốc
+      const x = sx(Wd.pillar);
+      glow('#ffdf9a', 18); ctx.fillStyle = 'rgba(255,223,154,0.5)';
+      ctx.beginPath(); ctx.moveTo(x - 14, gy); ctx.lineTo(x - 5, 0); ctx.lineTo(x + 5, 0); ctx.lineTo(x + 14, gy); ctx.closePath(); ctx.fill(); noglow();
+    }
+    drawMi(sx(450), gy, 1, state.x < 450 ? -1 : 1, state.t);
+    drawSay(sx(1000), gy, 1, state.x < 1000 ? -1 : 1, state.t);
+    // lời cư dân treo trên đầu
+    ambientLine('mi', sx(450), gy - 64);
+    ambientLine('say', sx(1000), gy - 70);
+    if (!state.flags.scornDown) drawScorn(sx(Wd.scorn), gy, 1.1, state.t, false);
+    if (!state.flags.wearyDown) { // giếng + Cơn Mỏi ngồi lên
+      const x = sx(Wd.well);
+      ctx.fillStyle = '#6a5138'; ctx.fillRect(x - 30, gy - 26, 60, 26);
+      ctx.fillStyle = '#4c3b28'; ctx.fillRect(x - 24, gy - 22, 48, 8);
+      drawWeary(x, gy - 24, 0.9, state.t);
+    } else {
+      const x = sx(Wd.well);
+      ctx.fillStyle = '#6a5138'; ctx.fillRect(x - 30, gy - 26, 60, 26);
+      glow('#cfe3ef', 12); ctx.fillStyle = '#a8c6d8';
+      ctx.beginPath(); ctx.ellipse(x, gy - 26, 22, 5, 0, 0, Math.PI * 2); ctx.fill(); noglow();
+    }
+    for (const o of Wd.objects) {
+      const x = sx(o.x);
+      if (o.id === 'jar') { ctx.fillStyle = '#8a6b4a'; ctx.beginPath(); ctx.ellipse(x, gy - 10, 9, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#6a5138'; ctx.fillRect(x - 5, gy - 24, 10, 5); }
+      if (o.id === 'book') { ctx.fillStyle = '#e8dcc0'; ctx.fillRect(x - 11, gy - 14, 22, 14); ctx.strokeStyle = '#8f8268'; ctx.strokeRect(x - 11, gy - 14, 22, 14); ctx.beginPath(); ctx.moveTo(x, gy - 14); ctx.lineTo(x, gy); ctx.stroke(); }
+      if (o.id === 'bowl' && !state.flags.bowl) { glow('#cfe3ef', 8); ctx.fillStyle = '#a8c6d8'; ctx.beginPath(); ctx.arc(x, gy - 4, 10, 0, Math.PI, false); ctx.closePath(); ctx.fill(); noglow(); }
+    }
+  }
+  if (L === 'ngoai') {
+    for (const o of Wd.objects) {
+      const x = sx(o.x);
+      glow('#8a7a5e', 4); ctx.fillStyle = '#8a7a5e';
+      ctx.beginPath(); ctx.arc(x, gy - 5, 6, 0, Math.PI * 2); ctx.fill(); noglow();
+      ctx.strokeStyle = '#5e5442'; ctx.beginPath(); ctx.arc(x, gy - 5, 3, 0, Math.PI * 1.4); ctx.stroke();
+    }
+    { // vành tai mờ phía phải
+      const x = sx(Wd.ear);
+      ctx.strokeStyle = '#6a608a'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.arc(x + 30, gy - 90, 70, Math.PI * 0.6, Math.PI * 1.5); ctx.stroke();
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + 26, gy - 86, 40, Math.PI * 0.7, Math.PI * 1.4); ctx.stroke();
+    }
+  }
+}
+function ambientLine(who, x, y) {
+  if (x < 60 || x > W - 60) return;
+  const arr = S.ambient[who], t = arr[Math.max(0, state.level - 1)];
+  ctx.save(); ctx.globalAlpha = 0.75;
+  text(t, x, y - 26, 16, '#f0e8d0');
+  ctx.restore();
+}
+function drawPlayer() {
+  const cam = camX(), gy = groundY();
+  drawMe(state.x - cam, gy, 1, state.facing, state.wob, false);
+  if (state.flags.lau) drawLauOnShoulder(state.x - cam, gy, 1, state.facing, state.wob);
+}
+
+// ---- HUD ---------------------------------------------------------------------------------
+function drawHUD() {
+  // tâm trạng: 5 nấc
+  const mx = 24, my = 26;
+  text(S.ui.mood, mx, my, 17, '#e8e0cc', 'left');
+  const segW = 26;
+  for (let i = 0; i < 5; i++) {
+    const on = state.moodShow > i * 20 + 1;
+    ctx.fillStyle = on ? mix([240, 199, 106], [160, 160, 150], i >= state.level ? 0.7 : 0) : 'rgba(255,255,255,0.12)';
+    if (on && i < state.level) glow('#f0c76a', 8);
+    ctx.fillRect(mx + 92 + i * (segW + 4), my - 8, segW, 15); noglow();
+  }
+  text(S.moodNames[state.level], mx + 92 + 5 * (segW + 4) + 8, my, 17, '#f0e8d0', 'left');
+  text(`${S.ui.dew}: ${state.dew}`, mx, my + 28, 16, '#cfe3ef', 'left');
+  // tầng và việc đang làm
+  text(S.layers[state.layer], W - 24, my, 17, '#e8e0cc', 'right');
+  text(`${S.ui.goal}: ${S.goals[state.goal]}`, W - 24, my + 28, 16, '#cdc5b0', 'right');
+  if (state.level <= 1 && state.mood > 0) {
+    ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(state.t * 4);
+    text(S.ui.warn, W / 2, 70, 19, '#e8a0a0'); ctx.restore();
+  }
+  if (state.savedFlash && state.t - state.savedFlash < 1.6) text(S.ui.saved, W / 2, 96, 15, '#9fae6a');
+  // gợi ý tương tác
+  if (state.mode === 'field') {
+    const it = interactable();
+    if (it) {
+      const y = groundY() - 150;
+      ctx.fillStyle = 'rgba(10,10,14,0.55)';
+      const label = it.none ? it.label : `E · ${it.label}`;
+      ctx.font = `17px ${FONT}`;
+      const tw = ctx.measureText(label).width;
+      ctx.fillRect(W / 2 - tw / 2 - 12, y - 14, tw + 24, 28);
+      text(label, W / 2, y, 17, '#f0e8d0');
+    }
+  }
+}
+function drawWalkline() {
+  if (!state.walkline) return;
+  const a = Math.min(1, state.walkline.t * 3, (tune.line_time - state.walkline.t) * 2);
+  ctx.save(); ctx.globalAlpha = Math.max(0, a);
+  ctx.fillStyle = 'rgba(8,8,12,0.6)';
+  ctx.font = `19px ${FONT}`;
+  const tw = ctx.measureText(state.walkline.text).width;
+  ctx.fillRect(W / 2 - tw / 2 - 16, H - 66, tw + 32, 34);
+  text(state.walkline.text, W / 2, H - 49, 19, '#f0e8d0');
+  ctx.restore();
+}
+
+// ---- Hộp thoại ----------------------------------------------------------------------------
+function drawDialog() {
+  const d = state.dlg; if (!d) return;
+  const boxY = H - 190;
+  ctx.fillStyle = 'rgba(12,12,18,0.88)';
+  ctx.fillRect(40, boxY, W - 80, 160);
+  ctx.strokeStyle = 'rgba(240,232,208,0.35)'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(40, boxY, W - 80, 160);
+  if (d.choice) {
+    text('Mình nói gì?', 80, boxY + 28, 18, '#cdc5b0', 'left');
+    d.choice.forEach((o, i) => {
+      const y = boxY + 58 + i * 32, sel = i === d.pick;
+      if (sel) { ctx.fillStyle = 'rgba(240,199,106,0.14)'; ctx.fillRect(60, y - 14, W - 160, 28); }
+      text(`${i + 1}. ${o.t}`, 80, y, 18, sel ? '#f0c76a' : '#e8e0cc', 'left');
+    });
+    text(S.ui.choose, W - 60, boxY + 146, 14, '#8a8370', 'right');
+    return;
+  }
+  const line = d.line; if (!line) return;
+  let tx = 80;
+  if (line.w) {
+    drawFace(line.w, line.f, 110, boxY + 70, 36);
+    text(S.names[line.w], 110, boxY + 128, 16, '#f0c76a');
+    tx = 180;
+  }
+  const shown = String(line.t).slice(0, Math.floor(d.chars));
+  wrap(shown, W - tx - 80, 20).slice(0, 4).forEach((ln, i) => text(ln, tx, boxY + 42 + i * 30, 20, '#f0e8d0', 'left'));
+  if (d.chars >= String(line.t).length) {
+    ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * Math.sin(state.t * 5);
+    text(S.ui.advance, W - 70, boxY + 146, 14, '#cdc5b0', 'right'); ctx.restore();
+  }
+}
+
+// ---- Trận đánh: vẽ ------------------------------------------------------------------------
+function drawBattle() {
+  const b = state.b;
+  // nền theo tầng, tối lại
+  const cam = camX();
+  if (state.layer === 'giua') drawGiuaBG(cam); else if (state.layer === 'trong') drawTrongBG(cam); else drawNgoaiBG(cam);
+  ctx.fillStyle = 'rgba(8,8,14,0.45)'; ctx.fillRect(0, 0, W, H);
+  const gy = H - 160;
+  const shk = b.shake > 0 ? Math.sin(state.t * 60) * 5 * b.shake : 0;
+  // hai người bên trái
+  drawMe(300, gy, 1.5, 1, state.t, state.me.hp <= 0);
+  if (state.flags.lau) drawLau(210, gy, 1.5, 1, state.t);
+  // địch bên phải
+  ctx.save(); ctx.translate(shk, 0);
+  if (b.flash > 0) { ctx.globalAlpha = 0.6 + 0.4 * Math.sin(state.t * 50); }
+  if (b.enemy === 'scorn') drawScorn(930, gy, 1.8, state.t, b.shrink > 0);
+  if (b.enemy === 'weary') drawWeary(930, gy, 1.9 * (b.shrink > 0 ? 0.8 : 1), state.t);
+  if (b.enemy === 'wither') drawWither(930, gy, 1.7 * (b.shrink > 0 ? 0.82 : 1), state.t);
+  ctx.restore(); ctx.globalAlpha = 1;
+  // tên + máu địch
+  text(S.names[b.enemy], 930, gy - 230, 22, '#e8e0cc');
+  barAt(930 - 90, gy - 210, 180, b.ehp / b.emax, '#b86a6a');
+  if (b.charging) {
+    ctx.save(); ctx.globalAlpha = 0.7 + 0.3 * Math.sin(state.t * 6);
+    text('!! ĐÒN LỚN SẮP GIÁNG — HÃY THỦ !!', 930, gy - 258, 19, '#e8a0a0'); ctx.restore();
+  }
+  // dải thứ tự lượt
+  const order = actorList(), labels = order.map(w => w === 'enemy' ? S.names[b.enemy] : S.names[w]);
+  let ox = W / 2 - 160;
+  text('Lượt:', ox - 50, 40, 16, '#cdc5b0');
+  order.forEach((w, i) => {
+    const cur = i === Math.max(0, b.actor % order.length) && b.phase !== 'end';
+    ctx.fillStyle = cur ? 'rgba(240,199,106,0.2)' : 'rgba(255,255,255,0.07)';
+    const lw = ctx.measureText(labels[i]).width + 20;
+    ctx.fillRect(ox, 26, 96, 28);
+    text(labels[i], ox + 48, 40, 15, cur ? '#f0c76a' : '#cdc5b0');
+    ox += 108;
+  });
+  // bảng của phe mình
+  ctx.fillStyle = 'rgba(12,12,18,0.85)'; ctx.fillRect(40, H - 128, 420, 104);
+  ctx.strokeStyle = 'rgba(240,232,208,0.3)'; ctx.strokeRect(40, H - 128, 420, 104);
+  heroRow(S.names.me, state.me, tune.hero_hp, tune.hero_sp, H - 100, b.turnWho === 'me' && b.phase === 'menu');
+  if (state.flags.lau) heroRow(S.names.lau, state.lau, tune.lau_hp, tune.lau_sp, H - 56, b.turnWho === 'lau' && b.phase === 'menu');
+  // menu lệnh
+  if (b.phase === 'menu' && !b.msgs.length) {
+    ctx.fillStyle = 'rgba(12,12,18,0.85)'; ctx.fillRect(W - 320, H - 196, 280, 172);
+    ctx.strokeStyle = 'rgba(240,232,208,0.3)'; ctx.strokeRect(W - 320, H - 196, 280, 172);
+    const names = [S.battle.commands[0], b.turnWho === 'me' ? `${S.battle.commands[1]}: ${S.battle.skills.me}` : `${S.battle.commands[1]}: ${S.battle.skills.lau}`, `${S.battle.commands[2]}: ${S.battle.item} (${state.dew})`, S.battle.commands[3]];
+    names.forEach((n, i) => {
+      const y = H - 168 + i * 36, sel = i === b.menu;
+      if (sel) { ctx.fillStyle = 'rgba(240,199,106,0.14)'; ctx.fillRect(W - 310, y - 15, 260, 30); }
+      text(`${i + 1}. ${n}`, W - 300, y, 17, sel ? '#f0c76a' : '#e8e0cc', 'left');
+    });
+  }
+  // dòng diễn biến
+  if (b.msgs.length) {
+    const m = b.msgs[0];
+    ctx.fillStyle = 'rgba(12,12,18,0.85)';
+    ctx.font = `20px ${FONT}`;
+    const tw = ctx.measureText(m.t).width;
+    ctx.fillRect(W / 2 - tw / 2 - 20, H - 250, tw + 40, 40);
+    text(m.t, W / 2, H - 230, 20, '#f0e8d0');
+  }
+  // tâm trạng vẫn hiện: nó là sức của mình
+  text(`${S.ui.mood}: ${S.moodNames[state.level]}`, 40, H - 148, 16, '#f0c76a', 'left');
+}
+function barAt(x, y, w, frac, c) {
+  ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(x, y, w, 10);
+  ctx.fillStyle = c; ctx.fillRect(x, y, w * Math.max(0, Math.min(1, frac)), 10);
+}
+function heroRow(name, h, maxHp, maxSp, y, active) {
+  text(name, 60, y, 17, active ? '#f0c76a' : '#e8e0cc', 'left');
+  barAt(150, y - 6, 150, h.hp / maxHp, '#7da35c');
+  text(`${Math.ceil(h.hp)}`, 310, y, 14, '#cdc5b0', 'left');
+  barAt(350, y - 6, 70, h.sp / maxSp, '#7d93c4');
+  text(`${h.sp}`, 428, y, 14, '#cdc5b0', 'left');
+  if (h.guard) text('THỦ', 118, y, 13, '#cfe3ef', 'left');
+}
+
+// ---- Đi xuyên: vẽ vòng tròn lồng nhau ------------------------------------------------------
+function drawTravel() {
+  const tr = state.travel, T = tune.travel_time, p = tr.t / T;
+  drawFieldAll();
+  const r = p < 0.5 ? lerp(W, 0, p * 2) : lerp(0, W, (p - 0.5) * 2);
+  ctx.save();
+  ctx.fillStyle = '#060608';
+  ctx.beginPath();
+  ctx.rect(0, 0, W, H);
+  ctx.arc(W / 2, H / 2, Math.max(0, r), 0, Math.PI * 2, true);
+  ctx.fill();
+  // các vòng lồng nhau
+  glow('#ffdf9a', 16); ctx.strokeStyle = 'rgba(255,223,154,0.8)'; ctx.lineWidth = 2.5;
+  for (let i = 1; i <= 4; i++) {
+    const rr = Math.max(0, r) + i * 46;
+    ctx.beginPath(); ctx.arc(W / 2, H / 2, rr, 0, Math.PI * 2); ctx.stroke();
+  }
+  noglow(); ctx.restore();
+}
+function drawCare() {
+  drawFieldAll();
+  const c = state.care, p = c.t / tune.care_time;
+  ctx.fillStyle = 'rgba(8,8,14,0.5)'; ctx.fillRect(0, 0, W, H);
+  const r = 60 + Math.sin(p * Math.PI * 3) * 22; // nhịp thở
+  glow('#f0c76a', 20); ctx.strokeStyle = '#f0c76a'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(W / 2, H / 2 - 40, r, 0, Math.PI * 2); ctx.stroke(); noglow();
+  text(S.care[c.id].verb + '…', W / 2, H / 2 + 80, 24, '#f0e8d0');
+  text(S.care[c.id].gain, W / 2, H / 2 + 116, 16, '#cdc5b0');
+}
+function drawLog() {
+  drawFieldAll();
+  ctx.fillStyle = 'rgba(8,8,12,0.92)'; ctx.fillRect(100, 60, W - 200, H - 120);
+  ctx.strokeStyle = 'rgba(240,232,208,0.3)'; ctx.strokeRect(100, 60, W - 200, H - 120);
+  text(S.ui.log, W / 2, 92, 22, '#f0c76a');
+  text(S.ui.logHint, W / 2, H - 86, 14, '#8a8370');
+  const lines = [];
+  for (const en of state.log) {
+    const pre = en.who ? en.who + ': ' : '';
+    for (const ln of wrap(pre + en.t, W - 280, 17)) lines.push(ln);
+  }
+  const visible = 22, end = Math.max(0, lines.length - state.logOff * 3);
+  const show = lines.slice(Math.max(0, end - visible), end);
+  show.forEach((ln, i) => text(ln, 140, 126 + i * 24, 17, '#e8e0cc', 'left'));
+}
+function drawFieldAll() {
+  const cam = camX();
+  if (state.layer === 'giua') drawGiuaBG(cam);
+  else if (state.layer === 'trong') drawTrongBG(cam);
+  else drawNgoaiBG(cam);
+  drawFieldStuff(cam);
+  drawPlayer();
+}
+
+// ---- Scenes -------------------------------------------------------------------------------
+const scenes = {
+  figures: { // mọi loại địch và nhân vật, mỗi hình một dáng, tên bên dưới — cho kiểm tra hình
+    update(dt) { state.t += dt; },
+    draw() {
+      clear('#14161c');
+      const gy = 300, t = state.t;
+      drawMe(110, gy, 1.2, 1, t); text(S.names.me, 110, gy + 30, 16, '#e8e0cc');
+      drawLau(250, gy, 1.4, 1, t); text(S.names.lau, 250, gy + 30, 16, '#e8e0cc');
+      drawMi(390, gy, 1.3, 1, t); text(S.names.mi, 390, gy + 30, 16, '#e8e0cc');
+      drawSay(530, gy, 1.3, 1, t); text(S.names.say, 530, gy + 30, 16, '#e8e0cc');
+      drawScorn(720, gy, 1.2, t, false); text(S.names.scorn, 720, gy + 30, 16, '#e8e0cc');
+      drawWeary(950, gy, 1.1, t); text(S.names.weary, 950, gy + 30, 16, '#e8e0cc');
+      drawWither(1150, gy, 1, t); text(S.names.wither, 1150, gy + 30, 16, '#e8e0cc');
+      const gy2 = 600;
+      drawGiantBust(640, gy2 - 60, 1.4, t, true); text(S.names.giant, 640, gy2 + 46, 16, '#e8e0cc');
+    },
+  },
+  title: {
+    update() {
+      if (pressed('Enter') || pressed('Space')) { reset(); scene = 'play'; }
+      if (pressed('KeyC') && load('trong_save')) { if (loadGame()) scene = 'play'; }
+    },
+    draw() {
+      clear('#14161c');
+      // ba vòng lồng nhau quanh tên game
+      glow('#f0c76a', 18); ctx.strokeStyle = 'rgba(240,199,106,0.5)'; ctx.lineWidth = 2;
+      for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(W / 2, H / 3, 70 + i * 34 + Math.sin(state.t + i) * 3, 0, Math.PI * 2); ctx.stroke(); }
+      noglow();
+      drawMe(W / 2, H / 3 + 44, 1, 1, state.t);
+      text(TITLE, W / 2, H / 3 - 90, 64, '#f0e8d0');
+      text(S.ui.sub, W / 2, H / 3 + 90, 20, '#cdc5b0');
+      CONTROLS.forEach((c, i) => text(c, W / 2, H / 2 + 80 + i * 32, 19, '#b8b09a'));
+      text(S.ui.start, W / 2, H - 72, 24, '#f0e8d0');
+      if (load('trong_save')) text(S.ui.cont, W / 2, H - 40, 18, '#9fae6a');
+      const seen = endingsSeen();
+      if (seen.length) text(S.ui.seen(seen.length, S.endingOrder.length), W - 30, H - 30, 15, '#8a8370', 'right');
+    },
+  },
+  play: {
+    update(dt) {
+      state.t += dt;
+      state.score = Math.round(state.mood);
+      state.level = levelOf(state.mood);
+      state.moodShow += (state.mood - state.moodShow) * Math.min(1, tune.mood_show_rate * dt);
+      walklineStep(dt);
+      if (state.mode === 'field') fieldStep(dt);
+      else if (state.mode === 'dialog') dialogStep(dt);
+      else if (state.mode === 'battle') battleStep(dt);
+      else if (state.mode === 'travel') travelStep(dt);
+      else if (state.mode === 'care') careStep(dt);
+      else if (state.mode === 'log') logStep();
+    },
+    draw() {
+      if (state.mode === 'battle') { drawBattle(); return; }
+      if (state.mode === 'travel') { drawTravel(); return; }
+      if (state.mode === 'care') { drawCare(); drawHUD(); return; }
+      if (state.mode === 'log') { drawLog(); return; }
+      drawFieldAll();
+      drawWalkline();
+      drawHUD();
+      if (state.mode === 'dialog') drawDialog();
+    },
+  },
+  pause: {
+    update() {
+      if (pressed('KeyP') || pressed('Escape')) scene = 'play';
+      if (pressed('ArrowLeft')) { CONFIG.text_speed.value = Math.max(CONFIG.text_speed.min, CONFIG.text_speed.value - 6); store('trong_speed', CONFIG.text_speed.value); blip(); }
+      if (pressed('ArrowRight')) { CONFIG.text_speed.value = Math.min(CONFIG.text_speed.max, CONFIG.text_speed.value + 6); store('trong_speed', CONFIG.text_speed.value); blip(); }
+    },
+    draw() {
+      scenes.play.draw();
+      ctx.fillStyle = 'rgba(8,8,12,0.7)'; ctx.fillRect(0, 0, W, H);
+      text(S.ui.paused, W / 2, H / 2 - 60, 48, '#f0e8d0');
+      text(`${S.ui.speed}: ${CONFIG.text_speed.value} chữ/giây`, W / 2, H / 2 + 10, 20, '#e8e0cc');
+      text(S.ui.speedHint, W / 2, H / 2 + 44, 16, '#b8b09a');
+      text(S.ui.resume, W / 2, H / 2 + 100, 18, '#cdc5b0');
+    },
+  },
+  over: { // kết Trời Tắt: thua thật
+    update(dt) { endingUpdate(dt); },
+    draw() { drawEnding(); },
+  },
+  results: { // ba kết còn lại
+    update(dt) { endingUpdate(dt); },
+    draw() { drawEnding(); },
+  },
+};
+function endingUpdate(dt) {
+  state.t += dt; state.endT += dt;
+  const e = S.endings[state.ending];
+  const total = e.lines.length + (e.low && state.level < 4 ? 1 : 0);
+  if ((pressed('Space') || pressed('KeyE')) && state.endLines < total) { state.endLines = total; return; }
+  state.endLines = Math.min(total, state.endT / 2.4);
+  if (pressed('Enter') && state.endT > 2) restartFromFirstChoice();
+}
+function drawEnding() {
+  const id = state.ending, e = S.endings[id];
+  clear(id === 'tat' ? '#0c0c10' : '#181a20');
+  if (id !== 'tat') {
+    glow('#f0c76a', 16); ctx.strokeStyle = 'rgba(240,199,106,0.4)'; ctx.lineWidth = 2;
+    for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(W / 2, 130, 30 + i * 22, 0, Math.PI * 2); ctx.stroke(); }
+    noglow();
+  } else {
+    ctx.strokeStyle = 'rgba(120,120,130,0.3)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(W / 2, 130, 52, 0, Math.PI * 2); ctx.stroke();
+  }
+  text(`${S.ui.ending}: ${e.name}`, W / 2, 230, 36, id === 'tat' ? '#9a9aa4' : '#f0c76a');
+  const lines = e.lines.slice();
+  if (e.low && state.level < 4 && id === 'trong') lines.push(e.low);
+  const n = Math.floor(state.endLines);
+  let y = 300;
+  lines.slice(0, n + 1).forEach((ln, i) => {
+    const sub = wrap(ln, W - 400, 20);
+    const alpha = i < n ? 1 : Math.min(1, (state.endLines % 1) * 2 + 0.2);
+    ctx.save(); ctx.globalAlpha = alpha;
+    sub.forEach(sl => { text(sl, W / 2, y, 20, '#e8e0cc'); y += 30; });
+    ctx.restore(); y += 12;
+  });
+  const seen = endingsSeen();
+  text(S.ui.seen(seen.length, S.endingOrder.length), W / 2, H - 92, 17, '#cdc5b0');
+  if (state.endT > 2) text(S.ui.again, W / 2, H - 56, 19, '#f0e8d0');
+}
+
+// ---- Loop: fixed step, frame time clamped ---------------------------------------------
+function step() {
+  if (pressed('KeyM')) { setMuted(!muted); hit.delete('KeyM'); }
+  scenes[scene].update(STEP); hit.clear();
+}
+let last, acc = 0, ALPHA = 1;
+function tick() {
+  const now = clock.now();
+  acc += Math.min(now - last, 0.25); last = now;
+  while (acc >= STEP) { step(); acc -= STEP; }
+  ALPHA = acc / STEP;
+  drawFrame();
+}
+function drawFrame() { scenes[scene].draw(); }
+function frame() { tick(); requestAnimationFrame(frame); }
+function timer() { if (document.visibilityState === 'visible' && clock.now() - last > 0.1) tick(); }
+
+// ---- What a check can read and drive (?manual=1 stops the loop) ---------------------------
+window.game = {
+  get scene() { return scene; },
+  get state() { return state; },
+  press(code) { hit.add(code); },
+  hold(code, on) { on ? down.add(code) : down.delete(code); },
+  get events() { return events; },
+  step(n = 1, draw = true, alpha = 1) {
+    for (let i = 0; i < n; i++) step();
+    if (draw) { ALPHA = alpha; drawFrame(); }
+  },
+};
+
+reset();
+scene = params.get('scene') || 'title';
+last = clock.now();
+if (params.get('manual') === '1') drawFrame();
+else { requestAnimationFrame(frame); setInterval(timer, 50); }
+</script>
+</body>
+</html>

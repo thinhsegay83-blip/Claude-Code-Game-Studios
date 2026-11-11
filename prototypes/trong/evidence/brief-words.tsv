@@ -1,0 +1,4 @@
+2D nhiều lớp có chiều sâu	canvas side-view, parallax: vault ribs/hills/houses scroll at 0.3-0.95x of the ground	evidence/play.png
+vẽ tay phát sáng	every figure is quadratic-curve paths with shadowBlur glow (player, lantern, pool, sky)	evidence/play.png
+mỗi tầng một bảng màu	Giữa blue-gray, Trong honey-gold+moss (mood-lerped), Ngoài dark purple+amber motes	evidence/play.png
+nhân vật đi ngang màn hình	side-scrolling walk, camera follows, battles are a static side-on scene	evidence/play.png
