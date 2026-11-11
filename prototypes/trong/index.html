@@ -270,7 +270,7 @@ function freshState() {
     trail: [], dlg: null, fight: null, travel: null, inv: null,
     walkline: null, walkq: [], shown: {}, log: [], logOff: 0, modeBack: 'field',
     breadPrice: 0, foxShy: false, debtFlash: -9, coinFlash: null, cold: 0, coldTarget: 0,
-    doublePulse: false, kaelWarm: false, savedFlash: -9, endT: 0,
+    doublePulse: false, kaelWarm: false, savedFlash: -9, endT: 0, boss: null,
     clues: [], clueToast: null, journalBack: 'field', journalSel: 0, pz: null,
     keys: [], boardFill: {}, boardLock: {}, boardFails: {},
   };
@@ -511,20 +511,19 @@ function arena() {
   return { x: W / 2 - w / 2, y: 400, w, h };
 }
 function startFight(id) {
+  if (S.bosses[id]) { startBoss(id); return; } // boss đi engine mới; engine cũ còn lo Cân Định Giá và Bọ Ký Sinh
   const a = arena();
   state.mode = 'fight';
   state.fight = {
     id, phase: 'msg', t: 0, wave: -1, pattern: null, spawnT: 0, waveT: 0,
     bullets: [], soul: { x: a.x + a.w / 2, y: a.y + a.h * 0.7, hp: tune.soul_hp, inv: 0 },
-    res: 0, rage: tune.crab_rage, bossHp: tune.crab_hp, bugs: tune.bug_count,
-    warmCount: 0, msgs: [{ t: S.fights[id].intro, d: 1.6 }], pick: 0, quietT: 0, shake: 0, flash: 0, warn: null,
+    res: 0, bugs: tune.bug_count, msgs: [{ t: S.fights[id].intro, d: 1.6 }], pick: 0, quietT: 0, shake: 0, flash: 0, warn: null,
   };
   pushLog('', S.fights[id].intro);
   events.push({ type: 'fight', id });
 }
 function fmsg(t, d = 1.7) { state.fight.msgs.push({ t, d }); pushLog('', t); }
 function wavePatterns(id) {
-  if (id === 'crab') return ['sparks', 'slag', 'pillars'];
   if (id === 'scale') return ['burst'];
   return ['spit'];
 }
@@ -535,27 +534,11 @@ function beginWave() {
   f.warn = S.fights[f.id].warn[f.pattern];
   if (f.warn) pushLog('', f.warn);
 }
-function intensity() { // cua càng giận càng dữ: 0.55 → 1.05
-  const f = state.fight;
-  return f.id === 'crab' ? 0.55 + 0.5 * clamp(f.rage / tune.crab_rage, 0, 1.2) : 1;
-}
 function spawn(dt) {
-  const f = state.fight, a = arena(), k = intensity();
+  const f = state.fight, a = arena();
   f.spawnT -= dt;
   if (f.spawnT > 0) return;
-  if (f.pattern === 'sparks') { // tia lửa rũ từ lò trên mai
-    f.spawnT = 1 / (tune.crab_spark_rate * k);
-    const x = a.x + 10 + rng() * (a.w - 20);
-    f.bullets.push({ kind: 'spark', x, y: a.y - 6, vx: (rng() - 0.5) * 40, vy: tune.crab_spark_speed * (0.8 + rng() * 0.4) * k, r: 6, dmg: tune.crab_hit });
-  } else if (f.pattern === 'slag') { // xỉ sắt lăn ngang theo ba làn, chừa khe
-    f.spawnT = 0.85 / k;
-    const lane = Math.floor(rng() * 3), y = a.y + a.h * (0.25 + lane * 0.27), fromL = rng() < 0.5;
-    f.bullets.push({ kind: 'slag', x: fromL ? a.x - 10 : a.x + a.w + 10, y, vx: (fromL ? 1 : -1) * tune.crab_slag_speed * k, vy: 0, r: 13, rot: 0, dmg: tune.crab_hit });
-  } else if (f.pattern === 'pillars') { // cột lửa: báo trước rồi mới phụt
-    f.spawnT = 1.15 / k;
-    const x = a.x + 30 + rng() * (a.w - 60);
-    f.bullets.push({ kind: 'pillar', x, y: a.y, w: 46, warn: tune.crab_pillar_warn, life: 0.55, r: 0, dmg: tune.crab_hit });
-  } else if (f.pattern === 'burst') { // mảnh kính cân bay tứ phía từ trên xuống
+  if (f.pattern === 'burst') { // mảnh kính cân bay tứ phía từ trên xuống
     f.spawnT = 1 / tune.scale_shard_rate;
     const ang = Math.PI * (0.15 + rng() * 0.7), sp = tune.scale_shard_speed * (0.8 + rng() * 0.4);
     f.bullets.push({ kind: 'shard', x: a.x + a.w / 2 + (rng() - 0.5) * 80, y: a.y - 4, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: 6, rot: rng() * 6, dmg: 2 });
@@ -648,41 +631,230 @@ function doFightAction(id) {
   const m = full ? tune.resonance_mult : 1;
   f.msgs = [];
   if (full && id !== 'wait' && id !== 'soup') { fmsg(L.resonance, 1.4); f.res = 0; sfx.chime(); }
-  events.push({ type: 'act', id, rage: f.rage });
+  events.push({ type: 'act', id });
   if (id === 'wait') fmsg(L.wait);
   else if (id === 'soup') { Story.removeItem('soup'); f.soul.hp = tune.soul_hp; fmsg(L.soup); }
-  else if (id === 'whisper') { f.rage -= tune.act_whisper * m; fmsg(L.whisper); sfx.calm(); }
-  else if (id === 'warm') {
-    f.warmCount++;
-    f.rage -= tune.act_warm * (f.warmCount >= 2 ? 2 : 1) * m;
-    if (f.warmCount >= 2) { Story.flag('crab_warmed'); fmsg(L.warm2, 2); } else fmsg(L.warm, 2);
-    sfx.calm();
-  } else if (id === 'pull') {
-    if (f.rage <= tune.crab_rage_calm) { f.result = 'spared'; f.phase = 'end'; return; }
-    f.rage += 5; fmsg(L.pullNo, 2); sfx.hurt();
-  } else if (id === 'strike') {
-    f.bossHp -= tune.act_strike * m; f.rage += tune.act_strike_rage; f.flash = 0.3; Story.flag('crab_struck');
-    fmsg(L.strike, 1.8); sfx.strike();
-    if (f.bossHp <= 0) { f.bossHp = 0; f.result = 'killed'; f.phase = 'end'; return; }
-  } else if (id === 'pick') {
+  else if (id === 'pick') {
     f.bugs--; fmsg(L.pick, 1.8); sfx.calm();
     if (f.bugs <= 0) { f.result = 'cleared'; f.phase = 'end'; return; }
   }
-  f.rage = clamp(f.rage, 0, tune.crab_rage * 1.5);
   f.phase = 'msg';
 }
 function endFight() {
   const f = state.fight; state.fight = null; state.mode = 'field';
   events.push({ type: 'fightEnd', id: f.id, result: f.result });
-  if (f.id === 'crab') {
-    Story.flag('crab_done');
-    if (f.result === 'spared') { Story.flag('crab_spared'); Story.add('var_bond_linh', 10); Story.add('var_eco_balance', tune.eco_feed); startScene('crab_spared'); } // guessed: Linh quý người tha con cua
-    else { // handover: giết sinh vật hiền lành
-      Story.flag('crab_killed'); Story.add('var_eco_balance', -tune.eco_kill); Story.add('var_architect_corruption', tune.corrupt_kill);
-      Story.addItem('core'); startScene('crab_killed');
-    }
-  } else if (f.id === 'scale') { Story.flag('flag_scale_exploded'); startScene('scale_after'); }
+  if (f.id === 'scale') { Story.flag('flag_scale_exploded'); startScene('scale_after'); }
   else if (f.id === 'bug') { Story.flag('bugs_cleared'); Story.add('var_eco_balance', tune.eco_feed); startScene('bug_after'); }
+}
+
+// ==== TRẬN BOSS (BOSS_DESIGN.md): đánh boss là hiểu một sinh vật ==================================
+// Nhịp mỗi đòn: báo trước (≥ 0,6 giây, bạn đồng hành gọi tên đòn) → đánh → sơ hở. Trong sơ hở có một
+// vòng sáng trong khung né: chạm vào là phản đòn theo "ý định" chọn ở khoảng lặng. Khoảng lặng dùng
+// Bốn cách hỏi lên chính boss: câu trả lời ghi vào Sổ, mở pha Đau và mở động từ (Gỡ, Ngồi sưởi).
+// Pha theo cảm xúc chứ không theo máu: Giận → Đau → Tin; Đánh một lần là sang Cùng đường, không quay lại.
+// Thua thì thử lại từ đầu pha, giữ những gì đã hiểu. Khó lên bằng tốc độ và mật độ, không bằng ngẫu nhiên.
+function startBoss(id) {
+  const a = arena(), B = S.bosses[id], bond = state.v.var_bond_kael;
+  state.mode = 'boss';
+  state.boss = {
+    id, phase: 'gian', step: 'intro', stepT: 1.8, atk: null, atkN: 0, bullets: [], spawnT: 0,
+    soul: { x: a.x + a.w / 2, y: a.y + a.h * 0.75, hp: tune.soul_hp, inv: 0 },
+    res: 0, trust: 0, phaseTrust: 0, hp: tune.crab_hp, intent: 'whisper', known: {}, verbs: { whisper: true, strike: true },
+    msg: B.intro, msgT: 1.8, lastHit: null, pick: 0, quietT: 0, flash: 0, shake: 0, items: [],
+    shield: state.party.includes('kael') ? (bond >= 40 ? 2 : 1) : 0, // Kaelen đỡ một đòn mỗi trận, hai nếu đủ gắn kết
+  };
+  pushLog('', B.intro); events.push({ type: 'boss', id });
+}
+function bossMsg(t, d = 2.2) { const b = state.boss; b.msg = t; b.msgT = d; pushLog('', t); }
+function bossSpeed() { const p = state.boss.phase; return p === 'tin' ? tune.speed_tin : p === 'cung' ? tune.speed_cung : 1; }
+function bossTarget() { // vòng sáng: ở chỗ đau khi đã biết, ở thân boss khi chưa
+  const B = S.bosses[state.boss.id], a = arena(), at = state.boss.known.listen ? B.pain : B.body;
+  return { x: a.x + a.w * at[0], y: a.y + a.h * at[1] };
+}
+function setPhase(p) { const b = state.boss; b.phase = p; b.phaseTrust = b.trust; b.atkN = 0; events.push({ type: 'bossPhase', p }); }
+function nextAttack() {
+  const b = state.boss, list = S.bosses[b.id].phases[b.phase].attacks;
+  b.atk = list[b.atkN % list.length]; b.atkN++;
+  b.step = 'warn'; b.stepT = tune.boss_warn; b.spawnT = 0;
+  const w = S.bosses[b.id].warn[b.atk]; if (w) bossMsg(w, tune.boss_warn + 1.2);
+}
+function bossSpawn(dt) { // năm kiểu phát đạn; dữ liệu chọn kiểu, số liệu ở config.js
+  const b = state.boss, a = arena(), k = bossSpeed();
+  if (b.bullets.length >= tune.bullet_cap) return;
+  b.spawnT -= dt; if (b.spawnT > 0) return;
+  if (b.atk === 'rain') { // tia lửa rũ từ lò trên mai
+    b.spawnT = 1 / (tune.crab_rain_rate * k);
+    b.bullets.push({ kind: 'spark', x: a.x + 10 + rng() * (a.w - 20), y: a.y - 6, vx: (rng() - 0.5) * 40, vy: tune.crab_spark_speed * (0.8 + rng() * 0.4) * k, r: 6, dmg: tune.crab_hit });
+  } else if (b.atk === 'slag') { // xỉ lăn ngang theo ba làn, luôn chừa một làn
+    b.spawnT = 0.85 / k;
+    const lane = Math.floor(rng() * 3), y = a.y + a.h * (0.25 + lane * 0.27), fromL = rng() < 0.5;
+    b.bullets.push({ kind: 'slag', x: fromL ? a.x - 10 : a.x + a.w + 10, y, vx: (fromL ? 1 : -1) * tune.crab_slag_speed * k, vy: 0, r: 13, dmg: tune.crab_hit });
+  } else if (b.atk === 'pillars') { // cột lửa báo trước rồi mới phụt
+    b.spawnT = 1.15 / k;
+    b.bullets.push({ kind: 'pillar', x: a.x + 30 + rng() * (a.w - 60), y: a.y, w: 46, warn: tune.crab_pillar_warn, life: 0.55, r: 0, dmg: tune.crab_hit });
+  } else if (b.atk === 'fan') { // lửa toả ra từ khớp càng; khe an toàn chĩa về chính vết thương
+    b.spawnT = 1 / (tune.crab_fan_rate * k);
+    const t = bossTarget(), ex = t.x + 6, ey = a.y - 24; // phát ngay trên khớp càng: khe an toàn là lối hẹp chạy thẳng xuống chỗ đau
+    const safe = Math.atan2(t.y - ey, t.x - ex), gap = tune.crab_fan_gap * Math.PI / 180;
+    let ang; do { ang = Math.PI * (0.08 + rng() * 0.84); } while (Math.abs(ang - safe) < gap);
+    const sp = tune.crab_fan_speed * k;
+    b.bullets.push({ kind: 'spark', x: ex, y: ey, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: 6, dmg: tune.crab_hit });
+  } else if (b.atk === 'breath') { // pha Tin: lửa thở chậm, thưa
+    b.spawnT = 1 / tune.crab_breath_rate;
+    b.bullets.push({ kind: 'spark', x: a.x + 20 + rng() * (a.w - 40), y: a.y - 6, vx: 0, vy: 70, r: 6, dmg: tune.crab_hit });
+  }
+}
+function bossHurt(dmg, bl) {
+  const b = state.boss;
+  if (b.shield > 0) { b.shield--; b.soul.inv = tune.invuln_time; bossMsg(S.bosses[b.id].lines.shield, 1.8); sfx.calm(); return; }
+  b.soul.hp -= dmg; b.soul.inv = tune.invuln_time; b.shake = 0.3; sfx.hurt();
+  b.lastHit = { x: bl.x, y: bl.y, kind: bl.kind, t: tune.hit_flash, w: bl.w }; // viên trúng nhấp nháy lại: biết mình thua vì gì
+  events.push({ type: 'hurt', hp: b.soul.hp });
+  if (b.soul.hp <= 0) { // thử lại từ đầu pha, giữ những gì đã hiểu
+    b.soul.hp = tune.soul_hp; b.bullets = []; b.trust = b.phaseTrust; b.atkN = 0;
+    b.step = 'intro'; b.stepT = 2.2; bossMsg(S.bosses[b.id].lines.down, 2.2); events.push({ type: 'bossRetry', phase: b.phase });
+  }
+}
+function bossCounter() { // chạm vòng sáng trong sơ hở
+  const b = state.boss, L = S.bosses[b.id].lines, full = b.res >= tune.resonance_max, x2 = full ? 2 : 1;
+  if (full) { b.res = 0; sfx.chime(); }
+  events.push({ type: 'counter', intent: b.intent, phase: b.phase });
+  b.step = 'after'; b.stepT = 1.6;
+  if (b.intent === 'strike') {
+    b.hp -= tune.act_strike * (full ? tune.resonance_mult : 1); b.flash = 0.3; Story.flag('crab_struck'); sfx.strike();
+    bossMsg(L.strike, 2);
+    if (b.phase !== 'cung') setPhase('cung');
+    if (b.hp <= 0) { b.result = 'killed'; b.step = 'end'; b.stepT = 1.2; }
+    return;
+  }
+  if (b.intent === 'pull') {
+    if (!b.known.look) { bossMsg(L.pullNoKnow); return; }
+    if (b.phase === 'tin') { b.result = 'spared'; b.step = 'end'; b.stepT = 1.2; sfx.chime(); return; }
+    bossMsg(L.pullEarly); sfx.hurt(); return;
+  }
+  const warm = b.intent === 'warm';
+  if (b.phase === 'cung') { bossMsg(L.cungSoft); return; } // đã đánh: không quay lại được
+  if (b.phase === 'gian') { bossMsg(warm ? L.gianWarm : L.gianWhisper); return; }
+  if (b.phase === 'tin') { bossMsg(L.tinWhisper); return; }
+  if (b.phase === 'dau') {
+    b.trust += (warm ? 2 : 1) * x2; if (warm) Story.flag('crab_warmed');
+    bossMsg((full ? L.resonance + ' ' : '') + (warm ? L.dauWarm : L.dauWhisper), 2.4); sfx.calm();
+    if (b.trust >= tune.trust_need) { setPhase('tin'); bossMsg(L.toTin, 2.6); }
+  }
+}
+function bossQuietItems() {
+  const b = state.boss, B = S.bosses[b.id], v = view(), out = [];
+  for (const verb in B.asks) if (!b.known[verb] && B.asks[verb].need(v)) out.push({ type: 'ask', verb, label: S.ui.ask(S.asks[verb].label) });
+  for (const id in B.verbs) if (b.verbs[id]) out.push({ type: 'intent', id, label: S.ui.plan(B.verbs[id].label) + (b.intent === id ? `  (${S.ui.planNow})` : ''), hint: B.verbs[id].hint });
+  return out;
+}
+function bossQuietStep(dt) {
+  const b = state.boss, B = S.bosses[b.id], items = bossQuietItems();
+  b.quietT -= dt;
+  if (pressed('ArrowUp') || pressed('KeyW')) { b.pick = (b.pick + items.length - 1) % items.length; sfx.blip(); }
+  if (pressed('ArrowDown') || pressed('KeyS')) { b.pick = (b.pick + 1) % items.length; sfx.blip(); }
+  const dg = digitPressed(items.length);
+  const it = dg ? items[dg - 1] : (pressed('Enter') || pressed('KeyE')) ? items[b.pick] : null;
+  if (!it && b.quietT > 0) return;
+  if (it && it.type === 'ask') { // một câu hỏi mỗi khoảng lặng
+    const A = B.asks[it.verb]; b.known[it.verb] = true; addClue(A.clue);
+    bossMsg(A.t, 4.2);
+    if (A.verb) b.verbs[A.verb] = true;
+    if (A.phase && b.phase === 'gian') { setPhase(A.phase); b.msgQueue = S.bosses[b.id].lines.toDau; }
+  } else if (it && it.type === 'intent') { b.intent = it.id; bossMsg(B.lines.intent(B.verbs[it.id].label), 1.6); }
+  b.step = 'gap'; b.stepT = 0.6; b.pick = 0;
+}
+function bossStep(dt) {
+  const b = state.boss, a = arena(), so = b.soul;
+  b.shake = Math.max(0, b.shake - dt); b.flash = Math.max(0, b.flash - dt); if (b.msgT > 0) b.msgT -= dt;
+  if (b.lastHit) { b.lastHit.t -= dt; if (b.lastHit.t <= 0) b.lastHit = null; }
+  if (pressed('KeyJ')) { openJournal(); return; }
+  if (b.step !== 'quiet') { // né được cả lúc có chữ
+    let vx = 0, vy = 0;
+    if (down.has('ArrowLeft') || down.has('KeyA')) vx--; if (down.has('ArrowRight') || down.has('KeyD')) vx++;
+    if (down.has('ArrowUp') || down.has('KeyW')) vy--; if (down.has('ArrowDown') || down.has('KeyS')) vy++;
+    const sp = tune.soul_speed * (down.has('ShiftLeft') || down.has('ShiftRight') ? tune.soul_slow : 1), l = Math.hypot(vx, vy) || 1;
+    so.x = clamp(so.x + vx / l * sp * dt, a.x + 10, a.x + a.w - 10); so.y = clamp(so.y + vy / l * sp * dt, a.y + 10, a.y + a.h - 10);
+  }
+  so.inv = Math.max(0, so.inv - dt);
+  for (const bl of b.bullets) {
+    if (bl.kind === 'pillar') { if (bl.warn > 0) { bl.warn -= dt; continue; } bl.life -= dt; if (Math.abs(so.x - bl.x) < bl.w / 2 && so.inv <= 0) bossHurt(bl.dmg, bl); continue; }
+    bl.x += bl.vx * dt; bl.y += bl.vy * dt;
+    const d = Math.hypot(so.x - bl.x, so.y - bl.y);
+    if (d < bl.r + tune.soul_hit_r) { if (so.inv <= 0) { bossHurt(bl.dmg, bl); bl.dead = true; } }
+    else if (d < tune.graze_r && !bl.grazed) { bl.grazed = true; b.res = Math.min(tune.resonance_max, b.res + tune.graze_gain); sfx.graze(); }
+  }
+  b.bullets = b.bullets.filter(bl => !bl.dead && (bl.kind === 'pillar' ? bl.life > 0 : bl.x > a.x - 40 && bl.x < a.x + a.w + 40 && bl.y < a.y + a.h + 30 && bl.y > a.y - 80));
+  if (b.step === 'quiet') { bossQuietStep(dt); return; }
+  b.stepT -= dt;
+  if (b.step === 'active') bossSpawn(dt);
+  if (b.step === 'open') { const t = bossTarget(); if (Math.hypot(so.x - t.x, so.y - t.y) < tune.counter_r) { bossCounter(); return; } }
+  if (b.stepT > 0) return;
+  if (b.step === 'end') { endBoss(); return; }
+  if (b.step === 'intro' || b.step === 'gap') { if (b.msgQueue) { bossMsg(b.msgQueue, 2.6); b.msgQueue = null; } nextAttack(); return; }
+  if (b.step === 'warn') { b.step = 'active'; b.stepT = tune.boss_attack_time; return; }
+  if (b.step === 'active') { b.step = 'open'; b.stepT = b.phase === 'tin' ? tune.boss_open_tin : tune.boss_open_time; return; }
+  if (b.step === 'open' || b.step === 'after') {
+    if (b.step === 'open') bossMsg(S.bosses[b.id].lines.missed, 1.2);
+    b.bullets = [];
+    if (b.atkN === 1 || b.atkN % tune.quiet_every === 0) { b.step = 'quiet'; b.quietT = tune.quiet_time; b.pick = 0; return; }
+    b.step = 'gap'; b.stepT = 0.4;
+  }
+}
+function endBoss() {
+  const b = state.boss; state.boss = null; state.mode = 'field';
+  events.push({ type: 'fightEnd', id: b.id, result: b.result });
+  Story.flag('crab_done');
+  if (b.result === 'spared') { Story.flag('crab_spared'); Story.add('var_bond_linh', 10); Story.add('var_eco_balance', tune.eco_feed); startScene('crab_spared'); } // guessed: Linh quý người tha con cua
+  else { Story.flag('crab_killed'); Story.add('var_eco_balance', -tune.eco_kill); Story.add('var_architect_corruption', tune.corrupt_kill); Story.addItem('core'); startScene('crab_killed'); } // handover: giết sinh vật hiền lành
+}
+function drawBoss() {
+  const b = state.boss, B = S.bosses[b.id], a = arena();
+  drawWorld();
+  ctx.fillStyle = 'rgba(6,4,10,0.6)'; ctx.fillRect(0, 0, W, H);
+  ctx.save(); if (b.shake > 0) ctx.translate(Math.sin(state.t * 70) * 5 * b.shake, 0);
+  if (b.flash > 0) ctx.globalAlpha = 0.5 + 0.5 * Math.sin(state.t * 60);
+  const glowFurnace = b.step === 'warn' ? 1 + Math.sin(state.t * 30) * 0.5 : 0; // lò bừng lên khi sắp đánh
+  drawCrab(W / 2 + (glowFurnace ? Math.sin(state.t * 40) * 2 : 0), a.y - 40, 1.6, state.t, { calm: b.phase === 'tin', half: state.flags.crab_warmed });
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(12,8,16,0.92)'; ctx.fillRect(a.x, a.y, a.w, a.h);
+  glow(b.step === 'warn' ? '#ff8060' : '#f0d8a0', 10); ctx.strokeStyle = b.step === 'warn' ? '#ffb090' : '#f0e2c0'; ctx.lineWidth = 3; ctx.strokeRect(a.x, a.y, a.w, a.h); noglow();
+  ctx.save(); ctx.beginPath(); ctx.rect(a.x, a.y, a.w, a.h); ctx.clip();
+  for (const bl of b.bullets) drawBullet(bl, a);
+  if (b.lastHit && Math.floor(state.t * 12) % 2) { // viên vừa trúng mình nhấp nháy lại
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+    if (b.lastHit.kind === 'pillar') ctx.strokeRect(b.lastHit.x - b.lastHit.w / 2, a.y, b.lastHit.w, a.h);
+    else { ctx.beginPath(); ctx.arc(b.lastHit.x, b.lastHit.y, 12, 0, Math.PI * 2); ctx.stroke(); }
+  }
+  if (b.step === 'open') { // vòng sáng phản đòn
+    const t = bossTarget(), p = 0.6 + 0.4 * Math.sin(state.t * 8), pain = b.known.listen;
+    glow(pain ? '#ff9a70' : '#f0d8a0', 16); ctx.strokeStyle = pain ? `rgba(255,154,112,${p})` : `rgba(240,216,160,${p})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(t.x, t.y, tune.counter_r, 0, Math.PI * 2); ctx.stroke(); noglow();
+    text(B.verbs[b.intent].label, t.x, t.y - tune.counter_r - 12, 14, '#f4ead4');
+  }
+  if (b.step !== 'quiet') drawSoul(b.soul);
+  ctx.restore(); ctx.restore();
+  const by = a.y + a.h + 18; // máu, cộng hưởng, khiên
+  text(S.ui.hp, a.x, by, 15, '#f4ead4', 'left');
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(a.x + 48, by - 6, 120, 12); ctx.fillStyle = '#e8b860'; ctx.fillRect(a.x + 48, by - 6, 120 * b.soul.hp / tune.soul_hp, 12);
+  if (b.shield > 0) text(`Khiên ×${b.shield}`, a.x + 190, by, 14, '#e8d090', 'left');
+  const full = b.res >= tune.resonance_max;
+  text(S.ui.resonance, a.x + a.w - 170, by, 15, full ? '#ffd890' : '#f4ead4', 'right');
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(a.x + a.w - 160, by - 6, 160, 12); if (full) glow('#ffd890', 12);
+  ctx.fillStyle = full ? '#ffd890' : '#c8a0e8'; ctx.fillRect(a.x + a.w - 160, by - 6, 160 * b.res / tune.resonance_max, 12); noglow();
+  text(B.title, W - 60, 110, 18, '#f4ead4', 'right'); // pha và những gì đã hiểu, không có thanh "giận"
+  text(`${S.ui.phase}: ${B.phases[b.phase].name}`, W - 60, 136, 15, b.phase === 'cung' ? '#e88070' : '#e8d090', 'right');
+  const kn = Object.keys(B.asks).filter(v => b.known[v]).map(v => S.asks[v].name);
+  if (kn.length) text(`${S.ui.known}: ${kn.join(' · ')}`, W - 60, 160, 14, '#a8d8a0', 'right');
+  if (b.phase === 'cung') { ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(W - 240, 178, 180, 10); ctx.fillStyle = '#c86060'; ctx.fillRect(W - 240, 178, 180 * Math.max(0, b.hp) / tune.crab_hp, 10); }
+  if (b.msg && b.msgT > 0) { const ls = wrap(b.msg, W - 160, 17); panel(80, 30, W - 160, 22 + ls.length * 22, 0.9); ls.forEach((l, i) => text(l, W / 2, 52 + i * 22, 17, '#f4ead4')); }
+  if (b.step === 'quiet') { // khoảng lặng: hỏi hoặc định ý
+    const items = bossQuietItems();
+    panel(a.x, a.y + 4, a.w, a.h - 8, 0.95);
+    text(S.ui.quietTitle, a.x + 20, a.y + 26, 16, '#f0c76a', 'left');
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(a.x + a.w - 140, a.y + 21, 120, 6); ctx.fillStyle = '#c8a0e8'; ctx.fillRect(a.x + a.w - 140, a.y + 21, 120 * clamp(b.quietT / tune.quiet_time, 0, 1), 6);
+    items.forEach((it, i) => { const y = a.y + 54 + i * 25, sel = i === b.pick; text(`${i + 1}. ${it.label}`, a.x + 24, y, 16, sel ? '#f0c76a' : it.type === 'ask' ? '#a8e0f0' : '#ece2cc', 'left'); if (it.hint && sel) text(it.hint, a.x + a.w - 20, y, 13, '#9a9280', 'right', 'italic '); });
+  }
 }
 
 // ==== CÂU ĐỐ TÌM MANH MỐI ==========================================================================
@@ -1044,7 +1216,7 @@ function journalStep() {
 }
 function clueText(id) { const c = S.clues[id]; return c.glyph !== undefined ? `Khắc ký tự ${S.glyphs[c.glyph]}. Gõ vào ngân một nốt.` : c.text; }
 function drawJournal() {
-  if (state.journalBack === 'puzzle' && state.pz) drawPuzzle(); else drawWorld();
+  if (state.journalBack === 'puzzle' && state.pz) drawPuzzle(); else if (state.journalBack === 'boss' && state.boss) drawBoss(); else drawWorld();
   ctx.fillStyle = 'rgba(6,4,10,0.55)'; ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#e8dcc0'; ctx.fillRect(100, 50, W - 200, H - 100); ctx.strokeStyle = '#8a7050'; ctx.lineWidth = 2; ctx.strokeRect(100, 50, W - 200, H - 100);
   ctx.strokeStyle = 'rgba(138,112,80,0.4)'; ctx.beginPath(); ctx.moveTo(400, 90); ctx.lineTo(400, H - 90); ctx.stroke(); // gáy sổ
@@ -1582,7 +1754,6 @@ function drawFight() {
   ctx.save(); if (f.shake > 0) ctx.translate(Math.sin(state.t * 70) * 5 * f.shake, 0);
   // boss phía trên
   if (f.flash > 0) ctx.globalAlpha = 0.5 + 0.5 * Math.sin(state.t * 60);
-  if (f.id === 'crab') drawCrab(W / 2, a.y - 40, 1.6, state.t, { calm: false, half: state.flags.crab_warmed });
   if (f.id === 'scale') drawScale(W / 2, a.y - 20, 0.85, state.t, f.phase !== 'msg' || f.wave >= 0);
   if (f.id === 'bug') for (let i = 0; i < f.bugs; i++) drawBug(bugX(i, f.bugs), a.y - 30, 2, state.t + i);
   ctx.globalAlpha = 1;
@@ -1606,13 +1777,7 @@ function drawFight() {
   if (full) glow('#ffd890', 12);
   ctx.fillStyle = full ? '#ffd890' : '#c8a0e8'; ctx.fillRect(a.x + a.w - 160, by - 6, 160 * f.res / tune.resonance_max, 12); noglow();
   // thanh của boss
-  if (f.id === 'crab') {
-    text(`${S.fights.crab.title}`, W - 60, 120, 18, '#f4ead4', 'right');
-    text(S.ui.rage, W - 250, 150, 14, '#e8a080', 'right'); ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(W - 240, 144, 180, 10);
-    ctx.fillStyle = '#e8805a'; ctx.fillRect(W - 240, 144, 180 * clamp(f.rage / tune.crab_rage, 0, 1), 10);
-    ctx.fillStyle = 'rgba(160,220,160,0.8)'; ctx.fillRect(W - 240 + 180 * tune.crab_rage_calm / tune.crab_rage, 140, 2, 18); // vạch "đủ dịu để gỡ"
-    if (state.flags.crab_struck) { text(S.ui.hpBoss, W - 250, 172, 14, '#d8ccb4', 'right'); ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(W - 240, 166, 180, 10); ctx.fillStyle = '#c86060'; ctx.fillRect(W - 240, 166, 180 * f.bossHp / tune.crab_hp, 10); }
-  } else if (f.id === 'bug') text(S.ui.left(f.bugs), W - 60, 120, 18, '#f4ead4', 'right');
+  if (f.id === 'bug') text(S.ui.left(f.bugs), W - 60, 120, 18, '#f4ead4', 'right');
   else if (f.phase === 'wave') text(S.ui.survive(Math.max(0, Math.ceil(tune.scale_time - f.waveT))), W - 60, 120, 18, '#f4ead4', 'right');
   // lời báo trước của bạn đồng hành
   if (f.warn && f.phase === 'wave' && f.waveT < 2.2) { ctx.save(); ctx.globalAlpha = Math.min(1, (2.2 - f.waveT) * 2); text(f.warn, W / 2, a.y - 18, 17, '#a8e0f0', 'center', 'italic '); ctx.restore(); }
@@ -1650,8 +1815,7 @@ function drawQuiet(f, a) {
   text(q, a.x + 20, a.y + 52, 15, '#d8ccb4', 'left', 'italic ');
   acts.forEach((x, i) => {
     const y = a.y + 82 + i * 26, sel = i === f.pick;
-    const locked = x.id === 'pull' && f.rage > tune.crab_rage_calm;
-    text(`${i + 1}. ${x.label}`, a.x + 30, y, 17, sel ? '#f0c76a' : locked ? '#8a8070' : '#ece2cc', 'left');
+    text(`${i + 1}. ${x.label}`, a.x + 30, y, 17, sel ? '#f0c76a' : '#ece2cc', 'left');
     text(x.hint, a.x + 230, y, 14, '#9a9280', 'left', 'italic ');
   });
 }
@@ -1697,6 +1861,7 @@ const scenes = {
       if (state.mode === 'field') fieldStep(dt);
       else if (state.mode === 'dialog') dialogStep(dt);
       else if (state.mode === 'fight') fightStep(dt);
+      else if (state.mode === 'boss') bossStep(dt);
       else if (state.mode === 'travel') travelStep(dt);
       else if (state.mode === 'inv') invStep();
       else if (state.mode === 'log') logStep();
@@ -1705,6 +1870,7 @@ const scenes = {
     },
     draw() {
       if (state.mode === 'fight') { drawFight(); return; }
+      if (state.mode === 'boss') { drawBoss(); return; }
       if (state.mode === 'travel') { drawTravel(); return; }
       if (state.mode === 'inv') { drawInv(); return; }
       if (state.mode === 'log') { drawLog(); return; }

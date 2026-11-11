@@ -11,6 +11,7 @@ After play: sử dụng aseprite trên máy tính để thiết kế · Ai vẽ 
 After play: Xây dựng các gameplay giải đố cho game đi · Chọn: 1. Nghe mạch (Linh), 2. Cửa đá hát (Hồ Ly), 4. Tia sáng (Mira), 3 + 5 (Lò cua, Cân thử) · Bắt buộc? = Trộn
 After play: các câu đố phải giải bằng cách tương tác, tìm manh mối sau đó giải quyết chứ không nên làm các thao tác đơn giản · Duyệt = Làm 3 câu trước · Khoá gương = Giữ, thêm tìm gương
 After play: bạn hãy giành thời nghiên cứu và phát triển cơ chế giải đố · Duyệt = làm nền trước (Bốn cách hỏi + Bàn Ghép + Sổ 2.0) · tài liệu: prototypes/trong/PUZZLE_RESEARCH.md
+After play: Thiết kế cơ chế đánh boss · Duyệt = làm nền + trận cua · tài liệu: prototypes/trong/BOSS_DESIGN.md
 After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
 **Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
@@ -61,6 +62,8 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - [x] Câu đố tìm manh mối + Sổ manh mối (phím J): Cửa Đá Hát (ghép thứ tự ký tự từ câu khắc trên cửa và 5 ống sắt rải khắp thung lũng; cáo được chia bánh thì ngân nốt đầu và cuối), Cây cầu gãy (nhận ra mảnh sắt gỡ từ càng cua là cái chốt; tha cua thì nó nung, giết thì đốt Lõi Lửa), Khoá Gương Chợ Đen (bắt buộc: tìm 2 tấm gương bị giấu theo lời đố của Mira, đặt đúng hốc, xoay đúng chiều). Mỗi câu +1 Mảnh Phản Chiếu
 - [x] Bốn cách hỏi thế giới: Nghe (Linh) · Định giá (Mira) · Vọng lại (hồ ly, chỉ khi đã chia bánh) · Soi; Bàn Ghép (câu chuyện bị khuyết, từ khoá nhặt được, xác nhận theo từng câu, sai 3 lần thì bạn đồng hành gợi cách hỏi, Mira bán đáp án một ô); Sổ 2.0 (hồ sơ, câu hỏi mở, vùng còn manh mối, từ khoá)
 - [x] Rương người thợ cũ: xưởng rèn bỏ hoang, 7 vật hỏi được, 2 câu ghép, có từ khoá mồi; +1 Mảnh Phản Chiếu, +40 Lumen
+- [x] Đánh boss là hiểu một sinh vật: nhịp báo trước → đánh → sơ hở, chạm vòng sáng để phản đòn theo ý định; khoảng lặng dùng Bốn cách hỏi lên chính boss (mở pha, mở động từ); ba pha Giận → Đau → Tin, Đánh là sang Cùng đường không quay lại; thử lại từ đầu pha; viên trúng nhấp nháy lại; khiên Kaelen
+- [x] Trận Cua Giáp Lò Rèn làm lại: Linh nghe ra chỗ đau, Soi thấy mảnh sắt, hồ ly vọng lại giọng xưa mở Ngồi sưởi; pha Đau: khe an toàn sát vết thương
 - [x] Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa
 - [ ] Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)
 

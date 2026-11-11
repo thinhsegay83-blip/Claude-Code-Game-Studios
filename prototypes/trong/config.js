@@ -25,18 +25,30 @@ window.CONFIG = {
 
   // ---- Cua Giáp Lò Rèn (boss) ----
   crab_hp: { value: 60, min: 20, max: 200, step: 5 },              // máu, nếu chọn đánh
-  crab_rage: { value: 100, min: 40, max: 200, step: 5 },           // cơn giận lúc đầu
-  crab_rage_calm: { value: 35, min: 0, max: 100, step: 5 },        // giận dưới mức này thì gỡ được mảnh sắt
   crab_hit: { value: 3, min: 1, max: 10, step: 1 },                // máu mất mỗi đòn trúng
-  crab_spark_rate: { value: 5, min: 1, max: 15, step: 0.5 },       // tia lửa mỗi giây
   crab_spark_speed: { value: 150, min: 60, max: 300, step: 10 },   // px/giây
   crab_slag_speed: { value: 170, min: 60, max: 300, step: 10 },    // xỉ lăn, px/giây
   crab_pillar_warn: { value: 0.9, min: 0.3, max: 2, step: 0.05 },  // giây: báo trước cột lửa
   act_strike: { value: 15, min: 5, max: 40, step: 1 },             // Đánh: máu cua mất
-  act_strike_rage: { value: 15, min: 0, max: 40, step: 1 },        // Đánh: giận cua tăng
-  act_whisper: { value: 20, min: 5, max: 50, step: 1 },            // Nói khẽ: giận giảm
-  act_warm: { value: 15, min: 5, max: 50, step: 1 },               // Sưởi cạnh: giận giảm (lần 2 trở đi gấp đôi)
   resonance_mult: { value: 2, min: 1, max: 4, step: 0.25 },        // cộng hưởng đầy: hành động nhân chừng này
+
+  // ---- Trận boss (BOSS_DESIGN.md): báo trước → đánh → sơ hở ----
+  boss_warn: { value: 0.8, min: 0.6, max: 2, step: 0.05 },         // giây báo trước mỗi đòn (luật: ≥ 0,6)
+  boss_attack_time: { value: 4.2, min: 2, max: 8, step: 0.1 },     // giây một đòn
+  boss_open_time: { value: 1.4, min: 0.6, max: 3, step: 0.1 },     // giây sơ hở sau đòn
+  boss_open_tin: { value: 2.4, min: 1, max: 5, step: 0.1 },        // sơ hở dài hơn ở pha Tin
+  counter_r: { value: 22, min: 10, max: 50, step: 1 },             // px: chạm điểm đau trong bán kính này là phản đòn
+  quiet_every: { value: 2, min: 1, max: 4, step: 1 },              // khoảng lặng sau mỗi chừng ấy đòn (đòn đầu luôn có)
+  trust_need: { value: 2, min: 1, max: 6, step: 1 },               // phản đòn tử tế cần để sang pha Tin
+  speed_tin: { value: 0.5, min: 0.2, max: 1, step: 0.05 },         // pha Tin: đạn chậm lại
+  speed_cung: { value: 1.4, min: 1, max: 2.5, step: 0.05 },        // pha Cùng đường: đạn nhanh và dày lên
+  bullet_cap: { value: 120, min: 40, max: 300, step: 10 },         // tối đa đạn một lúc (luật dễ đọc)
+  hit_flash: { value: 0.6, min: 0, max: 2, step: 0.1 },            // giây: viên vừa trúng mình nhấp nháy lại
+  crab_rain_rate: { value: 5, min: 1, max: 15, step: 0.5 },        // tia lửa mỗi giây
+  crab_fan_rate: { value: 7, min: 1, max: 20, step: 0.5 },         // pha Đau: lửa phụt thành quạt từ khớp càng
+  crab_fan_speed: { value: 140, min: 60, max: 300, step: 10 },
+  crab_fan_gap: { value: 26, min: 10, max: 60, step: 1 },          // độ: khe an toàn hướng về vết thương
+  crab_breath_rate: { value: 2.2, min: 0.5, max: 8, step: 0.1 },   // pha Tin: lửa thở chậm
 
   // ---- Cân Định Giá nổ (sống sót) ----
   scale_time: { value: 8, min: 3, max: 20, step: 0.5 },            // giây
