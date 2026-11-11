@@ -8,6 +8,8 @@ Tài liệu cốt truyện: `prototypes/trong/HANDOVER_STORY_V2.md` (HANDOVER ST
 After play: bỏ phần đánh theo lượt, thiết kế lại cơ chế gameplay mới, khi mà tiến vào ột màn đấu boss thì boss sẽ đứng ở phía trên màn hình tung skill chúng ta phải né skill và đợi phản đòn. giống của undertale nhưng ta sẽ cải tiến thêm
 After play: Cốt truyện = File 2 thay thế Trong · Lượt đầu = Hồi 1 file 2 + né đòn
 After play: sử dụng aseprite trên máy tính để thiết kế · Ai vẽ = Claude trên máy MSI vẽ · Độ phân giải = 640×360, phóng ×2 · Đợt đầu = 4 nhân vật chính
+After play: Xây dựng các gameplay giải đố cho game đi · Chọn: 1. Nghe mạch (Linh), 2. Cửa đá hát (Hồ Ly), 4. Tia sáng (Mira), 3 + 5 (Lò cua, Cân thử) · Bắt buộc? = Trộn
+After play: các câu đố phải giải bằng cách tương tác, tìm manh mối sau đó giải quyết chứ không nên làm các thao tác đơn giản · Duyệt = Làm 3 câu trước · Khoá gương = Giữ, thêm tìm gương
 After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
 **Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
@@ -55,6 +57,7 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - [x] Ba bạn đồng hành Linh, Kaelen, Mira với câu thoại gieo hạt Hồi 1; Kịch bản 1 (Chợ Đen) và Kịch bản 2 (Lửa Trại) theo đúng lời handover
 - [x] Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện
 
+- [x] Câu đố tìm manh mối + Sổ manh mối (phím J): Cửa Đá Hát (ghép thứ tự ký tự từ câu khắc trên cửa và 5 ống sắt rải khắp thung lũng; cáo được chia bánh thì ngân nốt đầu và cuối), Cây cầu gãy (nhận ra mảnh sắt gỡ từ càng cua là cái chốt; tha cua thì nó nung, giết thì đốt Lõi Lửa), Khoá Gương Chợ Đen (bắt buộc: tìm 2 tấm gương bị giấu theo lời đố của Mira, đặt đúng hốc, xoay đúng chiều). Mỗi câu +1 Mảnh Phản Chiếu
 - [x] Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa
 - [ ] Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)
 
@@ -65,19 +68,23 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - bạn đồng hành, gắn kết · thin stand-in
 - sinh vật, sinh thái · thin stand-in
 - vũng nước lưu game · in the slice
-- Mảnh Phản Chiếu (0–12) · later *(guessed)*
+- giải đố · in the slice
+- Mảnh Phản Chiếu (0–12) · thin stand-in: 3 mảnh từ câu đố + thanh tẩy Memoria *(guessed: handover không nói nguồn)*
+- Rương người thợ cũ, Cân Thử (câu đố tìm manh mối) · later
 - Hồi 2–4 · later
 
 ## Keep
 -
 
 ## Avoid
+- Câu đố chỉ là thao tác đơn giản *(you said: các câu đố phải giải bằng cách tương tác, tìm manh mối sau đó giải quyết)*
 - Copy Undertale: tên, nhân vật, trái tim đỏ, menu FIGHT/ACT/ITEM/MERCY, nhạc, giao diện
 - Ngôn ngữ kiếm hiệp, anime cường điệu, self-help sáo rỗng
 
 ## Out of scope
 - Hồi 2, Hồi 3, Hồi 4 và ba kết thúc lớn: grow it
-- Mảnh Phản Chiếu và mở khoá dòng chữ trên Khế Ước: add it as a feature
+- Mở khoá dòng chữ trên Khế Ước khi đủ Mảnh Phản Chiếu (Hồi 4): add it as a feature
+- Rương người thợ cũ, Cân Thử: add it as a feature
 - Chợ cung–cầu đầy đủ, đầu tư Khu Chợ Di Động: add it as a feature
 - Đòn phối hợp tổ đội (Combo Assist): add it as a feature
 - Nuôi và cộng sinh sinh vật lâu dài: grow it

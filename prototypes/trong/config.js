@@ -49,6 +49,10 @@ window.CONFIG = {
   bug_spit_speed: { value: 140, min: 60, max: 300, step: 10 },
   bug_tax_cut: { value: 0.2, min: 0, max: 0.5, step: 0.05 },       // handover: giảm 20% thuế khi gỡ hết
 
+  // ---- Câu đố ----
+  pz_fragment: { value: 1, min: 0, max: 3, step: 1 },              // Mảnh Phản Chiếu mỗi câu đố
+  light_hint_cost: { value: 20, min: 0, max: 100, step: 5 },       // Lumen cho một gợi ý của Mira
+
   // ---- Biến cốt truyện khởi tạo (handover, Bước 4) ----
   start_lumen: { value: 250, min: 0, max: 2000, step: 10 },
   start_bond: { value: 30, min: 0, max: 100, step: 5 },

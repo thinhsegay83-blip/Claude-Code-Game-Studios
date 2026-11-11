@@ -248,7 +248,7 @@ function wireListeners() {
 function view() {
   const has = {}; for (const k in state.items) has[k] = state.items[k] > 0;
   return {
-    flags: state.flags, v: state.v, has, party: state.party, breadPrice: state.breadPrice,
+    flags: state.flags, v: state.v, has, party: state.party, breadPrice: state.breadPrice, clues: state.clues,
     bondSum: state.v.var_bond_linh + state.v.var_bond_kael + state.v.var_bond_mira,
   };
 }
@@ -271,6 +271,7 @@ function freshState() {
     walkline: null, walkq: [], shown: {}, log: [], logOff: 0, modeBack: 'field',
     breadPrice: 0, foxShy: false, debtFlash: -9, coinFlash: null, cold: 0, coldTarget: 0,
     doublePulse: false, kaelWarm: false, savedFlash: -9, endT: 0,
+    clues: [], clueToast: null, journalBack: 'field', journalOff: 0, pz: null,
   };
 }
 function reset() {
@@ -281,13 +282,13 @@ function reset() {
   state.breadPrice = breadPrice();
 }
 function saveGame() {
-  store('trong2_save', { map: state.map, x: state.x, v: state.v, flags: state.flags, items: state.items, party: state.party, goal: state.goal });
+  store('trong2_save', { map: state.map, x: state.x, v: state.v, flags: state.flags, items: state.items, party: state.party, goal: state.goal, clues: state.clues });
   state.savedFlash = state.t;
 }
 function loadGame() {
   const s = load('trong2_save'); if (!s) return false;
   reset();
-  Object.assign(state, { map: s.map, x: s.x, flags: s.flags || {}, items: s.items || {}, party: s.party || [], goal: s.goal });
+  Object.assign(state, { map: s.map, x: s.x, flags: s.flags || {}, items: s.items || {}, party: s.party || [], goal: s.goal, clues: s.clues || [] });
   state.v = Object.assign(freshVars(), s.v);
   state.breadPrice = breadPrice(); state.foxShy = state.v.var_eco_balance < 40;
   state.doublePulse = state.v.var_identity_revelation_stage >= 1; state.kaelWarm = state.v.var_bond_kael >= 40;
@@ -350,6 +351,10 @@ function doAction(a) {
   if (k === 'sellfox') { Story.removeItem('foxbag'); Story.add('var_lumen_gold', tune.fox_bounty); return false; }
   if (k === 'sellcore') { Story.removeItem('core'); Story.add('var_lumen_gold', tune.crab_core_value); return false; }
   if (k === 'fight') { endScene(); startFight(arg); return true; }
+  if (k === 'puzzle') { endScene(); startPuzzle(arg); return true; }
+  if (k === 'clue') { addClue(arg); return false; }
+  if (k === 'solve') { rewardPuzzle(arg); return false; }
+  if (k === 'unitem') { Story.removeItem(arg); return false; }
   if (k === 'travel') { endScene(); startTravel(arg); return true; }
   if (k === 'actend') { endScene(); startActEnd(); return true; }
   console.warn('doAction: không hiểu', a);
@@ -387,7 +392,7 @@ function dialogStep(dt) {
 function mapNow() { return S.maps[state.map]; }
 function maxX() { // thực thể có block() đúng thì chặn đường
   const m = mapNow(); let mx = m.w - 60;
-  for (const e of m.entities) if (e.block && e.block(view())) mx = Math.min(mx, e.x - 130);
+  for (const e of m.entities) if (e.block && e.block(view())) mx = Math.min(mx, e.x - (e.type === 'puzzle' ? 30 : 130)); // câu đố chặn đường thì vẫn phải đứng tới được nó
   return mx;
 }
 function near(x) { return Math.abs(state.x - x) < tune.reach; }
@@ -396,12 +401,15 @@ function interactable() {
   for (const e of mapNow().entities) {
     if (!near(e.x) || (e.when && !e.when(vw))) continue;
     if (e.type === 'puddle') return { label: S.hints.puddle, act: () => checkPuddle() };
-    if (e.type === 'pickup') return { label: S.hints[e.id], act: () => { Story.flag(e.id + '_taken'); Story.addItem(e.id); showLines(S.pickups[e.id]); } };
+    if (e.type === 'pickup') return { label: S.hints[e.id], act: () => { Story.flag(e.id + '_taken'); Story.addItem(e.item || e.id); if (e.id === 'mirror_scale') addClue('scale_glass'); showLines(S.pickups[e.id]); } };
+    if (e.type === 'pipe') return { label: S.hints.pipe, act: () => strikePipe(e.id) };
+    if (e.type === 'examine') return { label: e.label, act: () => startScene(e.scene) };
     if (e.type === 'travel') return { label: S.hints.travel, act: () => startTravel(e.to) };
     if (e.type === 'shop') return { label: `${S.hints.shop} · bánh mì ${state.breadPrice} Lumen`, act: () => startScene('bread_shop') };
     if (e.type === 'npc') return { label: S.hints[e.id], act: () => startScene(e.id) };
     if (e.type === 'optfight') return { label: S.hints[e.id], act: () => startScene(e.id + '_pre') };
     if (e.type === 'deck') return { label: S.hints.deck, act: () => startScene('deck') };
+    if (e.type === 'puzzle' && !state.flags['pz_' + e.id]) return { label: S.puzzles[e.id].label, act: () => startScene(e.id + '_pre') };
   }
   return null;
 }
@@ -409,6 +417,10 @@ function checkPuddle() { // Vũng Nước Lưu Game (handover 3.1): đếm, lưu
   Story.add('int_puddle_check_count', 1);
   const vw = view(), line = S.puddle.find(p => p.when(vw));
   saveGame();
+  if (state.map === 'chonoi' && state.clues.includes('mira_riddle') && !state.flags.mirror_puddle) { // "chỗ ai cũng soi mà chẳng ai nhìn"
+    Story.flag('mirror_puddle'); Story.addItem('mirror'); addClue('puddle_mirror');
+    showLines([line.t, ...S.puddleMirror, S.puddleSaved]); return;
+  }
   showLines([line.t, S.puddleSaved]);
   events.push({ type: 'puddle', n: state.v.int_puddle_check_count });
 }
@@ -421,6 +433,7 @@ function fieldStep(dt) {
   if (pressed('KeyP') || pressed('Escape')) { scene = 'pause'; return; }
   if (pressed('KeyL')) { state.modeBack = 'field'; state.mode = 'log'; return; }
   if (pressed('KeyI')) { openInv(); return; }
+  if (pressed('KeyJ')) { openJournal(); return; }
   let v = 0;
   if (down.has('ArrowLeft') || down.has('KeyA')) v -= tune.walk_speed;
   if (down.has('ArrowRight') || down.has('KeyD')) v += tune.walk_speed;
@@ -460,6 +473,7 @@ function travelStep(dt) {
 function invList() {
   const ids = Object.keys(state.items).filter(k => state.items[k] > 0 && S.items[k]);
   if (state.v.var_memoria_coins > 0) ids.push('memoria');
+  if (state.v.int_clue_fragments_found > 0) ids.push('fragment');
   return ids;
 }
 function openInv() { state.inv = { pick: 0, msg: null }; state.mode = 'inv'; }
@@ -667,6 +681,275 @@ function endFight() {
   else if (f.id === 'bug') { Story.flag('bugs_cleared'); Story.add('var_eco_balance', tune.eco_feed); startScene('bug_after'); }
 }
 
+// ==== CÂU ĐỐ TÌM MANH MỐI ==========================================================================
+// Màn câu đố không chứa sẵn đáp án: manh mối nằm ngoài thế giới (soi đồ, gõ ống, nghe người nói) và
+// được ghi vào Sổ manh mối (phím J). Câu đố là nơi DÙNG manh mối. Sai không bị khoá.
+// Giải xong: cờ pz_<id>, +Mảnh Phản Chiếu (int_clue_fragments_found), cảnh <id>_done.
+const PZ_BOX = { x: 220, y: 120, w: 840, h: 440 };
+const PIPE_FREQ = [262, 294, 330, 392, 440];
+const PIPE_COL = ['#e8a060', '#90d0e8', '#c8c0a8', '#e8d070', '#a8d890'];
+function playPipe(g, loud = true) { tone(PIPE_FREQ[g], 0.6, 'triangle', loud ? 0.18 : 0.1); tone(PIPE_FREQ[g] * 2, 0.4, 'sine', 0.04); }
+function drawGlyph(g, x, y, s, c, lw = 3) { // năm ký tự cổ, mỗi ký tự một dáng
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.strokeStyle = c; ctx.lineWidth = lw / s; ctx.lineCap = 'round'; ctx.beginPath();
+  if (g === 0) { ctx.moveTo(0, 14); ctx.lineTo(0, -14); ctx.moveTo(0, 2); ctx.lineTo(-9, -8); ctx.moveTo(0, -4); ctx.lineTo(9, -13); } // Lá
+  if (g === 1) { ctx.moveTo(-12, -4); ctx.quadraticCurveTo(-6, -12, 0, -4); ctx.quadraticCurveTo(6, 4, 12, -4); ctx.moveTo(-12, 8); ctx.quadraticCurveTo(-6, 0, 0, 8); ctx.quadraticCurveTo(6, 16, 12, 8); } // Sóng
+  if (g === 2) { ctx.moveTo(-4, -14); ctx.lineTo(-4, 6); ctx.quadraticCurveTo(-4, 14, 4, 14); ctx.quadraticCurveTo(11, 14, 10, 6); } // Móc
+  if (g === 3) { ctx.moveTo(-13, 0); ctx.quadraticCurveTo(0, -12, 13, 0); ctx.quadraticCurveTo(0, 12, -13, 0); ctx.moveTo(2, 0); ctx.lineTo(-2, 0); } // Mắt
+  if (g === 4) { ctx.moveTo(0, 14); ctx.lineTo(0, 0); ctx.lineTo(-10, -13); ctx.moveTo(0, 0); ctx.lineTo(10, -13); } // Chạc
+  ctx.stroke(); ctx.restore();
+}
+
+// ---- Sổ manh mối ----
+function addClue(id) {
+  if (!S.clues[id] || state.clues.includes(id)) return;
+  state.clues.push(id); state.clueToast = { t: state.t, text: S.clueToast(S.clues[id].title) }; sfx.pen();
+  events.push({ type: 'clue', id }); Bus.emit('clue', id);
+}
+function clueText(id) {
+  const c = S.clues[id];
+  return c.glyph !== undefined ? `Khắc ký tự ${S.glyphs[c.glyph]}. Gõ vào ngân một nốt.` : c.text;
+}
+function openJournal() { state.journalBack = state.mode; state.journalOff = 0; state.mode = 'journal'; }
+function journalStep() {
+  if (pressed('KeyJ') || pressed('Escape') || pressed('KeyQ')) { state.mode = state.journalBack || 'field'; return; }
+  if (pressed('ArrowUp')) state.journalOff = Math.max(0, state.journalOff - 1);
+  if (pressed('ArrowDown')) state.journalOff = Math.min(Math.max(0, state.clues.length - 1), state.journalOff + 1);
+}
+function drawJournal() {
+  if (state.journalBack === 'puzzle' && state.pz) drawPuzzle(); else drawWorld();
+  ctx.fillStyle = 'rgba(6,4,10,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#e8dcc0'; ctx.fillRect(160, 60, W - 320, H - 120); // trang giấy
+  ctx.strokeStyle = '#8a7050'; ctx.lineWidth = 2; ctx.strokeRect(160, 60, W - 320, H - 120);
+  text(S.ui.journal, W / 2, 92, 24, '#4a3420');
+  text(S.ui.journalHint, W / 2, H - 82, 14, '#7a6040');
+  if (!state.clues.length) { text(S.ui.journalEmpty, W / 2, H / 2, 17, '#6a5038', 'center', 'italic '); return; }
+  let y = 130, group = null;
+  for (const id of state.clues.slice(state.journalOff)) {
+    const c = S.clues[id];
+    if (y > H - 120) break;
+    if (c.group !== group) { group = c.group; text(group, 200, y, 15, '#9a5a30', 'left', 'italic '); y += 24; }
+    let x = 216;
+    if (c.glyph !== undefined) { drawGlyph(c.glyph, 228, y + 8, 0.9, '#4a3420', 2.5); x = 256; }
+    text(c.title, x, y, 17, '#3a2818', 'left');
+    for (const ln of wrap(clueText(id), W - 360 - (x - 216), 15)) { y += 21; text(ln, x, y, 15, '#5a4430', 'left'); }
+    y += 30;
+  }
+}
+
+// ---- Ống sắt trên bản đồ: gõ là nghe nốt và thấy ký tự; ghi vào sổ ----
+function strikePipe(id) {
+  const p = S.pipes[id];
+  playPipe(p.glyph); addClue('pipe_' + id);
+  showLines([S.pipeLine(p.place, S.glyphs[p.glyph])]);
+}
+
+// ---- Khung chung ----
+function puzzleLocked() { return false; }
+function startPuzzle(id) {
+  state.mode = 'puzzle';
+  state.pz = { id, t: 0, msg: null, msgT: 0 };
+  PUZ[id].start(state.pz);
+  events.push({ type: 'puzzle', id });
+}
+function pzMsg(t, d = 2.4) { state.pz.msg = t; state.pz.msgT = d; pushLog('', t); }
+function puzzleStep(dt) {
+  const pz = state.pz;
+  pz.t += dt; if (pz.msgT > 0) pz.msgT -= dt;
+  if (pz.solvedT !== undefined) { pz.solvedT -= dt; if (pz.solvedT <= 0) finishPuzzle(pz.id); return; }
+  if (pressed('KeyJ')) { openJournal(); return; }
+  if (pressed('KeyQ') || pressed('Escape')) { state.mode = 'field'; state.pz = null; return; }
+  PUZ[pz.id].update(pz, dt);
+}
+function solvePuzzle() { state.pz.solvedT = 1.3; sfx.chime(); }
+function rewardPuzzle(id) { // dùng chung cho câu đố có màn riêng và câu đố giải bằng cảnh thoại (cây cầu)
+  Story.flag('pz_' + id);
+  Story.add('int_clue_fragments_found', tune.pz_fragment);
+  events.push({ type: 'puzzleDone', id });
+  saveGame();
+}
+function finishPuzzle(id) { state.pz = null; state.mode = 'field'; rewardPuzzle(id); startScene(id + '_done'); }
+const PUZ = {};
+
+// ---- Cửa Đá Hát: ghép thứ tự ký tự từ câu khắc trên cửa và các ống sắt rải khắp thung lũng ----
+PUZ.song = {
+  start(pz) {
+    pz.cur = 0; pz.input = []; pz.lit = -1; pz.litT = 0; pz.wrongT = 0; pz.fails = 0;
+    if (state.flags.fox_fed && !state.foxShy && !state.clues.includes('fox_hum')) { // cáo được chia bánh: ngân nốt đầu và nốt cuối
+      addClue('fox_hum'); pzMsg(S.puzzles.song.foxHum, 3.2);
+      const a = S.puzzles.song.answer; playPipe(a[0], false); tone(PIPE_FREQ[a[a.length - 1]], 0.6, 'triangle', 0.1, 0.6); // nốt thứ hai lên lịch bằng Web Audio, không dùng timer
+    }
+  },
+  update(pz, dt) {
+    const P = S.puzzles.song, order = P.doorOrder;
+    pz.litT -= dt; if (pz.litT <= 0) pz.lit = -1;
+    if (pz.wrongT > 0) { pz.wrongT -= dt; return; }
+    if (pressed('ArrowLeft') || pressed('KeyA')) { pz.cur = (pz.cur + order.length - 1) % order.length; sfx.blip(); }
+    if (pressed('ArrowRight') || pressed('KeyD')) { pz.cur = (pz.cur + 1) % order.length; sfx.blip(); }
+    if ((pressed('KeyX') || pressed('Backspace')) && pz.input.length) { pz.input.pop(); sfx.blip(); }
+    const dg = digitPressed(order.length);
+    const k = dg ? dg - 1 : (pressed('KeyE') || pressed('Space') || pressed('Enter')) ? pz.cur : -1;
+    if (k < 0) return;
+    pz.cur = k; const g = order[k];
+    playPipe(g); pz.lit = g; pz.litT = 0.4; pz.input.push(g);
+    if (pz.input.length < P.answer.length) return;
+    if (pz.input.every((x, i) => x === P.answer[i])) { solvePuzzle(); return; }
+    pz.fails++; pz.wrongT = 1.2; pz.input = []; tone(110, 0.7, 'sine', 0.2);
+    pzMsg(pz.fails >= 2 && state.party.includes('linh') ? P.nudge : P.wrong, 3);
+  },
+  draw(pz) {
+    const B = PZ_BOX, cx = B.x + B.w / 2, P = S.puzzles.song;
+    ctx.fillStyle = '#5a5048';
+    ctx.beginPath(); ctx.moveTo(cx - 220, B.y + 380); ctx.lineTo(cx - 220, B.y + 150); ctx.quadraticCurveTo(cx, B.y + 50, cx + 220, B.y + 150); ctx.lineTo(cx + 220, B.y + 380); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#3a342e'; ctx.lineWidth = 3; ctx.stroke();
+    wrap(P.verse, 400, 14, 'italic ').forEach((l, i) => text(l, cx, B.y + 112 + i * 18, 14, '#d8ccb4', 'center', 'italic '));
+    P.doorOrder.forEach((g, i) => { // năm ký tự trên mặt cửa
+      const gx = cx - 160 + i * 80, gy = B.y + 220, on = pz.lit === g;
+      ctx.fillStyle = i === pz.cur ? 'rgba(240,199,106,0.18)' : 'rgba(0,0,0,0.15)'; ctx.fillRect(gx - 30, gy - 34, 60, 68);
+      if (on) glow(PIPE_COL[g], 18);
+      drawGlyph(g, gx, gy, 1.4, on ? PIPE_COL[g] : '#cfc4ac', 3.5); noglow();
+      if (i === pz.cur) { ctx.strokeStyle = '#f0c76a'; ctx.lineWidth = 2; ctx.strokeRect(gx - 30, gy - 34, 60, 68); }
+      text(`${i + 1}`, gx, gy + 48, 14, '#a89880');
+    });
+    for (let i = 0; i < P.answer.length; i++) { // bốn ô nốt đã gõ
+      const sx = cx - 120 + i * 80, sy = B.y + 330;
+      ctx.strokeStyle = pz.wrongT > 0 ? '#c86060' : '#8a7a68'; ctx.lineWidth = 2; ctx.strokeRect(sx - 24, sy - 24, 48, 48);
+      if (pz.input[i] !== undefined) drawGlyph(pz.input[i], sx, sy, 1, '#f0e0b0', 3);
+    }
+    text('Nốt đã gõ', cx - 190, B.y + 330, 14, '#a89880', 'right');
+    if (state.flags.fox_fed && !state.foxShy) drawEchoFox(B.x + 80, B.y + B.h - 30, 1.3, 1, state.t);
+  },
+};
+
+// ---- Khoá gương Chợ Đen: tìm 2 tấm gương bị giấu, đặt vào đúng hốc, xoay để hai tia trúng hai ổ ----
+function lightTrace(rows, st) {
+  const H = rows.length, W = rows[0].length, hit = new Set(), seen = new Set(), segs = [];
+  let sx = 0, sy = 0; rows.forEach((r, y) => { const x = r.indexOf('S'); if (x >= 0) { sx = x; sy = y; } });
+  const q = [[sx, sy, 1, 0]];
+  while (q.length) {
+    let [x, y, dx, dy] = q.pop();
+    for (let n = 0; n < 200; n++) {
+      const px = x, py = y; x += dx; y += dy;
+      if (x < 0 || y < 0 || x >= W || y >= H) { segs.push([px, py, px + dx * 0.5, py + dy * 0.5]); break; }
+      const k = `${x},${y},${dx},${dy}`; if (seen.has(k)) break; seen.add(k);
+      const c = rows[y][x];
+      if (c === '#') { segs.push([px, py, x - dx * 0.5, y - dy * 0.5]); break; }
+      segs.push([px, py, x, y]);
+      if (c === 'A' || c === 'B') { hit.add(c); break; }
+      const m = st[`${x},${y}`];
+      if ((c === 'm' || c === 'o') && m) [dx, dy] = m === '/' ? [-dy, -dx] : [dy, dx];
+      if (c === 'P') { q.push([x, y, dy, dx]); [dx, dy] = [-dy, -dx]; }
+    }
+  }
+  return { segs, hit };
+}
+function lightSolve(rows, K) { // Mira tự giải để bán gợi ý: gương có sẵn xoay 2 chiều, hốc trống đặt tối đa K gương
+  const ms = [], os = [], need = rows.join('').match(/[AB]/g) || [];
+  rows.forEach((r, y) => [...r].forEach((c, x) => { if (c === 'm') ms.push(`${x},${y}`); if (c === 'o') os.push(`${x},${y}`); }));
+  let found = null;
+  const rec = (i, st, used) => {
+    if (found) return;
+    if (i === ms.length + os.length) { const h = lightTrace(rows, st).hit; if (need.every(t => h.has(t))) found = { ...st }; return; }
+    if (i < ms.length) { for (const v of ['/', '\\']) rec(i + 1, { ...st, [ms[i]]: v }, used); return; }
+    rec(i + 1, st, used);
+    if (used < K) for (const v of ['/', '\\']) rec(i + 1, { ...st, [os[i - ms.length]]: v }, used + 1);
+  };
+  rec(0, {}, 0);
+  if (!found) console.error('Khoá gương không có lời giải');
+  return found || {};
+}
+function lightLoad(pz) {
+  const P = S.puzzles.light;
+  pz.rows = P.rows; pz.sol = lightSolve(P.rows, P.needMirrors); pz.st = {}; pz.hintKey = null;
+  P.rows.forEach((r, y) => [...r].forEach((c, x) => { const k = `${x},${y}`; if (c === 'm') pz.st[k] = pz.sol[k] === '/' ? '\\' : '/'; })); // gương có sẵn bắt đầu sai chiều
+  pz.cx = 2; pz.cy = 0;
+  pz.tr = lightTrace(pz.rows, pz.st);
+}
+function mirrorsPlaced(pz) { return pz.rows.reduce((n, r, y) => n + [...r].filter((c, x) => c === 'o' && pz.st[`${x},${y}`]).length, 0); }
+PUZ.light = {
+  start(pz) {
+    lightLoad(pz);
+    const have = state.items.mirror || 0;
+    if (have < S.puzzles.light.needMirrors) pzMsg(S.puzzles.light.missing(have), 3.5);
+  },
+  update(pz) {
+    const H = pz.rows.length, W = pz.rows[0].length, have = state.items.mirror || 0;
+    if (pressed('ArrowLeft') || pressed('KeyA')) pz.cx = (pz.cx + W - 1) % W;
+    if (pressed('ArrowRight') || pressed('KeyD')) pz.cx = (pz.cx + 1) % W;
+    if (pressed('ArrowUp') || pressed('KeyW')) pz.cy = (pz.cy + H - 1) % H;
+    if (pressed('ArrowDown') || pressed('KeyS')) pz.cy = (pz.cy + 1) % H;
+    const key = `${pz.cx},${pz.cy}`, c = pz.rows[pz.cy][pz.cx];
+    if (pressed('KeyE') || pressed('Space') || pressed('Enter')) {
+      if (c === 'm' || (c === 'o' && pz.st[key])) { pz.st[key] = pz.st[key] === '/' ? '\\' : '/'; sfx.blip(); }
+      else if (c === 'o') {
+        if (mirrorsPlaced(pz) < have) { pz.st[key] = '/'; sfx.pick(); }
+        else pzMsg(S.puzzles.light.missing(have), 2.4);
+      }
+      if (pz.hintKey === key) pz.hintKey = null;
+    }
+    if (pressed('KeyX') && c === 'o' && pz.st[key]) { delete pz.st[key]; sfx.blip(); }
+    if (pressed('KeyH')) { // Mira chỉ ra một chỗ sai: gương có sẵn sai chiều, hoặc hốc nên/không nên có gương
+      const all = new Set([...Object.keys(pz.sol), ...Object.keys(pz.st).filter(k => pz.rows[+k.split(',')[1]][+k.split(',')[0]] === 'o')]);
+      const wrong = [...all].find(k => pz.st[k] !== pz.sol[k]);
+      if (wrong) {
+        if (state.v.var_lumen_gold >= tune.light_hint_cost) { Story.add('var_lumen_gold', -tune.light_hint_cost); pzMsg(S.puzzles.light.hint(tune.light_hint_cost), 3); }
+        else pzMsg(S.puzzles.light.poor, 3);
+        pz.hintKey = wrong;
+      }
+    }
+    pz.tr = lightTrace(pz.rows, pz.st);
+    const need = pz.rows.join('').match(/[AB]/g) || [];
+    if (need.every(t => pz.tr.hit.has(t))) { Story.removeItem('mirror', S.puzzles.light.needMirrors); sfx.calm(); solvePuzzle(); }
+  },
+  draw(pz) {
+    const B = PZ_BOX, H = pz.rows.length, W = pz.rows[0].length, cs = Math.min(56, Math.floor((B.h - 110) / H));
+    const ox = B.x + B.w / 2 - W * cs / 2, oy = B.y + 70, cxy = (x, y) => [ox + x * cs + cs / 2, oy + y * cs + cs / 2];
+    const mirror = (mx, my, d, dir) => { ctx.strokeStyle = '#a88850'; ctx.lineWidth = 9; ctx.beginPath(); if (dir === '/') { ctx.moveTo(mx - d, my + d); ctx.lineTo(mx + d, my - d); } else { ctx.moveTo(mx - d, my - d); ctx.lineTo(mx + d, my + d); } ctx.stroke(); ctx.strokeStyle = '#e8f4fc'; ctx.lineWidth = 4; ctx.stroke(); };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const c = pz.rows[y][x], X = ox + x * cs, Y = oy + y * cs, [mx, my] = cxy(x, y), k = `${x},${y}`;
+      ctx.fillStyle = (x + y) % 2 ? '#2e2a34' : '#34303a'; ctx.fillRect(X, Y, cs, cs);
+      if (pz.hintKey === k) { ctx.fillStyle = `rgba(240,199,106,${0.25 + 0.2 * Math.sin(state.t * 8)})`; ctx.fillRect(X + 2, Y + 2, cs - 4, cs - 4); }
+      if (c === '#') { ctx.fillStyle = '#16121a'; ctx.fillRect(X + 3, Y + 3, cs - 6, cs - 6); }
+      if (c === 'S') { const b = beat(state.t); glow('#ffd0a0', 20); ctx.fillStyle = '#ffd8a8'; ctx.beginPath(); ctx.moveTo(mx, my - 14 - 3 * b); ctx.lineTo(mx + 12, my); ctx.lineTo(mx, my + 14 + 3 * b); ctx.lineTo(mx - 12, my); ctx.closePath(); ctx.fill(); noglow(); }
+      if (c === 'A' || c === 'B') { const on = pz.tr.hit.has(c); if (on) glow('#ffd890', 18); ctx.strokeStyle = on ? '#ffd890' : '#a88850'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(mx, my, cs * 0.3, 0, Math.PI * 2); ctx.stroke(); noglow(); ctx.fillStyle = on ? '#ffe8b0' : '#2a2220'; ctx.beginPath(); ctx.arc(mx, my - 4, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(mx - 2.5, my - 2, 5, 11); }
+      if (c === 'P') { glow('#c8f0ff', 12); ctx.fillStyle = 'rgba(200,240,255,0.8)'; ctx.beginPath(); ctx.moveTo(mx, my - cs * 0.32); ctx.lineTo(mx + cs * 0.3, my + cs * 0.24); ctx.lineTo(mx - cs * 0.3, my + cs * 0.24); ctx.closePath(); ctx.fill(); noglow(); }
+      if (c === 'o') { ctx.strokeStyle = '#6a5a40'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.strokeRect(X + 8, Y + 8, cs - 16, cs - 16); ctx.setLineDash([]); } // hốc trống
+      if ((c === 'm' || c === 'o') && pz.st[k]) mirror(mx, my, cs * 0.32, pz.st[k]);
+    }
+    glow('#ffd8a0', 14); ctx.strokeStyle = 'rgba(255,226,170,0.95)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    for (const [x1, y1, x2, y2] of pz.tr.segs) { const [a1, b1] = cxy(x1, y1), [a2, b2] = cxy(x2, y2); ctx.beginPath(); ctx.moveTo(a1, b1); ctx.lineTo(a2, b2); ctx.stroke(); }
+    noglow();
+    ctx.strokeStyle = '#f0c76a'; ctx.lineWidth = 2; ctx.strokeRect(ox + pz.cx * cs + 2, oy + pz.cy * cs + 2, cs - 4, cs - 4);
+    const have = state.items.mirror || 0, left = Math.max(0, have - mirrorsPlaced(pz));
+    text(`Gương trong túi: ${left}`, B.x + 30, B.y + 40, 16, '#d8ccb4', 'left');
+    for (let i = 0; i < left; i++) mirror(B.x + 200 + i * 30, B.y + 40, 9, '/');
+  },
+};
+function drawPuzzle() {
+  const pz = state.pz, P = S.puzzles[pz.id], B = PZ_BOX;
+  drawWorld();
+  ctx.fillStyle = 'rgba(6,4,10,0.6)'; ctx.fillRect(0, 0, W, H);
+  panel(B.x, B.y, B.w, B.h, 0.95);
+  text(P.title, B.x + B.w / 2, B.y + 22, 20, '#f0c76a');
+  PUZ[pz.id].draw(pz);
+  text(P.help, W / 2, B.y + B.h + 24, 15, '#cfc4ac');
+  if (pz.msg && pz.msgT > 0) { ctx.font = `17px ${FONT}`; const tw = Math.min(W - 80, ctx.measureText(pz.msg).width); panel(W / 2 - tw / 2 - 20, 40, tw + 40, 40, 0.92); text(pz.msg, W / 2, 60, 17, '#f4ead4'); }
+  if (pz.solvedT !== undefined) { ctx.fillStyle = `rgba(255,220,160,${0.25 * (1.3 - pz.solvedT)})`; ctx.fillRect(B.x, B.y, B.w, B.h); }
+}
+function drawPuzzleProp(id, x, gy, done) {
+  if (id === 'song') { ctx.fillStyle = done ? '#2a2420' : '#5a5048'; ctx.beginPath(); ctx.moveTo(x - 40, gy); ctx.lineTo(x - 40, gy - 80); ctx.quadraticCurveTo(x, gy - 120, x + 40, gy - 80); ctx.lineTo(x + 40, gy); ctx.closePath(); ctx.fill(); if (!done) for (let i = 0; i < 3; i++) drawGlyph(S.puzzles.song.doorOrder[i], x - 20 + i * 20, gy - 70, 0.45, '#a89880', 2); }
+  if (id === 'light') { ctx.fillStyle = '#1e1a20'; ctx.fillRect(x - 36, gy - 110, 72, 110); ctx.strokeStyle = '#a88850'; ctx.lineWidth = 3; ctx.strokeRect(x - 36, gy - 110, 72, 110); glow('#ffd890', done ? 16 : 6); ctx.fillStyle = done ? '#ffe8b0' : '#6a5a40'; ctx.fillRect(x - 3, gy - 70, 6, 18); noglow(); if (done) { ctx.fillStyle = '#0c0a10'; ctx.fillRect(x - 30, gy - 104, 60, 104); } }
+}
+function drawPipe(id, x, gy) { // ống sắt dựng đứng, khắc ký tự
+  const g = S.pipes[id].glyph, known = state.clues.includes('pipe_' + id);
+  ctx.fillStyle = '#6e5a4a'; ctx.fillRect(x - 7, gy - 70, 14, 70); ctx.fillStyle = '#4a3a30'; ctx.fillRect(x - 10, gy - 76, 20, 8);
+  drawGlyph(g, x, gy - 40, 0.5, known ? '#f0d8a0' : '#a08868', 2);
+}
+function drawQuietHill(x, gy) { ctx.fillStyle = '#4e3a30'; ctx.beginPath(); ctx.moveTo(x - 70, gy); ctx.lineTo(x - 30, gy - 60); ctx.lineTo(x + 10, gy - 52); ctx.lineTo(x + 40, gy - 70); ctx.lineTo(x + 70, gy); ctx.closePath(); ctx.fill(); }
+function drawBridge(x, gy, done) {
+  ctx.fillStyle = '#120c0c'; ctx.fillRect(x - 40, gy, 80, 60);
+  ctx.fillStyle = done ? '#8a6a50' : '#4a3a30'; ctx.fillRect(x - 90, gy - 6, done ? 180 : 70, 8); if (!done) { ctx.save(); ctx.translate(x + 50, gy - 2); ctx.rotate(0.25); ctx.fillRect(-20, -4, 60, 8); ctx.restore(); }
+}
+
 // ---- Hết Hồi 1 ----------------------------------------------------------------------------------
 function startActEnd() { state.endT = 0; state.gained = S.actEnd.title; scene = 'results'; events.push({ type: 'actEnd' }); }
 function actEndLines() { return S.actEnd.lines.map(f => f(view())).filter(Boolean); }
@@ -777,18 +1060,23 @@ function drawEntities(cam) {
   const m = mapNow(), gy = m.ground, vw = view();
   for (const e of m.entities) {
     const x = e.x - cam; if (x < -260 || x > W + 260) continue;
+    if (e.id === 'bridge') { drawBridge(x, gy, !!state.flags.pz_bridge); continue; }
     if (e.when && !e.when(vw) && e.type !== 'boss') continue;
     if (e.type === 'puddle') drawPuddle(x, gy + 10);
     else if (e.id === 'cocoon') drawCocoon(x, gy);
     else if (e.id === 'campfire') drawCampfire(x, gy, state.map === 'phelieu');
     else if (e.type === 'creature' && e.id === 'echofox') drawEchoFox(x, gy, 1.1, -1, state.t);
-    else if (e.type === 'pickup') drawEgg(x, gy - 8, 1, state.t);
+    else if (e.type === 'pickup' && e.id === 'egg') drawEgg(x, gy - 8, 1, state.t);
     else if (e.type === 'boss') drawCrab(x, gy, 1, state.t, { calm: state.flags.crab_spared, dead: state.flags.crab_killed, half: state.flags.crab_warmed, linh: !state.flags.crab_done });
     else if (e.id === 'scale') drawScale(x, gy, 1, state.t, state.flags.flag_scale_exploded);
     else if (e.type === 'shop') drawBreadStall(x, gy);
     else if (e.type === 'npc' && e.id === 'vex') drawVex(x, gy, 1, -1, state.t);
     else if (e.type === 'optfight') { for (let i = 0; i < 3; i++) drawBug(x - 30 + i * 30, gy + 6, 0.8, state.t + i); }
     else if (e.type === 'travel') drawWhaleSign(x, gy);
+    else if (e.type === 'puzzle') drawPuzzleProp(e.id, x, gy, !!state.flags['pz_' + e.id]);
+    else if (e.type === 'pipe') drawPipe(e.id, x, gy);
+    else if (e.id === 'quiet') drawQuietHill(x, gy);
+    else if (e.type === 'pickup' && e.id === 'mirror_scale') { glow('#e8f4fc', 10); ctx.fillStyle = '#e8f4fc'; ctx.fillRect(x - 8, gy - 4, 16, 3); noglow(); }
   }
 }
 function drawPuddle(x, y) { // vũng nước mưa trên đá phát quang; lạnh đi khi tha hoá cao
@@ -1042,6 +1330,7 @@ function drawHUD() {
   text(mapNow().name, W - 24, 30, 17, '#f4ead4', 'right');
   if (S.goals[state.goal]) text(`${S.ui.goal}: ${S.goals[state.goal]}`, W - 24, 56, 15, '#d8ccb4', 'right');
   if (state.t - state.savedFlash < 1.6) text('Đã lưu', W / 2, 92, 15, '#a8d8a0');
+  if (state.clueToast && state.t - state.clueToast.t < 2.6) { ctx.save(); ctx.globalAlpha = Math.min(1, (2.6 - (state.t - state.clueToast.t)) * 2); const tt = `${state.clueToast.text}  (J)`; ctx.font = `italic 16px ${FONT}`; const tw = ctx.measureText(tt).width; ctx.fillStyle = 'rgba(14,12,20,0.78)'; ctx.fillRect(W / 2 - tw / 2 - 14, 103, tw + 28, 30); text(tt, W / 2, 118, 16, '#f0dca0', 'center', 'italic '); ctx.restore(); } // nền tối: không chìm vào quầng Lõi Nhịp Tim
   if (state.mode === 'field') {
     const it = interactable();
     if (it) {
@@ -1096,7 +1385,7 @@ function drawInv() {
   const list = invList(), iv = state.inv;
   if (!list.length) { text(S.ui.invEmpty, W / 2, H / 2, 18, '#b8b0a0'); return; }
   list.forEach((id, i) => {
-    const n = id === 'memoria' ? state.v.var_memoria_coins : state.items[id];
+    const n = id === 'memoria' ? state.v.var_memoria_coins : id === 'fragment' ? state.v.int_clue_fragments_found : state.items[id];
     text(`${S.items[id].name}${n > 1 ? ' ×' + n : ''}`, 160, 170 + i * 32, 18, i === iv.pick ? '#f0c76a' : '#ece2cc', 'left');
   });
   const it = S.items[list[iv.pick]];
@@ -1268,12 +1557,16 @@ const scenes = {
       else if (state.mode === 'travel') travelStep(dt);
       else if (state.mode === 'inv') invStep();
       else if (state.mode === 'log') logStep();
+      else if (state.mode === 'puzzle') puzzleStep(dt);
+      else if (state.mode === 'journal') journalStep();
     },
     draw() {
       if (state.mode === 'fight') { drawFight(); return; }
       if (state.mode === 'travel') { drawTravel(); return; }
       if (state.mode === 'inv') { drawInv(); return; }
       if (state.mode === 'log') { drawLog(); return; }
+      if (state.mode === 'puzzle') { drawPuzzle(); return; }
+      if (state.mode === 'journal') { drawJournal(); return; }
       drawWorld(); drawWalkline(); drawHUD();
       if (state.mode === 'dialog') drawDialog();
     },
@@ -1341,6 +1634,7 @@ window.game = {
 reset();
 scene = params.get('scene') || 'title';
 if (params.get('map')) { scene = 'play'; state.map = params.get('map'); state.x = Number(params.get('x')) || 600; state.party = ['linh', 'kael', 'mira']; state.flags.flag_scale_exploded = true; } // ?map=chonoi&x=900: xem một vùng (chỉ để thử)
+if (params.get('puzzle')) { scene = 'play'; if (params.get('puzzle') === 'light') { state.map = 'chonoi'; state.x = 930; } if (params.get('mirrors')) state.items.mirror = +params.get('mirrors'); startPuzzle(params.get('puzzle')); } // ?puzzle=light: vào thẳng câu đố để thử
 if (params.get('fight')) { scene = 'play'; if (params.get('fight') === 'bug') state.party = ['linh', 'kael', 'mira']; startFight(params.get('fight')); } // ?fight=crab: vào thẳng màn né để thử
 last = clock.now();
 if (params.get('manual') === '1') drawFrame();

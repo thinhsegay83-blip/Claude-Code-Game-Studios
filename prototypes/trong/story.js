@@ -30,12 +30,21 @@ window.STORY = {
       name: 'Thung Lũng Phế Liệu · Tầng Ngoài', w: 2300, ground: 600,
       entities: [
         { x: 130, type: 'decor', id: 'cocoon' },
+        { x: 190, type: 'pipe', id: 'amber' },
         { x: 400, type: 'puddle' },
+        { x: 460, type: 'pipe', id: 'water' },
         { x: 700, type: 'auto', scene: 'fox_first', once: 'fox_seen' },
         { x: 760, type: 'creature', id: 'echofox', when: s => !s.flags.fox_fed && !s.flags.fox_caught },
+        { x: 840, type: 'puzzle', id: 'song' },                                           // tuỳ chọn
         { x: 1000, type: 'pickup', id: 'egg', when: s => !s.flags.egg_taken },
+        { x: 1080, type: 'pipe', id: 'egg' },
         { x: 1150, type: 'auto', scene: 'crab_pre', once: 'crab_seen' },
         { x: 1300, type: 'boss', id: 'crab', block: s => !s.flags.crab_done },
+        { x: 1390, type: 'pipe', id: 'fire' },
+        { x: 1470, type: 'decor', id: 'quiet' },
+        { x: 1470, type: 'examine', scene: 'quiet_hill', label: 'Đứng nghe đồi sắt', when: s => !s.clues.includes('quiet_hill') },
+        { x: 1530, type: 'pipe', id: 'quiet' },
+        { x: 1640, type: 'examine', scene: 'bridge_look', label: 'Xem cây cầu sắt gãy', id: 'bridge', when: s => !s.flags.pz_bridge }, // tuỳ chọn
         { x: 1750, type: 'auto', scene: 'kael_mira', once: 'met_kael' },
         { x: 1850, type: 'decor', id: 'campfire' },
         { x: 2180, type: 'travel', to: 'chonoi', when: s => s.flags.met_kael },
@@ -46,8 +55,10 @@ window.STORY = {
       entities: [
         { x: 230, type: 'auto', scene: 'scale_pre', once: 'scale_seen' },
         { x: 330, type: 'decor', id: 'scale', block: s => !s.flags.flag_scale_exploded },
+        { x: 285, type: 'pickup', id: 'mirror_scale', item: 'mirror', when: s => s.flags.flag_scale_exploded && !s.flags.mirror_scale_taken },
         { x: 560, type: 'puddle' },
         { x: 820, type: 'shop', id: 'bread' },
+        { x: 960, type: 'puzzle', id: 'light', block: s => !s.flags.pz_light },             // bắt buộc: khoá Chợ Đen
         { x: 1100, type: 'npc', id: 'vex' },
         { x: 1420, type: 'optfight', id: 'bug', when: s => !s.flags.bugs_cleared },
         { x: 1700, type: 'deck' },
@@ -116,11 +127,95 @@ window.STORY = {
       desc: s => s.flags.flag_kept_royal_egg ? 'Quấn trong khăn quàng của cậu, Linh giữ hộ. Tiếng chuông bên trong mỗi ngày một rõ.' : 'Vỏ còn ấm. Áp tai vào thấy tiếng chuông ngân khe khẽ, như có ai đang tập hát.', // guessed
     },
     core: { name: 'Lõi Lửa', desc: () => 'Cục than hồng to bằng nắm tay, vẫn còn ấm. Ở chợ người ta trả 200 Lumen cho thứ này.' }, // guessed
+    fragment: { // handover: Mảnh Phản Chiếu (int_clue_fragments_found 0–12); nguồn trong Hồi 1 là các câu đố [guessed]
+      name: 'Mảnh Phản Chiếu',
+      desc: s => `${s.v.int_clue_fragments_found} mảnh kính nhỏ, sắc cạnh. Soi vào mỗi mảnh thấy một khuôn mặt hơi khác: mảnh nào cũng giống cậu, mà không mảnh nào hoàn toàn là cậu.`, // guessed
+    },
+    shard: {
+      name: 'Mảnh Sắt Hình Móc',
+      desc: () => 'Mảnh sắt gỉ gỡ ra từ khớp càng con cua. Một đầu cong như cái móc, đầu kia khắc ba vạch thẳng, đều nhau, như ai đó đánh dấu cho khỏi lẫn.', // guessed
+    },
+    mirror: {
+      name: 'Tấm Gương Nhỏ',
+      desc: () => 'Gương phẳng, vừa lòng bàn tay. Soi vào thấy Lõi Nhịp Tim đang đập.', // guessed
+    },
     foxbag: { name: 'Túi Vải', desc: () => 'Một túi vải đang run. Thỉnh thoảng nó nhại lại tiếng tim cậu.' }, // guessed
   },
 
   // ---- Cảnh -----------------------------------------------------------------------------------
   scenes: {
+    // ---- Câu đố tìm manh mối: bối cảnh và phần thưởng ----
+    song_pre: [
+      { w: 'nar', when: s => !s.flags.song_seen, t: '(Một cánh cửa đá liền vào vách sắt, không bản lề, không tay nắm. Mặt cửa khắc năm ký tự, và một dòng chữ chạy vòng theo mép cửa:)' },
+      { w: 'nar', when: s => !s.flags.song_seen, t: '"Bắt đầu nơi hổ phách vỡ, xuống chỗ nước nằm, ghé nơi sắt im tiếng, dừng ở chỗ lửa thở."' },
+      { w: 'nar', when: s => !s.flags.song_seen, t: '(Chạm vào ký tự nào, ký tự ấy ngân một nốt. Quanh cửa không có ống sắt nào. Chúng ở đâu đó trong thung lũng.)' },
+      { do: 'clue:door_verse' }, { do: 'flag:song_seen' },
+      { do: 'puzzle:song' },
+    ],
+    song_done: [
+      { w: 'nar', t: '(Bốn nốt ngân nối thành một câu hát. Cánh cửa đá trượt sang một bên. Trên mặt đá bên trong, những chữ cổ sáng lên rồi tắt:)' },
+      { w: 'nar', t: '"Mừng cậu về nhà."' }, // handover Hồi 2: cửa khoá 300 năm tự mở và hiện dòng này; gieo trước ở Hồi 1
+      { w: 'nar', t: '(Trong hốc đá trống trơn, chỉ có một mảnh kính nhỏ, và một vết lõm vừa khít bàn tay cậu.)' }, // guessed
+    ],
+    quiet_hill: [
+      { w: 'nar', t: '(Một đồi sắt vụn cao ngang vai. Gió lùa qua, mà không có tiếng kêu nào. Như sắt ở đây đã quên cách kêu.)' }, // guessed
+      { w: 'linh', f: 'think', when: s => s.party.includes('linh'), t: 'Lạ thật. Sắt mà im thế này, tôi chưa nghe bao giờ.' },
+      { do: 'clue:quiet_hill' },
+    ],
+    bridge_look: [
+      { w: 'nar', when: s => !s.clues.includes('bridge_pin'), t: '(Một cây cầu sắt gãy ngang khe vực. Bên kia mép có ánh gì lấp lánh.)' },
+      { w: 'nar', when: s => !s.clues.includes('bridge_pin'), t: '(Ở chân cầu bên này có một lỗ chốt trống. Chốt phải là một thanh sắt hình móc. Quanh lỗ khắc ba vạch thẳng, như để đánh dấu đúng cái chốt.)' },
+      { do: 'clue:bridge_pin' },
+      { w: 'nar', t: '(Cậu thử dùng gì?)' },
+      { c: [
+        { t: '[Lắp mảnh sắt hình móc vào lỗ chốt]', when: s => s.has.shard, fx: [], go: 'bridge_shard' },
+        { t: '[Nhét Tờ Khế Ước Trắng vào lỗ chốt]', when: s => s.has.deed, fx: [], go: 'bridge_no_deed' },
+        { t: '[Chèn mẩu bánh mì vào]', when: s => s.has.bread, fx: [], go: 'bridge_no_bread' },
+        { t: '[Đặt quả trứng vào]', when: s => s.has.egg, fx: [], go: 'bridge_no_egg' },
+        { t: '[Dùng Lõi Lửa làm chốt]', when: s => s.has.core, fx: [], go: 'bridge_no_core' },
+        { t: '[Thôi]', fx: [], go: 'bridge_leave' },
+      ] },
+    ],
+    bridge_no_deed: [{ w: 'nar', t: '(Một tờ giấy không chống được cả cây cầu. Dù trông nó có vẻ muốn thử.)' }],
+    bridge_no_bread: [{ w: 'nar', t: '(Bánh mì không phải chốt sắt. Bụng cậu đồng ý, cây cầu thì không.)' }],
+    bridge_no_egg: [{ w: 'nar', t: '(Quả trứng ngân lên một tiếng nghe rất giống "đừng". Cậu cất nó lại.)' }],
+    bridge_no_core: [{ w: 'nar', t: '(Lõi Lửa nóng quá, cầm sát lỗ chốt đã thấy rát tay. Nó không phải cái chốt. Nhưng có khi lại dùng được vào việc khác.)' }],
+    bridge_leave: [{ w: 'nar', t: '(Cậu đứng nhìn cây cầu thêm một lúc.)' }],
+    bridge_shard: [
+      { w: 'nar', t: '(Mảnh sắt trượt vào lỗ chốt. Ba vạch trên mảnh sắt khớp đúng ba vạch quanh lỗ. Nhưng chốt còn lỏng: phải nung cho chảy mép thì mới bám.)' },
+      { c: [
+        { t: '[Gọi con cua lò rèn]', when: s => s.flags.crab_spared, fx: [], go: 'bridge_crab' },
+        { t: '[Đốt Lõi Lửa để nung chốt]', when: s => s.has.core, fx: ['item-core'], go: 'bridge_core' },
+        { t: '[Chưa có gì đủ nóng. Để sau.]', fx: [], go: 'bridge_cold' },
+      ] },
+    ],
+    bridge_crab: [
+      { w: 'nar', t: '(Con cua lò rèn lạch bạch từ tổ ra, ngồi xuống cạnh chân cầu, mở toang cửa lò trên mai. Mép chốt đỏ lên, chảy ra, rồi bám chặt.)' }, // handover: cua cộng sinh "nung hộ quặng miễn phí"
+      { w: 'nar', t: '(Xong việc, nó khép lò lại và lạch bạch về tổ. Không ai bảo nó làm thế.)' },
+      { do: 'unitem:shard' }, { do: 'solve:bridge' }, { go: 'bridge_done' },
+    ],
+    bridge_core: [
+      { w: 'nar', t: '(Cậu áp Lõi Lửa vào chân cầu. Than hồng sáng rực một lần cuối, mép chốt chảy ra rồi bám chặt. Lõi Lửa nguội thành một cục đá xám. Vex sẽ không trả đồng nào cho nó nữa.)' },
+      { do: 'unitem:shard' }, { do: 'solve:bridge' }, { go: 'bridge_done' },
+    ],
+    bridge_cold: [
+      { w: 'nar', t: s => s.flags.crab_killed ? '(Cần một cái lò. Cái lò gần nhất... đã tắt.)' : '(Cần một cái lò thật nóng. Cậu nhìn quanh thung lũng.)' },
+    ],
+    bridge_done: [
+      { w: 'nar', t: '(Cây cầu đỡ được cậu. Bên kia mép vực, giữa đám sắt vụn, là một mảnh kính nhỏ.)' },
+    ],
+    light_pre: [
+      { w: 'nar', when: s => !s.flags.light_seen, t: '(Cổng Chợ Đen là một cánh cửa gỗ đen, không có ổ khoá nào cho chìa. Chỉ có một bàn đá với những tấm gương nhỏ xoay được, và một khe hứng ánh sáng Lõi Nhịp Tim.)' },
+      { w: 'mira', f: 'think', when: s => !s.flags.light_seen, t: 'Khoá gương của Thương Đoàn. Dẫn ánh sáng vào đúng hai lỗ khoá là cửa mở.' }, // handover: Mira dùng Lumen kích hoạt bẫy quang học
+      { w: 'mira', f: 'think', when: s => !s.flags.light_seen, t: 'Nhưng bàn này thiếu hai tấm gương. Có kẻ đã gỡ đi để khỏi ai vào. Thương Đoàn hay giấu gương dự phòng ở chỗ ai cũng soi mà chẳng ai nhìn.' }, // guessed
+      { w: 'mira', f: 'neutral', when: s => !s.flags.light_seen, t: 'À, và nhớ: ánh sáng phải qua lăng kính rồi mới chia đôi được. Hai lỗ khoá, hai đường sáng.' }, // guessed
+      { do: 'clue:lock_mirrors' }, { do: 'clue:mira_riddle' }, { do: 'clue:mira_prism' }, { do: 'flag:light_seen' },
+      { do: 'puzzle:light' },
+    ],
+    light_done: [
+      { w: 'nar', t: '(Hai tia sáng chạm hai lỗ khoá cùng một lúc. Cánh cửa gỗ đen thở ra một hơi dài, rồi mở.)' },
+      { w: 'mira', f: 'neutral', t: 'Nhanh hơn tôi tưởng. ...Kẹt ở khe cửa có mảnh kính này, chắc của cậu.' }, // guessed
+    ],
     wake: [
       { w: 'nar', t: '(Một tiếng nứt khô khốc. Lớp hổ phách quanh người cậu vỡ ra như vỏ trứng.)' },
       { w: 'nar', t: '(Bầu trời không ở trên đầu. Bầu trời ở khắp nơi: những lục địa mọc ngược, những khu rừng phát quang treo lơ lửng, và ở chính giữa là một mặt trời đang đập như tim.)' },
@@ -167,12 +262,16 @@ window.STORY = {
       { w: 'nar', when: s => s.flags.crab_warmed, t: '(Trên lớp mai đá xù xì của nó vẫn còn vết khắc nguệch ngoạc từ rất lâu: "Đừng chạm vào, coi chừng phỏng tay nhé.")' }, // handover
       { w: 'nar', when: s => s.flags.crab_warmed, t: '(Nét chữ ấy... nhìn quen quen.)' }, // guessed: chưa lộ thân phận ở Hồi 1
       { w: 'nar', when: s => !s.flags.crab_warmed, t: '(Rồi nó lùi về đống sắt, nằm xuống, cửa lò trên mai vẫn mở toang. Nó không còn giận. Nó chỉ chưa tin ai.)' }, // guessed
+      { w: 'nar', t: '(Cậu giữ lại mảnh sắt gỉ. Một đầu cong như cái móc, đầu kia khắc ba vạch.)' },
+      { do: 'item:shard' }, { do: 'clue:shard_marks' },
       { go: 'linh_bandage' },
     ],
     crab_killed: [
       { w: 'nar', t: '(Con cua sụp xuống. Ngọn lửa trên mai tắt dần, để lại một cục than hồng to bằng nắm tay: Lõi Lửa.)' },
       { w: 'nar', t: '(Trên lớp mai còn một vết khắc nguệch ngoạc: "Đừng chạm vào, coi chừng phỏng tay nhé." Giờ thì chẳng còn gì để phỏng tay nữa.)' }, // guessed variant of the handover carving
       { w: 'linh', f: 'sad', t: '...Nó chỉ đau thôi mà.' }, // guessed
+      { w: 'nar', t: '(Cậu rút mảnh sắt gỉ ra khỏi khớp càng. Một đầu cong như cái móc, đầu kia khắc ba vạch.)' },
+      { do: 'item:shard' }, { do: 'clue:shard_marks' },
       { go: 'linh_bandage' },
     ],
     linh_bandage: [
@@ -389,18 +488,75 @@ window.STORY = {
     },
   },
 
+  // ---- Câu đố tìm manh mối (dữ liệu; engine ở index.html) -----------------------------------
+  // Luật: màn câu đố không chứa sẵn đáp án. Manh mối nằm ngoài thế giới (soi đồ, gõ ống, nghe người
+  // nói) và được ghi vào Sổ manh mối (phím J). Sai không bị khoá; đi tìm thêm rồi quay lại.
+  // Thưởng mỗi câu: +1 Mảnh Phản Chiếu. Rương người thợ cũ và Cân Thử để lượt sau.
+  glyphs: ['Lá', 'Sóng', 'Móc', 'Mắt', 'Chạc'],
+  pipes: { // năm ống sắt rải khắp Thung Lũng; mỗi ống khắc một ký tự, ngân một nốt
+    amber: { glyph: 0, place: 'kén hổ phách vỡ' },
+    water: { glyph: 1, place: 'vũng nước mưa' },
+    quiet: { glyph: 2, place: 'đồi sắt im tiếng' },
+    fire: { glyph: 3, place: 'lò của con cua' },
+    egg: { glyph: 4, place: 'chỗ quả trứng nằm' },
+  },
+  pipeLine: (place, g) => `(Một ống sắt dựng đứng cạnh ${place}. Cậu gõ thử: nó ngân một nốt, ngân rất lâu. Trên thân ống khắc một ký tự hình ${g}.)`,
+  puzzles: {
+    song: {
+      label: 'Xem cánh cửa đá', title: 'Cửa Đá Hát',
+      help: 'Mũi tên: chọn ký tự · E: gõ · X: xoá nốt cuối · J: Sổ manh mối · Q: thôi',
+      verse: 'Bắt đầu nơi hổ phách vỡ, xuống chỗ nước nằm, ghé nơi sắt im tiếng, dừng ở chỗ lửa thở.', // guessed
+      doorOrder: [3, 0, 4, 1, 2], // năm ký tự trên mặt cửa, xếp lộn để không lộ thứ tự
+      answer: [0, 1, 2, 3],       // Lá (kén) → Sóng (vũng nước) → Móc (đồi im) → Mắt (lò cua); Chạc (trứng) là ống mồi
+      wrong: 'Cửa ngân một tiếng trầm, như thở dài. Các ký tự tắt hết.',
+      nudge: 'Linh: "Câu khắc trên cửa nói đi theo đường nào ấy nhỉ? Mở sổ ra xem đi."', // guessed
+      foxHum: 'Con hồ ly bốn tai ngồi trước cửa, ngân hai nốt: nốt đầu và nốt cuối của một bài hát nó từng nghe ở đây.', // guessed
+    },
+    light: {
+      label: 'Ổ khoá tia sáng ở cổng Chợ Đen', title: 'Khoá Gương Chợ Đen',
+      help: 'Mũi tên: chọn ô · E: đặt / xoay gương · X: nhấc gương khỏi hốc · H: nhờ Mira (Lumen) · J: Sổ · Q: thôi',
+      // S nguồn sáng · m gương có sẵn (xoay được) · o hốc trống (đặt gương tìm được) · P lăng kính · # vách · A, B ổ khoá
+      // Đã kiểm bằng bộ giải: đặt đúng 2 gương vào 2 trong 4 hốc → đúng 1 lời giải.
+      rows: ['S.m.#..', '.......', 'o.P.m.o', '......#', '..o.o.A', 'B......'],
+      needMirrors: 2,
+      missing: n => `Trên bàn đá còn hốc gương trống, mà trong túi cậu mới có ${n} tấm gương.`,
+      hint: c => `Mira gẩy bàn tính: "Chỗ sáng kia sai rồi. ${c} Lumen, tôi ghi sổ."`,
+      poor: 'Mira: "Hết tiền thì thôi, lần này tôi chỉ không lấy tiền. Chỉ lần này thôi đấy."',
+    },
+  },
+  clues: { // Sổ manh mối: mỗi manh mối một mục
+    door_verse: { group: 'Cửa Đá Hát', title: 'Câu khắc trên cửa đá', text: '"Bắt đầu nơi hổ phách vỡ, xuống chỗ nước nằm, ghé nơi sắt im tiếng, dừng ở chỗ lửa thở."' },
+    pipe_amber: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh kén hổ phách vỡ', glyph: 0 },
+    pipe_water: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh vũng nước mưa', glyph: 1 },
+    pipe_quiet: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh đồi sắt im tiếng', glyph: 2 },
+    pipe_fire: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh lò của con cua', glyph: 3 },
+    pipe_egg: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh chỗ quả trứng nằm', glyph: 4 },
+    quiet_hill: { group: 'Cửa Đá Hát', title: 'Đồi sắt im tiếng', text: 'Gió lùa qua đồi sắt sau lò con cua mà không có tiếng kêu nào.' },
+    fox_hum: { group: 'Cửa Đá Hát', title: 'Hồ ly ngân hai nốt', text: 'Nốt đầu là nốt của ký tự Lá, nốt cuối là nốt của ký tự Mắt.' },
+    bridge_pin: { group: 'Cây cầu gãy', title: 'Lỗ chốt ở chân cầu', text: 'Chốt phải là một thanh sắt hình móc. Quanh lỗ khắc ba vạch thẳng.' },
+    shard_marks: { group: 'Cây cầu gãy', title: 'Mảnh sắt gỡ từ càng cua', text: 'Một đầu cong như cái móc, đầu kia khắc ba vạch thẳng.' },
+    lock_mirrors: { group: 'Khoá Chợ Đen', title: 'Bàn gương thiếu gương', text: 'Ổ khoá có hốc gương trống. Thiếu hai tấm gương.' },
+    mira_riddle: { group: 'Khoá Chợ Đen', title: 'Mira nói về gương dự phòng', text: '"Thương Đoàn hay giấu gương dự phòng ở chỗ ai cũng soi mà chẳng ai nhìn."' },
+    mira_prism: { group: 'Khoá Chợ Đen', title: 'Mira nói về lăng kính', text: '"Ánh sáng phải qua lăng kính rồi mới chia đôi được. Hai lỗ khoá, hai đường sáng."' },
+    scale_glass: { group: 'Khoá Chợ Đen', title: 'Mặt kính cân vỡ', text: 'Một tấm kính của Cân Định Giá còn nguyên, phẳng, soi được: một tấm gương.' },
+    puddle_mirror: { group: 'Khoá Chợ Đen', title: 'Dưới đáy vũng nước', text: 'Dưới đáy vũng nước ở Chợ Nổi có một tấm gương ai đó giấu. Chỗ ai cũng soi, mà chẳng ai nhìn.' },
+  },
+  clueToast: t => `Ghi vào sổ: ${t}`,
+  puddleMirror: ['Lần này cậu không nhìn mặt mình. Cậu nhìn xuống đáy.', 'Dưới lớp nước nông có một tấm gương nhỏ, ai đó giấu ở đây. Chỗ ai cũng soi, mà chẳng ai nhìn.'], // guessed
+
   goals: {
     valley: 'Tìm đường ra khỏi thung lũng', cliff: 'Lên vách đá, chỗ có khói bếp', ship: 'Lên lưng Kình Ngư ở cuối thung lũng',
     camp: 'Tìm chỗ đốt lửa ở mũi tàu', sleep: 'Ngủ bên lửa trại',
   },
 
   pickups: {
+    mirror_scale: ['Giữa đống kính vỡ của chiếc cân có một tấm còn nguyên, phẳng như mặt nước. Cậu nhặt lên.', 'Soi vào thấy Lõi Nhịp Tim. Và một nửa mặt cậu.'], // guessed
     egg: ['Một quả trứng to bằng nắm tay, nằm lọt giữa hai thanh sắt. Vỏ còn ấm. Bên trong có tiếng chuông ngân khe khẽ.', 'Quanh đó không có tổ, chỉ có một vệt kéo lê và dấu chân cua. Cậu bọc nó vào vạt áo.'], // guessed: handover không nói trứng ở đâu ra
   },
 
   hints: {
-    puddle: 'Cúi nhìn vũng nước', travel: 'Lên lưng Kình Ngư', shop: 'Sạp bánh', vex: 'Sạp của Vex',
-    bug: 'Gỡ Bọ Ký Sinh', deck: 'Áp tay lên sàn gỗ', sleep: 'Ngủ bên lửa trại', egg: 'Nhặt quả trứng ấm',
+    puddle: 'Cúi nhìn vũng nước', puzzleDone: 'Đã xong', travel: 'Lên lưng Kình Ngư', shop: 'Sạp bánh', vex: 'Sạp của Vex',
+    bug: 'Gỡ Bọ Ký Sinh', deck: 'Áp tay lên sàn gỗ', sleep: 'Ngủ bên lửa trại', egg: 'Nhặt quả trứng ấm', mirror_scale: 'Nhặt tấm kính còn nguyên', pipe: 'Gõ ống sắt',
   },
 
   // ---- Màn kết Hồi 1: thế giới ghi lại những gì về cậu (không có con số) -----------------
@@ -412,6 +568,7 @@ window.STORY = {
       s => s.flags.crab_spared ? (s.flags.crab_warmed ? 'Một con cua già khép lò lại một nửa mỗi khi có ai ngồi cạnh.' : 'Một con cua già nằm nghỉ, càng không còn mảnh sắt.') : 'Ở Thung Lũng Phế Liệu, một cái lò đã tắt.',
       s => s.flags.flag_kept_royal_egg ? 'Trong khăn quàng của cậu, một quả trứng đang tập hát.' : s.flags.flag_sold_royal_egg ? 'Trong túi Linh có hai đồng xu. Kaelen chưa nói lại câu nào với cậu.' : null,
       s => s.flags.flag_kael_knows_onion ? 'Kaelen đã biết cậu không ăn hành.' : null,
+      s => s.v.int_clue_fragments_found > 0 ? `Trong túi cậu có ${s.v.int_clue_fragments_found} Mảnh Phản Chiếu. Chưa mảnh nào khớp hẳn với mặt cậu.` : null,
       s => `Mira định giá cậu: 0 Lumen.`,
       s => s.v.var_identity_revelation_stage >= 1 ? 'Trong ngực cậu có hai nhịp tim.' : null,
     ],
@@ -421,10 +578,11 @@ window.STORY = {
   ui: {
     title: 'TRONG', sub: 'Kẻ đang được cậu điều khiển thực sự là ai?',
     start: 'Enter: bắt đầu', cont: 'C: chơi tiếp chỗ đã lưu',
-    controls: ['A/D hoặc mũi tên: đi · E: tương tác', 'Space: lời tiếp theo · phím số: chọn', 'I: túi đồ · L: nhật ký · P: tạm dừng · M: tắt tiếng', 'Trong màn né: mũi tên để né · Shift: đi chậm'],
+    controls: ['A/D hoặc mũi tên: đi · E: tương tác', 'Space: lời tiếp theo · phím số: chọn', 'I: túi đồ · J: sổ manh mối · L: nhật ký · P: tạm dừng · M: tắt tiếng', 'Trong màn né: mũi tên để né · Shift: đi chậm'],
     lumen: 'Lumen', memoria: 'Xu Ký Ức', goal: 'Việc đang làm', debt: n => `Sổ xanh của Linh: nợ ${n} Lumen`,
     paused: 'Tạm dừng', speed: 'Tốc độ chữ', speedHint: 'Mũi tên trái, phải: đổi tốc độ chữ', resume: 'P: chơi tiếp',
     log: 'Nhật ký lời thoại', logHint: 'L: đóng · Mũi tên lên, xuống: cuộn',
+    journal: 'Sổ manh mối', journalHint: 'J: đóng · Mũi tên lên, xuống: cuộn', journalEmpty: '(Chưa ghi gì. Soi đồ vật, gõ thử, hỏi người khác.)',
     inv: 'Túi đồ', invHint: 'Mũi tên: chọn · E: dùng · I: đóng', invEmpty: '(Trống.)', cleanse: 'E: Bóp vỡ / Thanh Tẩy', eat: 'E: Ăn',
     advance: 'Space', choose: 'Phím số, hoặc mũi tên rồi Enter',
     hp: 'Máu', resonance: 'Cộng hưởng', rage: 'Giận', hpBoss: 'Máu', left: n => `Còn ${n} con`, survive: n => `Chịu thêm ${n} giây`,
