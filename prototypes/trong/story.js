@@ -27,7 +27,7 @@ window.STORY = {
   //   block(s): đúng thì người chơi không đi qua được x này
   maps: {
     phelieu: {
-      name: 'Thung Lũng Phế Liệu · Tầng Ngoài', w: 2300, ground: 600,
+      name: 'Thung Lũng Phế Liệu · Tầng Ngoài', w: 2900, ground: 600,
       entities: [
         { x: 130, type: 'decor', id: 'cocoon' },
         { x: 190, type: 'pipe', id: 'amber' },
@@ -47,7 +47,15 @@ window.STORY = {
         { x: 1640, type: 'examine', scene: 'bridge_look', label: 'Xem cây cầu sắt gãy', id: 'bridge', when: s => !s.flags.pz_bridge }, // tuỳ chọn
         { x: 1750, type: 'auto', scene: 'kael_mira', once: 'met_kael' },
         { x: 1850, type: 'decor', id: 'campfire' },
-        { x: 2180, type: 'travel', to: 'chonoi', when: s => s.flags.met_kael },
+        // Rương người thợ cũ: câu đố dùng đủ Bốn cách hỏi (Nghe · Định giá · Vọng lại · Soi)
+        { x: 2000, type: 'inspect', id: 'forge' },
+        { x: 2090, type: 'inspect', id: 'belt' },
+        { x: 2170, type: 'inspect', id: 'pool_dark' },
+        { x: 2280, type: 'inspect', id: 'pile_rust' },
+        { x: 2380, type: 'inspect', id: 'pile_gear' },
+        { x: 2480, type: 'inspect', id: 'pile_copper' },
+        { x: 2580, type: 'inspect', id: 'pile_beam' },
+        { x: 2780, type: 'travel', to: 'chonoi', when: s => s.flags.met_kael },
       ],
     },
     chonoi: {
@@ -76,6 +84,7 @@ window.STORY = {
       { x: 260, t: 'Ngẩng lên không thấy trời. Chỉ thấy đất, ở rất xa, uốn cong lên rồi treo ngược trên đầu.' },
       { x: 560, t: 'Ở chính giữa, một mặt trời đang đập. Chậm, đều, như tim ai đó đang ngủ.' },
       { x: 1500, when: s => s.flags.crab_done, t: 'Phía trên vách đá có khói bếp. Và mùi nấm.' },
+      { x: 1960, t: 'Một xưởng rèn bỏ hoang. Ai đó đã rời đi rất vội.' },
     ],
     chonoi: [
       { x: 0, t: 'Sàn gỗ dưới chân cậu thở. Cả khu chợ đang nằm trên lưng một con cá voi.' },
@@ -183,6 +192,7 @@ window.STORY = {
     bridge_leave: [{ w: 'nar', t: '(Cậu đứng nhìn cây cầu thêm một lúc.)' }],
     bridge_shard: [
       { w: 'nar', t: '(Mảnh sắt trượt vào lỗ chốt. Ba vạch trên mảnh sắt khớp đúng ba vạch quanh lỗ. Nhưng chốt còn lỏng: phải nung cho chảy mép thì mới bám.)' },
+      { do: 'clue:need_heat' },
       { c: [
         { t: '[Gọi con cua lò rèn]', when: s => s.flags.crab_spared, fx: [], go: 'bridge_crab' },
         { t: '[Đốt Lõi Lửa để nung chốt]', when: s => s.has.core, fx: ['item-core'], go: 'bridge_core' },
@@ -204,6 +214,14 @@ window.STORY = {
     bridge_done: [
       { w: 'nar', t: '(Cây cầu đỡ được cậu. Bên kia mép vực, giữa đám sắt vụn, là một mảnh kính nhỏ.)' },
     ],
+    chest_done: [
+      { w: 'nar', t: '(Mọi mảnh ghép khớp lại. Cậu bới đống ống đồng. Dưới cùng là một hộp thiếc móp méo, khoá đã gỉ đứt từ lâu.)' },
+      { w: 'nar', t: '(Trong hộp có ít Lumen cũ, một chiếc búa nhỏ bọc vải, và một mảnh kính sắc cạnh. Soi vào, cậu thấy mặt mình, nhưng già hơn một chút.)' }, // guessed
+      { w: 'linh', f: 'awe', when: s => s.party.includes('linh'), t: 'Ba trăm năm mà vẫn còn. Ông ấy chắc mong ai đó tìm thấy lắm.' }, // guessed
+      { w: 'mira', f: 'think', when: s => s.party.includes('mira'), t: 'Lumen đời cũ, vẫn tiêu được. Còn cái mảnh kính kia... tôi không định giá được. Lạ thật.' }, // guessed
+      { do: 'gain:40' },
+    ],
+    ask_leave: [],
     light_pre: [
       { w: 'nar', when: s => !s.flags.light_seen, t: '(Cổng Chợ Đen là một cánh cửa gỗ đen, không có ổ khoá nào cho chìa. Chỉ có một bàn đá với những tấm gương nhỏ xoay được, và một khe hứng ánh sáng Lõi Nhịp Tim.)' },
       { w: 'mira', f: 'think', when: s => !s.flags.light_seen, t: 'Khoá gương của Thương Đoàn. Dẫn ánh sáng vào đúng hai lỗ khoá là cửa mở.' }, // handover: Mira dùng Lumen kích hoạt bẫy quang học
@@ -254,6 +272,7 @@ window.STORY = {
       { w: 'nar', t: '(Dưới càng nó là một cô gái đeo ống nghe đồng, ôm chặt một con cáo nhỏ.)' },
       { w: 'linh', f: 'afraid', t: 'Ê! Cậu kia! Đừng đứng nhìn! Nó không ác đâu, nó đau đấy! Có mảnh sắt kẹt trong khớp càng!' }, // guessed
       { w: 'linh', f: 'afraid', t: 'Tôi nghe được nhịp của nó. Nó sắp phun gì thì tôi hét lên cho cậu né!' }, // guessed: Linh là thợ máy thính âm
+      { do: 'clue:crab_rage' },
       { do: 'fight:crab' },
     ],
     crab_spared: [
@@ -525,23 +544,137 @@ window.STORY = {
     },
   },
   clues: { // Sổ manh mối: mỗi manh mối một mục
-    door_verse: { group: 'Cửa Đá Hát', title: 'Câu khắc trên cửa đá', text: '"Bắt đầu nơi hổ phách vỡ, xuống chỗ nước nằm, ghé nơi sắt im tiếng, dừng ở chỗ lửa thở."' },
-    pipe_amber: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh kén hổ phách vỡ', glyph: 0 },
-    pipe_water: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh vũng nước mưa', glyph: 1 },
-    pipe_quiet: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh đồi sắt im tiếng', glyph: 2 },
-    pipe_fire: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh lò của con cua', glyph: 3 },
-    pipe_egg: { group: 'Cửa Đá Hát', title: 'Ống sắt cạnh chỗ quả trứng nằm', glyph: 4 },
-    quiet_hill: { group: 'Cửa Đá Hát', title: 'Đồi sắt im tiếng', text: 'Gió lùa qua đồi sắt sau lò con cua mà không có tiếng kêu nào.' },
-    fox_hum: { group: 'Cửa Đá Hát', title: 'Hồ ly ngân hai nốt', text: 'Nốt đầu là nốt của ký tự Lá, nốt cuối là nốt của ký tự Mắt.' },
-    bridge_pin: { group: 'Cây cầu gãy', title: 'Lỗ chốt ở chân cầu', text: 'Chốt phải là một thanh sắt hình móc. Quanh lỗ khắc ba vạch thẳng.' },
-    shard_marks: { group: 'Cây cầu gãy', title: 'Mảnh sắt gỡ từ càng cua', text: 'Một đầu cong như cái móc, đầu kia khắc ba vạch thẳng.' },
-    lock_mirrors: { group: 'Khoá Chợ Đen', title: 'Bàn gương thiếu gương', text: 'Ổ khoá có hốc gương trống. Thiếu hai tấm gương.' },
-    mira_riddle: { group: 'Khoá Chợ Đen', title: 'Mira nói về gương dự phòng', text: '"Thương Đoàn hay giấu gương dự phòng ở chỗ ai cũng soi mà chẳng ai nhìn."' },
-    mira_prism: { group: 'Khoá Chợ Đen', title: 'Mira nói về lăng kính', text: '"Ánh sáng phải qua lăng kính rồi mới chia đôi được. Hai lỗ khoá, hai đường sáng."' },
-    scale_glass: { group: 'Khoá Chợ Đen', title: 'Mặt kính cân vỡ', text: 'Một tấm kính của Cân Định Giá còn nguyên, phẳng, soi được: một tấm gương.' },
-    puddle_mirror: { group: 'Khoá Chợ Đen', title: 'Dưới đáy vũng nước', text: 'Dưới đáy vũng nước ở Chợ Nổi có một tấm gương ai đó giấu. Chỗ ai cũng soi, mà chẳng ai nhìn.' },
+    door_verse: { case: 'song', title: 'Câu khắc trên cửa đá', text: '"Bắt đầu nơi hổ phách vỡ, xuống chỗ nước nằm, ghé nơi sắt im tiếng, dừng ở chỗ lửa thở."' },
+    pipe_amber: { case: 'song', title: 'Ống sắt cạnh kén hổ phách vỡ', glyph: 0 },
+    pipe_water: { case: 'song', title: 'Ống sắt cạnh vũng nước mưa', glyph: 1 },
+    pipe_quiet: { case: 'song', title: 'Ống sắt cạnh đồi sắt im tiếng', glyph: 2 },
+    pipe_fire: { case: 'song', title: 'Ống sắt cạnh lò của con cua', glyph: 3 },
+    pipe_egg: { case: 'song', title: 'Ống sắt cạnh chỗ quả trứng nằm', glyph: 4 },
+    quiet_hill: { case: 'song', title: 'Đồi sắt im tiếng', text: 'Gió lùa qua đồi sắt sau lò con cua mà không có tiếng kêu nào.' },
+    fox_hum: { case: 'song', title: 'Hồ ly ngân hai nốt', text: 'Nốt đầu là nốt của ký tự Lá, nốt cuối là nốt của ký tự Mắt.' },
+    bridge_pin: { case: 'bridge', title: 'Lỗ chốt ở chân cầu', text: 'Chốt phải là một thanh sắt hình móc. Quanh lỗ khắc ba vạch thẳng.' },
+    shard_marks: { case: 'bridge', title: 'Mảnh sắt gỡ từ càng cua', text: 'Một đầu cong như cái móc, đầu kia khắc ba vạch thẳng.' },
+    lock_mirrors: { case: 'light', title: 'Bàn gương thiếu gương', text: 'Ổ khoá có hốc gương trống. Thiếu hai tấm gương.' },
+    mira_riddle: { case: 'light', title: 'Mira nói về gương dự phòng', text: '"Thương Đoàn hay giấu gương dự phòng ở chỗ ai cũng soi mà chẳng ai nhìn."' },
+    mira_prism: { case: 'light', title: 'Mira nói về lăng kính', text: '"Ánh sáng phải qua lăng kính rồi mới chia đôi được. Hai lỗ khoá, hai đường sáng."' },
+    scale_glass: { case: 'light', title: 'Mặt kính cân vỡ', text: 'Một tấm kính của Cân Định Giá còn nguyên, phẳng, soi được: một tấm gương.' },
+    need_heat: { case: 'bridge', title: 'Chốt còn lỏng', text: 'Mảnh sắt vừa khớp lỗ chốt nhưng còn lỏng. Phải nung cho chảy mép.' },
+    // Rương người thợ cũ: mỗi manh mối có thể cho từ khoá (keys) để điền Bàn Ghép
+    forge_order: { case: 'chest', title: 'Tấm biển trên cột lò', text: '"Mọi thợ rời xưởng trước giờ khoá cổng."', keys: ['k_gate'] },
+    forge_listen: { case: 'chest', title: 'Linh nghe cái lò', text: 'Lò tắt vội. Than ở dưới còn nguyên hình cục, chưa kịp cháy hết.' },
+    forge_appraise: { case: 'chest', title: 'Mira định giá cái lò', text: 'Lò của Thương Đoàn. Đóng cửa ít nhất ba trăm năm.', keys: ['k_guild', 'k_300'] },
+    forge_echo: { case: 'chest', title: 'Hồ ly vọng lại ở lò', text: 'Một giọng khàn: "…để dưới ống đồng… nhanh lên, trước khi cổng khoá…" Rồi tiếng thiếc va vào sắt.' },
+    belt_look: { case: 'chest', title: 'Đai dụng cụ bỏ quên', text: 'Đồ nghề còn cài nguyên trên đai. Không ai bỏ đồ nghề tốt thế này, trừ khi phải chạy.', keys: ['k_belt', 'k_forgot'] },
+    belt_appraise: { case: 'chest', title: 'Mira định giá cái đai', text: 'Đai thợ rèn Thương Đoàn, kiểu khoá ba trăm năm trước. Không phải đồ thợ Chợ Nổi.', keys: ['k_guild', 'k_300', 'k_market'] },
+    pool_look: { case: 'chest', title: 'Soi vũng nước đen', text: 'Mặt nước cho thấy một buổi chiều khác: một người ôm hộp thiếc đi về phía có ánh đồng lấp lánh, rồi khuỵu xuống đào.', keys: ['k_tin'] },
+    rust_listen: { case: 'chest', title: 'Linh nghe đống tôn gỉ', text: 'Đặc. Toàn tôn đè lên tôn.' },
+    gear_listen: { case: 'chest', title: 'Linh nghe đống bánh răng', text: 'Rỗng ở dưới, nhưng có tiếng chạy lạo xạo, như chuột.', keys: ['k_rat'] },
+    gear_appraise: { case: 'chest', title: 'Mira định giá đống bánh răng', text: 'Bánh răng máy kéo, mới chừng mười năm. Không phải đồ cổ.', keys: ['k_10'] },
+    copper_listen: { case: 'chest', title: 'Linh nghe đống ống đồng', text: 'Rỗng, và có gì đó bằng thiếc nằm dưới, gõ vào kêu boong boong.' },
+    beam_listen: { case: 'chest', title: 'Linh nghe đống dầm gãy', text: 'Đặc, nứt dọc. Sắp sập.' },
+    crab_rage: { case: 'chest', title: 'Con cua nổi điên', text: 'Con cua lò rèn nổi điên vì mảnh sắt kẹt ở khớp càng.', keys: ['k_crab'] },
+    puddle_mirror: { case: 'light', title: 'Dưới đáy vũng nước', text: 'Dưới đáy vũng nước ở Chợ Nổi có một tấm gương ai đó giấu. Chỗ ai cũng soi, mà chẳng ai nhìn.' },
   },
   clueToast: t => `Ghi vào sổ: ${t}`,
+
+  // ---- Sổ 2.0: mỗi hồ sơ có câu hỏi mở; câu hỏi được trả lời khi có ít nhất một manh mối của nó ----
+  cases: {
+    song: { title: 'Cửa Đá Hát', region: 'Thung Lũng: cạnh kén, vũng nước, lò cua, đồi sắt', questions: [
+      { q: 'Cửa muốn nghe gì?', clues: ['door_verse'] },
+      { q: 'Nơi hổ phách vỡ khắc ký tự gì?', clues: ['pipe_amber'] },
+      { q: 'Chỗ nước nằm khắc ký tự gì?', clues: ['pipe_water'] },
+      { q: 'Đâu là nơi sắt im tiếng?', clues: ['quiet_hill'] },
+      { q: 'Nơi sắt im tiếng khắc ký tự gì?', clues: ['pipe_quiet'] },
+      { q: 'Chỗ lửa thở khắc ký tự gì?', clues: ['pipe_fire'] },
+    ] },
+    bridge: { title: 'Cây cầu gãy', region: 'Thung Lũng: khe vực sau lò cua', questions: [
+      { q: 'Chân cầu thiếu gì?', clues: ['bridge_pin'] },
+      { q: 'Lấy cái chốt ở đâu?', clues: ['shard_marks'] },
+      { q: 'Lấy gì nung chốt?', clues: ['need_heat'] },
+    ] },
+    chest: { title: 'Rương người thợ cũ', region: 'Thung Lũng: xưởng rèn bỏ hoang sau vách đá', board: 'chest', questions: [
+      { q: 'Ai làm ở xưởng này?', clues: ['forge_appraise', 'belt_appraise'] },
+      { q: 'Vật gì bị giấu?', clues: ['pool_look'] },
+      { q: 'Giấu dưới đống nào?', clues: ['copper_listen', 'forge_echo'] },
+      { q: 'Khi nào, vì sao vội?', clues: ['forge_order', 'belt_look'] },
+    ] },
+    light: { title: 'Khoá Gương Chợ Đen', region: 'Chợ Nổi: cổng, vũng nước, lời Mira', questions: [
+      { q: 'Bàn gương thiếu gì?', clues: ['lock_mirrors'] },
+      { q: 'Tấm gương thứ nhất ở đâu?', clues: ['scale_glass'] },
+      { q: 'Tấm gương thứ hai ở đâu?', clues: ['puddle_mirror', 'mira_riddle'] },
+      { q: 'Tia sáng phải đi thế nào?', clues: ['mira_prism'] },
+    ] },
+  },
+
+  // ---- Bốn cách hỏi thế giới: cùng một vật, hỏi khác thì ra sự thật khác ----
+  asks: {
+    listen: { name: 'Nghe', who: 'linh', label: 'Nhờ Linh áp ống nghe', need: s => s.party.includes('linh'), none: 'Đặc. Chỉ là sắt thôi, không có gì đáng nghe.' },
+    appraise: { name: 'Định giá', who: 'mira', label: 'Nhờ Mira định giá', need: s => s.party.includes('mira'), none: 'Không đáng một đồng. Đừng tốn thời gian của tôi.' },
+    echo: { name: 'Vọng lại', who: 'nar', label: 'Để hồ ly vọng lại', need: s => s.flags.fox_fed && !s.foxShy, none: '(Con hồ ly nghiêng đầu nghe, rồi im. Ở đây chưa từng có tiếng gì đáng nhớ.)' },
+    look: { name: 'Soi', who: 'nar', label: 'Soi thật kỹ', need: () => true, none: '(Cậu nhìn thật kỹ. Nó vẫn chỉ là chính nó.)' },
+  },
+  // Vật soi được: look = lần đầu nhìn (cho manh mối lookClue); asks = câu trả lời riêng theo từng cách hỏi
+  inspect: {
+    forge: { name: 'Lò rèn nguội', board: 'chest', lookClue: 'forge_order',
+      look: '(Một lò rèn bỏ hoang, than nguội từ lâu. Trên cột lò còn một tấm biển đồng mờ chữ: "Mọi thợ rời xưởng trước giờ khoá cổng.")',
+      asks: {
+        listen: { t: 'Lò này tắt vội. Than ở dưới còn nguyên hình cục, chưa kịp cháy hết.', clue: 'forge_listen' },
+        appraise: { t: 'Lò của Thương Đoàn, nhìn cái khoá cửa lò là biết. Đóng cửa ít nhất ba trăm năm rồi.', clue: 'forge_appraise' },
+        echo: { t: '(Cái đuôi chuông gió của con hồ ly rung lên, phát lại một giọng khàn, rất xa: "…để dưới ống đồng… nhanh lên, trước khi cổng khoá…" Rồi một tiếng thiếc va vào sắt.)', clue: 'forge_echo' },
+      } },
+    belt: { name: 'Đai dụng cụ', lookClue: 'belt_look',
+      look: '(Một chiếc đai da treo trên móc, đồ nghề còn cài nguyên: búa nhỏ, dùi, kìm. Ai lại bỏ quên đồ nghề còn tốt thế này?)',
+      asks: {
+        appraise: { t: 'Đai thợ rèn Thương Đoàn, có dấu xưởng. Kiểu khoá đai này thôi làm từ ba trăm năm trước. Không phải đồ thợ Chợ Nổi đâu.', clue: 'belt_appraise' },
+        listen: { t: 'Trong túi đai có tiếng lạch cạch. ...À, chỉ là đinh.' },
+      } },
+    pool_dark: { name: 'Vũng nước đen', look: '(Một vũng nước đen, phẳng lì, nằm dưới mái xưởng. Không gợn.)',
+      asks: {
+        look: { t: '(Cậu cúi xuống soi. Mặt nước không phản chiếu cậu. Nó phản chiếu một buổi chiều khác: một người ôm hộp thiếc, vội vã đi về phía có ánh đồng lấp lánh, rồi khuỵu xuống đào.)', clue: 'pool_look' },
+        listen: { t: 'Nước đọng. Không có gì ở dưới, nông lắm.' },
+      } },
+    pile_rust: { name: 'Đống tôn gỉ đỏ', key: 'k_prust', look: '(Một đống tôn gỉ đỏ quạch, cao ngang ngực.)',
+      asks: { listen: { t: 'Đặc. Toàn tôn đè lên tôn.', clue: 'rust_listen' }, appraise: { t: 'Tôn vụn. Bán cân cũng không ai mua.' } } },
+    pile_gear: { name: 'Đống bánh răng', key: 'k_pgear', look: '(Một đống bánh răng to nhỏ, có cái còn bóng dầu.)',
+      asks: { listen: { t: 'Rỗng ở dưới! ...Ơ, có tiếng chạy lạo xạo. Chuột thì phải.', clue: 'gear_listen' }, appraise: { t: 'Bánh răng máy kéo. Mới lắm, chừng mười năm. Không phải đồ cổ.', clue: 'gear_appraise' } } },
+    pile_copper: { name: 'Đống ống đồng', key: 'k_pcopper', look: '(Một đống ống đồng xếp chéo nhau, ánh đồng lấp lánh dưới Lõi Nhịp Tim.)',
+      asks: { listen: { t: 'Rỗng. Và có gì đó bằng thiếc nằm dưới, gõ vào kêu boong boong.', clue: 'copper_listen' }, appraise: { t: 'Ống đồng không gỉ. Ai chôn đồ dưới này thì biết lựa chỗ.' } } },
+    pile_beam: { name: 'Đống dầm gãy', key: 'k_pbeam', look: '(Mấy cây dầm sắt gãy chồng lên nhau.)',
+      asks: { listen: { t: 'Đặc, nứt dọc. Sắp sập đấy, đừng đứng gần.', clue: 'beam_listen' } } },
+  },
+
+  // ---- Từ khoá cho Bàn Ghép: kind quyết định ô nào nhận được ----
+  keywords: {
+    k_guild: { t: 'Thương Đoàn', kind: 'ai' }, k_market: { t: 'Chợ Nổi', kind: 'ai' },
+    k_tin: { t: 'hộp thiếc', kind: 'vat' }, k_belt: { t: 'đai dụng cụ', kind: 'vat' }, k_rat: { t: 'ổ chuột', kind: 'vat' },
+    k_prust: { t: 'đống tôn gỉ', kind: 'noi' }, k_pgear: { t: 'đống bánh răng', kind: 'noi' }, k_pcopper: { t: 'đống ống đồng', kind: 'noi' }, k_pbeam: { t: 'đống dầm gãy', kind: 'noi' },
+    k_300: { t: 'ba trăm năm', kind: 'khi' }, k_10: { t: 'mười năm', kind: 'khi' },
+    k_gate: { t: 'cổng sắp khoá', kind: 'viec' }, k_forgot: { t: 'bỏ quên cả đai dụng cụ', kind: 'viec' }, k_crab: { t: 'con cua nổi điên', kind: 'viec' },
+  },
+  kinds: { ai: 'Ai', vat: 'Vật', noi: 'Nơi', khi: 'Khi nào', viec: 'Chuyện gì' },
+
+  // ---- Bàn Ghép: câu chuyện bị khuyết. Xác nhận theo từng nhóm 3 ô; sai 3 lần thì bạn đồng hành gợi cách hỏi ----
+  boards: {
+    chest: {
+      title: 'Ghép lại chuyện: Rương người thợ cũ',
+      lines: [
+        ['Người thợ của ', { k: 'ai', a: 'k_guild' }, ' giấu ', { k: 'vat', a: 'k_tin' }, ' dưới ', { k: 'noi', a: 'k_pcopper' }, '.'],
+        ['Ông giấu nó ', { k: 'khi', a: 'k_300' }, ' trước, khi ', { k: 'viec', a: 'k_gate' }, ', vội đến mức ', { k: 'viec', a: 'k_forgot' }, '.'],
+      ],
+      hints: { // bậc 1: chỉ cách hỏi hoặc chỗ chưa hỏi, không bao giờ nói đáp án
+        k_guild: 'Mira: "Đồ của ai thì đưa tôi định giá. Cái lò, cái đai, cái gì cũng được."',
+        k_tin: 'Linh: "Cậu đã soi vũng nước đen dưới mái xưởng chưa? Nước ở đây nhớ dai lắm."',
+        k_pcopper: 'Linh: "Để tôi nghe từng đống. Chỗ rỗng chưa chắc là chỗ đúng đâu."',
+        k_300: 'Mira: "Bao lâu rồi thì cứ hỏi tôi. Nhìn kiểu khoá là tôi đoán được tuổi."',
+        k_gate: 'Linh: "Tấm biển đồng trên cột lò ghi gì ấy nhỉ?"',
+        k_forgot: 'Linh: "Ai lại bỏ đồ nghề còn tốt thế? Nhìn lại cái đai xem."',
+      },
+      wrong: 'Chưa khớp. Câu này vẫn có chỗ sai.',
+      right: 'Câu này khớp.',
+      sell: (c, w) => `Mira gẩy bàn tính: "Ô này là ${w}. ${c} Lumen, tôi ghi sổ."`,
+      poor: 'Mira: "Hết tiền thì tự nghĩ. Tôi không làm từ thiện. ...Lần này."',
+    },
+  },
   puddleMirror: ['Lần này cậu không nhìn mặt mình. Cậu nhìn xuống đáy.', 'Dưới lớp nước nông có một tấm gương nhỏ, ai đó giấu ở đây. Chỗ ai cũng soi, mà chẳng ai nhìn.'], // guessed
 
   goals: {
@@ -582,7 +715,7 @@ window.STORY = {
     lumen: 'Lumen', memoria: 'Xu Ký Ức', goal: 'Việc đang làm', debt: n => `Sổ xanh của Linh: nợ ${n} Lumen`,
     paused: 'Tạm dừng', speed: 'Tốc độ chữ', speedHint: 'Mũi tên trái, phải: đổi tốc độ chữ', resume: 'P: chơi tiếp',
     log: 'Nhật ký lời thoại', logHint: 'L: đóng · Mũi tên lên, xuống: cuộn',
-    journal: 'Sổ manh mối', journalHint: 'J: đóng · Mũi tên lên, xuống: cuộn', journalEmpty: '(Chưa ghi gì. Soi đồ vật, gõ thử, hỏi người khác.)',
+    journal: 'Sổ manh mối', journalHint: 'J: đóng · Mũi tên lên, xuống: chọn hồ sơ', solvedMark: 'đã giải', stillAt: r => `Còn manh mối ở: ${r}`, keysTitle: 'Từ khoá đã có', other: 'Ghi chú khác', askTitle: n => `${n}: hỏi thế nào?`, askBoard: '[Ghép lại chuyện]', askLeave: '[Thôi]', journalEmpty: '(Chưa ghi gì. Soi đồ vật, gõ thử, hỏi người khác.)',
     inv: 'Túi đồ', invHint: 'Mũi tên: chọn · E: dùng · I: đóng', invEmpty: '(Trống.)', cleanse: 'E: Bóp vỡ / Thanh Tẩy', eat: 'E: Ăn',
     advance: 'Space', choose: 'Phím số, hoặc mũi tên rồi Enter',
     hp: 'Máu', resonance: 'Cộng hưởng', rage: 'Giận', hpBoss: 'Máu', left: n => `Còn ${n} con`, survive: n => `Chịu thêm ${n} giây`,

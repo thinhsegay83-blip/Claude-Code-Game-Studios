@@ -248,7 +248,7 @@ function wireListeners() {
 function view() {
   const has = {}; for (const k in state.items) has[k] = state.items[k] > 0;
   return {
-    flags: state.flags, v: state.v, has, party: state.party, breadPrice: state.breadPrice, clues: state.clues,
+    flags: state.flags, v: state.v, has, party: state.party, breadPrice: state.breadPrice, clues: state.clues, keys: state.keys, foxShy: state.foxShy,
     bondSum: state.v.var_bond_linh + state.v.var_bond_kael + state.v.var_bond_mira,
   };
 }
@@ -271,7 +271,8 @@ function freshState() {
     walkline: null, walkq: [], shown: {}, log: [], logOff: 0, modeBack: 'field',
     breadPrice: 0, foxShy: false, debtFlash: -9, coinFlash: null, cold: 0, coldTarget: 0,
     doublePulse: false, kaelWarm: false, savedFlash: -9, endT: 0,
-    clues: [], clueToast: null, journalBack: 'field', journalOff: 0, pz: null,
+    clues: [], clueToast: null, journalBack: 'field', journalSel: 0, pz: null,
+    keys: [], boardFill: {}, boardLock: {}, boardFails: {},
   };
 }
 function reset() {
@@ -282,13 +283,13 @@ function reset() {
   state.breadPrice = breadPrice();
 }
 function saveGame() {
-  store('trong2_save', { map: state.map, x: state.x, v: state.v, flags: state.flags, items: state.items, party: state.party, goal: state.goal, clues: state.clues });
+  store('trong2_save', { map: state.map, x: state.x, v: state.v, flags: state.flags, items: state.items, party: state.party, goal: state.goal, clues: state.clues, keys: state.keys, boardFill: state.boardFill, boardLock: state.boardLock, boardFails: state.boardFails });
   state.savedFlash = state.t;
 }
 function loadGame() {
   const s = load('trong2_save'); if (!s) return false;
   reset();
-  Object.assign(state, { map: s.map, x: s.x, flags: s.flags || {}, items: s.items || {}, party: s.party || [], goal: s.goal, clues: s.clues || [] });
+  Object.assign(state, { map: s.map, x: s.x, flags: s.flags || {}, items: s.items || {}, party: s.party || [], goal: s.goal, clues: s.clues || [], keys: s.keys || [], boardFill: s.boardFill || {}, boardLock: s.boardLock || {}, boardFails: s.boardFails || {} });
   state.v = Object.assign(freshVars(), s.v);
   state.breadPrice = breadPrice(); state.foxShy = state.v.var_eco_balance < 40;
   state.doublePulse = state.v.var_identity_revelation_stage >= 1; state.kaelWarm = state.v.var_bond_kael >= 40;
@@ -353,6 +354,8 @@ function doAction(a) {
   if (k === 'fight') { endScene(); startFight(arg); return true; }
   if (k === 'puzzle') { endScene(); startPuzzle(arg); return true; }
   if (k === 'clue') { addClue(arg); return false; }
+  if (k === 'look') { const o = S.inspect[arg]; Story.flag('seen_' + arg); if (o.lookClue) addClue(o.lookClue); if (o.key) addKey(o.key); return false; }
+  if (k === 'gain') { Story.add('var_lumen_gold', Number(arg)); return false; }
   if (k === 'solve') { rewardPuzzle(arg); return false; }
   if (k === 'unitem') { Story.removeItem(arg); return false; }
   if (k === 'travel') { endScene(); startTravel(arg); return true; }
@@ -404,6 +407,7 @@ function interactable() {
     if (e.type === 'pickup') return { label: S.hints[e.id], act: () => { Story.flag(e.id + '_taken'); Story.addItem(e.item || e.id); if (e.id === 'mirror_scale') addClue('scale_glass'); showLines(S.pickups[e.id]); } };
     if (e.type === 'pipe') return { label: S.hints.pipe, act: () => strikePipe(e.id) };
     if (e.type === 'examine') return { label: e.label, act: () => startScene(e.scene) };
+    if (e.type === 'inspect') return { label: `Xem ${S.inspect[e.id].name}`, act: () => startScene('ask_' + e.id) };
     if (e.type === 'travel') return { label: S.hints.travel, act: () => startTravel(e.to) };
     if (e.type === 'shop') return { label: `${S.hints.shop} · bánh mì ${state.breadPrice} Lumen`, act: () => startScene('bread_shop') };
     if (e.type === 'npc') return { label: S.hints[e.id], act: () => startScene(e.id) };
@@ -699,41 +703,12 @@ function drawGlyph(g, x, y, s, c, lw = 3) { // năm ký tự cổ, mỗi ký t�
   ctx.stroke(); ctx.restore();
 }
 
-// ---- Sổ manh mối ----
+// ---- Sổ manh mối: ghi manh mối (và từ khoá của nó) ----
 function addClue(id) {
   if (!S.clues[id] || state.clues.includes(id)) return;
-  state.clues.push(id); state.clueToast = { t: state.t, text: S.clueToast(S.clues[id].title) }; sfx.pen();
+  state.clues.push(id); (S.clues[id].keys || []).forEach(addKey);
+  state.clueToast = { t: state.t, text: S.clueToast(S.clues[id].title) }; sfx.pen();
   events.push({ type: 'clue', id }); Bus.emit('clue', id);
-}
-function clueText(id) {
-  const c = S.clues[id];
-  return c.glyph !== undefined ? `Khắc ký tự ${S.glyphs[c.glyph]}. Gõ vào ngân một nốt.` : c.text;
-}
-function openJournal() { state.journalBack = state.mode; state.journalOff = 0; state.mode = 'journal'; }
-function journalStep() {
-  if (pressed('KeyJ') || pressed('Escape') || pressed('KeyQ')) { state.mode = state.journalBack || 'field'; return; }
-  if (pressed('ArrowUp')) state.journalOff = Math.max(0, state.journalOff - 1);
-  if (pressed('ArrowDown')) state.journalOff = Math.min(Math.max(0, state.clues.length - 1), state.journalOff + 1);
-}
-function drawJournal() {
-  if (state.journalBack === 'puzzle' && state.pz) drawPuzzle(); else drawWorld();
-  ctx.fillStyle = 'rgba(6,4,10,0.55)'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#e8dcc0'; ctx.fillRect(160, 60, W - 320, H - 120); // trang giấy
-  ctx.strokeStyle = '#8a7050'; ctx.lineWidth = 2; ctx.strokeRect(160, 60, W - 320, H - 120);
-  text(S.ui.journal, W / 2, 92, 24, '#4a3420');
-  text(S.ui.journalHint, W / 2, H - 82, 14, '#7a6040');
-  if (!state.clues.length) { text(S.ui.journalEmpty, W / 2, H / 2, 17, '#6a5038', 'center', 'italic '); return; }
-  let y = 130, group = null;
-  for (const id of state.clues.slice(state.journalOff)) {
-    const c = S.clues[id];
-    if (y > H - 120) break;
-    if (c.group !== group) { group = c.group; text(group, 200, y, 15, '#9a5a30', 'left', 'italic '); y += 24; }
-    let x = 216;
-    if (c.glyph !== undefined) { drawGlyph(c.glyph, 228, y + 8, 0.9, '#4a3420', 2.5); x = 256; }
-    text(c.title, x, y, 17, '#3a2818', 'left');
-    for (const ln of wrap(clueText(id), W - 360 - (x - 216), 15)) { y += 21; text(ln, x, y, 15, '#5a4430', 'left'); }
-    y += 30;
-  }
 }
 
 // ---- Ống sắt trên bản đồ: gõ là nghe nốt và thấy ký tự; ghi vào sổ ----
@@ -769,6 +744,7 @@ function rewardPuzzle(id) { // dùng chung cho câu đố có màn riêng và c�
 }
 function finishPuzzle(id) { state.pz = null; state.mode = 'field'; rewardPuzzle(id); startScene(id + '_done'); }
 const PUZ = {};
+PUZ.chest = makeBoard('chest');
 
 // ---- Cửa Đá Hát: ghép thứ tự ký tự từ câu khắc trên cửa và các ống sắt rải khắp thung lũng ----
 PUZ.song = {
@@ -925,7 +901,8 @@ PUZ.light = {
   },
 };
 function drawPuzzle() {
-  const pz = state.pz, P = S.puzzles[pz.id], B = PZ_BOX;
+  const pz = state.pz, B = PZ_BOX;
+  const P = S.puzzles[pz.id] || { title: (S.cases[pz.id] || {}).title || '', help: '' }; // Bàn Ghép không nằm trong STORY.puzzles: lấy tên hồ sơ, hướng dẫn nằm trong khung
   drawWorld();
   ctx.fillStyle = 'rgba(6,4,10,0.6)'; ctx.fillRect(0, 0, W, H);
   panel(B.x, B.y, B.w, B.h, 0.95);
@@ -948,6 +925,167 @@ function drawQuietHill(x, gy) { ctx.fillStyle = '#4e3a30'; ctx.beginPath(); ctx.
 function drawBridge(x, gy, done) {
   ctx.fillStyle = '#120c0c'; ctx.fillRect(x - 40, gy, 80, 60);
   ctx.fillStyle = done ? '#8a6a50' : '#4a3a30'; ctx.fillRect(x - 90, gy - 6, done ? 180 : 70, 8); if (!done) { ctx.save(); ctx.translate(x + 50, gy - 2); ctx.rotate(0.25); ctx.fillRect(-20, -4, 60, 8); ctx.restore(); }
+}
+
+// ==== BỐN CÁCH HỎI THẾ GIỚI + BÀN GHÉP (PUZZLE_RESEARCH.md mục 3) ===================================
+// Mỗi vật soi được (STORY.inspect) mở một menu: Nghe (Linh) · Định giá (Mira) · Vọng lại (hồ ly, chỉ
+// khi đã chia bánh) · Soi (cậu). Cùng một vật, hỏi khác thì ra sự thật khác. Câu trả lời ghi manh mối
+// và từ khoá; từ khoá dùng để điền Bàn Ghép. Cảnh menu được dựng từ dữ liệu lúc nạp game.
+function addKey(id) { if (S.keywords[id] && !state.keys.includes(id)) { state.keys.push(id); events.push({ type: 'key', id }); } }
+function buildAskScenes() {
+  for (const id in S.inspect) {
+    const o = S.inspect[id];
+    S.scenes['ask_' + id] = [
+      { w: 'nar', when: v => !v.flags['seen_' + id], t: o.look },
+      { do: 'look:' + id },
+      { c: [
+        ...Object.keys(S.asks).map(verb => ({ t: `[${S.asks[verb].label}]`, when: v => S.asks[verb].need(v), fx: [], go: `askr_${id}_${verb}` })),
+        ...(o.board ? [{ t: S.ui.askBoard, when: v => !v.flags['pz_' + o.board], fx: [], go: 'board_' + o.board }] : []),
+        { t: S.ui.askLeave, fx: [], go: 'ask_leave' },
+      ] },
+    ];
+    for (const verb in S.asks) {
+      const a = S.asks[verb], r = (o.asks || {})[verb];
+      S.scenes[`askr_${id}_${verb}`] = [
+        { w: a.who, f: 'think', t: r ? r.t : a.none },
+        ...(r && r.clue ? [{ do: 'clue:' + r.clue }] : []),
+        { go: 'ask_' + id },
+      ];
+    }
+  }
+  for (const b in S.boards) S.scenes['board_' + b] = [{ do: 'puzzle:' + b }];
+}
+
+// ---- Bàn Ghép: câu chuyện bị khuyết; xác nhận từng câu (nhóm 3 ô); không báo "gần đúng" ----
+function boardSlots(id) { const out = []; S.boards[id].lines.forEach((ln, li) => ln.forEach(p => { if (typeof p === 'object') out.push({ ...p, line: li }); })); return out; }
+function makeBoard(id) {
+  return {
+    start(pz) {
+      pz.slots = boardSlots(id); pz.sel = 0;
+      state.boardFill[id] = state.boardFill[id] || pz.slots.map(() => null);
+      state.boardLock[id] = state.boardLock[id] || S.boards[id].lines.map(() => false);
+      state.boardFails[id] = state.boardFails[id] || S.boards[id].lines.map(() => 0);
+      pz.fill = state.boardFill[id]; pz.lock = state.boardLock[id]; pz.fails = state.boardFails[id];
+      const firstOpen = pz.slots.findIndex(sl => !pz.lock[sl.line]); pz.sel = Math.max(0, firstOpen);
+    },
+    update(pz) {
+      const B = S.boards[id], n = pz.slots.length, sl = pz.slots[pz.sel];
+      const move = d => { for (let i = 1; i <= n; i++) { const j = (pz.sel + d * i + n * 2) % n; if (!pz.lock[pz.slots[j].line]) { pz.sel = j; return; } } };
+      if (pressed('ArrowDown') || pressed('KeyS') || pressed('Tab')) { move(1); sfx.blip(); }
+      if (pressed('ArrowUp') || pressed('KeyW')) { move(-1); sfx.blip(); }
+      if (pz.lock[sl.line]) return;
+      const cands = [null, ...state.keys.filter(k => S.keywords[k].kind === sl.k)];
+      const cur = Math.max(0, cands.indexOf(pz.fill[pz.sel]));
+      if (pressed('ArrowRight') || pressed('KeyD')) { pz.fill[pz.sel] = cands[(cur + 1) % cands.length]; sfx.blip(); }
+      if (pressed('ArrowLeft') || pressed('KeyA')) { pz.fill[pz.sel] = cands[(cur + cands.length - 1) % cands.length]; sfx.blip(); }
+      if (pressed('KeyH')) { // bậc 3: Mira bán đáp án đúng một ô
+        if (state.v.var_lumen_gold >= tune.light_hint_cost) {
+          Story.add('var_lumen_gold', -tune.light_hint_cost); pz.fill[pz.sel] = sl.a; addKey(sl.a);
+          pzMsg(B.sell(tune.light_hint_cost, S.keywords[sl.a].t), 3.2);
+        } else pzMsg(B.poor, 3);
+      }
+      if (pressed('Enter') || pressed('KeyE') || pressed('Space')) { // thử cả câu đang chọn
+        const idx = pz.slots.map((s, i) => i).filter(i => pz.slots[i].line === sl.line);
+        if (idx.some(i => !pz.fill[i])) { pzMsg('Còn ô trống trong câu này.', 1.8); return; }
+        if (idx.every(i => pz.fill[i] === pz.slots[i].a)) {
+          pz.lock[sl.line] = true; sfx.chime(); pzMsg(B.right, 1.8); events.push({ type: 'boardLine', id, line: sl.line });
+          if (pz.lock.every(Boolean)) { solvePuzzle(); return; }
+          move(1);
+        } else {
+          pz.fails[sl.line]++; tone(110, 0.6, 'sine', 0.2); events.push({ type: 'boardWrong', id, line: sl.line, n: pz.fails[sl.line] });
+          if (pz.fails[sl.line] >= 3) { const bad = idx.find(i => pz.fill[i] !== pz.slots[i].a); pzMsg(B.hints[pz.slots[bad].a], 4.2); } // bậc 1: gợi cách hỏi
+          else pzMsg(B.wrong, 2);
+        }
+      }
+    },
+    draw(pz) {
+      const Bx = PZ_BOX, B = S.boards[id];
+      text(B.title, Bx.x + Bx.w / 2, Bx.y + 48, 16, '#d8ccb4', 'center', 'italic ');
+      let y = Bx.y + 100; const KC = { ai: '#e8a080', vat: '#90c8e8', noi: '#a8d890', khi: '#d8b8f0', viec: '#f0d080' };
+      let si = 0;
+      B.lines.forEach((ln, li) => { // vẽ từng câu, ô trống là khung màu theo loại từ
+        let x = Bx.x + 40; const locked = pz.lock[li];
+        for (const part of ln) {
+          if (typeof part === 'string') {
+            for (const w of part.split(/(\s+)/)) { ctx.font = `19px ${FONT}`; const tw = ctx.measureText(w).width; if (x + tw > Bx.x + Bx.w - 40) { x = Bx.x + 40; y += 46; } text(w, x, y, 19, locked ? '#f0d8a0' : '#ece2cc', 'left'); x += tw; }
+          } else {
+            const i = si++; // các ô được dựng theo đúng thứ tự xuất hiện trong câu
+            const k = pz.fill[i], label = k ? S.keywords[k].t : '______';
+            ctx.font = `18px ${FONT}`; const bw = Math.max(110, ctx.measureText(label).width + 24);
+            if (x + bw > Bx.x + Bx.w - 40) { x = Bx.x + 40; y += 46; }
+            ctx.fillStyle = locked ? 'rgba(240,199,106,0.18)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(x, y - 16, bw, 32);
+            ctx.strokeStyle = i === pz.sel && !locked ? '#f0c76a' : KC[part.k]; ctx.lineWidth = i === pz.sel && !locked ? 3 : 1.5; ctx.strokeRect(x, y - 16, bw, 32);
+            text(label, x + bw / 2, y, 18, k ? '#f4ead4' : '#8a8070');
+            x += bw + 6;
+          }
+        }
+        if (locked) text(S.ui.solvedMark, Bx.x + Bx.w - 40, y, 14, '#f0c76a', 'right', 'italic ');
+        y += 70;
+      });
+      const sl = pz.slots[pz.sel]; // túi từ của loại ô đang chọn
+      const have = state.keys.filter(k => S.keywords[k].kind === sl.k);
+      text(`${S.kinds[sl.k]}:`, Bx.x + 40, Bx.y + Bx.h - 70, 15, KC[sl.k], 'left');
+      let x = Bx.x + 130;
+      for (const k of have) { const t = S.keywords[k].t; ctx.font = `15px ${FONT}`; const tw = ctx.measureText(t).width + 18; ctx.strokeStyle = KC[sl.k]; ctx.lineWidth = 1; ctx.strokeRect(x, Bx.y + Bx.h - 82, tw, 24); text(t, x + tw / 2, Bx.y + Bx.h - 70, 15, pz.fill[pz.sel] === k ? '#f0c76a' : '#d8ccb4'); x += tw + 8; }
+      if (!have.length) text('(chưa có từ nào loại này: đi hỏi thêm)', x, Bx.y + Bx.h - 70, 15, '#8a8070', 'left', 'italic ');
+      text('Lên/xuống: chọn ô · Trái/phải: đổi từ · E: thử cả câu · H: mua đáp án một ô (Mira) · J: Sổ · Q: thôi', Bx.x + Bx.w / 2, Bx.y + Bx.h - 30, 14, '#a89880');
+    },
+  };
+}
+
+// ---- Sổ 2.0: hồ sơ, câu hỏi mở, vùng còn manh mối, từ khoá ----
+function casesFound() { return Object.keys(S.cases).filter(c => state.clues.some(id => S.clues[id] && S.clues[id].case === c)); }
+function openJournal() { state.journalBack = state.mode; state.mode = 'journal'; state.journalSel = Math.min(state.journalSel || 0, Math.max(0, casesFound().length - 1)); }
+function journalStep() {
+  if (pressed('KeyJ') || pressed('Escape') || pressed('KeyQ')) { state.mode = state.journalBack || 'field'; return; }
+  const n = casesFound().length; if (!n) return;
+  if (pressed('ArrowUp') || pressed('KeyW')) { state.journalSel = (state.journalSel + n - 1) % n; sfx.blip(); }
+  if (pressed('ArrowDown') || pressed('KeyS')) { state.journalSel = (state.journalSel + 1) % n; sfx.blip(); }
+}
+function clueText(id) { const c = S.clues[id]; return c.glyph !== undefined ? `Khắc ký tự ${S.glyphs[c.glyph]}. Gõ vào ngân một nốt.` : c.text; }
+function drawJournal() {
+  if (state.journalBack === 'puzzle' && state.pz) drawPuzzle(); else drawWorld();
+  ctx.fillStyle = 'rgba(6,4,10,0.55)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#e8dcc0'; ctx.fillRect(100, 50, W - 200, H - 100); ctx.strokeStyle = '#8a7050'; ctx.lineWidth = 2; ctx.strokeRect(100, 50, W - 200, H - 100);
+  ctx.strokeStyle = 'rgba(138,112,80,0.4)'; ctx.beginPath(); ctx.moveTo(400, 90); ctx.lineTo(400, H - 90); ctx.stroke(); // gáy sổ
+  text(S.ui.journal, 250, 84, 22, '#4a3420');
+  text(S.ui.journalHint, W / 2, H - 70, 13, '#7a6040');
+  const cs = casesFound();
+  if (!cs.length) { text(S.ui.journalEmpty, W / 2, H / 2, 17, '#6a5038', 'center', 'italic '); return; }
+  cs.forEach((c, i) => { // trái: danh sách hồ sơ
+    const y = 130 + i * 34, sel = i === state.journalSel, done = state.flags['pz_' + c];
+    if (sel) { ctx.fillStyle = 'rgba(154,90,48,0.15)'; ctx.fillRect(116, y - 14, 272, 28); }
+    text(`${done ? '✓' : '?'}  ${S.cases[c].title}`, 128, y, 17, done ? '#6a7a40' : sel ? '#7a3a18' : '#4a3420', 'left');
+  });
+  const c = cs[state.journalSel], C = S.cases[c]; let y = 112; const X = 430, maxW = W - 100 - X - 30;
+  text(C.title + (state.flags['pz_' + c] ? `  (${S.ui.solvedMark})` : ''), X, y, 19, '#4a3420', 'left'); y += 34;
+  const used = new Set();
+  for (const q of C.questions) { // câu hỏi mở: "?" khi chưa có manh mối, "✓" khi đã có
+    if (y > H - 140) break;
+    const got = q.clues.filter(id => state.clues.includes(id)); got.forEach(id => used.add(id));
+    text(`${got.length ? '✓' : '?'} ${q.q}`, X, y, 16, got.length ? '#3a2818' : '#9a5a30', 'left', got.length ? '' : 'italic '); y += 22;
+    for (const id of got) for (const ln of wrap(clueText(id), maxW - 24, 14)) { if (S.clues[id].glyph !== undefined && ln === wrap(clueText(id), maxW - 24, 14)[0]) drawGlyph(S.clues[id].glyph, X + 8, y + 2, 0.5, '#4a3420', 2); text(ln, X + 24, y, 14, '#5a4430', 'left'); y += 19; }
+    if (!got.length) { text(S.ui.stillAt(C.region), X + 24, y, 13, '#9a7a58', 'left', 'italic '); y += 19; } // bậc 2: chỉ vùng
+    y += 8;
+  }
+  const extra = state.clues.filter(id => S.clues[id] && S.clues[id].case === c && !used.has(id));
+  if (extra.length && y < H - 150) { text(S.ui.other, X, y, 14, '#9a5a30', 'left', 'italic '); y += 20; for (const id of extra) { if (y > H - 130) break; text(`· ${S.clues[id].title}`, X + 12, y, 14, '#5a4430', 'left'); y += 19; } }
+  if (C.board) { // từ khoá đã có cho hồ sơ có Bàn Ghép
+    const ks = state.keys.map(k => S.keywords[k].t).join(' · ');
+    const ls = wrap(`${S.ui.keysTitle}: ${ks || '—'}`, maxW, 13);
+    ls.slice(0, 3).forEach((l, i) => text(l, X, H - 118 + i * 17, 13, '#6a5038', 'left'));
+  }
+}
+
+// ---- Vẽ vật soi được ở xưởng rèn bỏ hoang ----
+function drawInspect(id, x, gy) {
+  if (id === 'forge') { ctx.fillStyle = '#4a3a34'; ctx.beginPath(); ctx.moveTo(x - 50, gy); ctx.lineTo(x - 44, gy - 80); ctx.quadraticCurveTo(x, gy - 110, x + 44, gy - 80); ctx.lineTo(x + 50, gy); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#1a1210'; ctx.beginPath(); ctx.ellipse(x, gy - 34, 20, 16, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(x - 20, gy - 34, 40, 20); ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x + 54, gy - 120, 6, 120); ctx.fillStyle = '#b8904a'; ctx.fillRect(x + 46, gy - 110, 22, 14); }
+  if (id === 'belt') { ctx.fillStyle = '#5a4030'; ctx.fillRect(x - 3, gy - 90, 6, 90); ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x - 4, gy - 80); ctx.quadraticCurveTo(x - 22, gy - 50, x - 4, gy - 40); ctx.stroke(); ctx.strokeStyle = '#a8a8b0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 14, gy - 62); ctx.lineTo(x - 14, gy - 48); ctx.moveTo(x - 8, gy - 56); ctx.lineTo(x - 6, gy - 44); ctx.stroke(); }
+  if (id === 'pool_dark') { ctx.fillStyle = '#0e0c12'; ctx.beginPath(); ctx.ellipse(x, gy + 8, 40, 8, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(160,180,200,0.25)'; ctx.beginPath(); ctx.ellipse(x, gy + 8, 26, 4, 0, 0, Math.PI * 2); ctx.stroke(); }
+  if (id === 'pile_rust') { ctx.fillStyle = '#8a3a28'; for (let i = 0; i < 5; i++) { ctx.save(); ctx.translate(x - 30 + i * 14, gy - 10 - (i % 3) * 14); ctx.rotate((i - 2) * 0.3); ctx.fillRect(-22, -4, 44, 8); ctx.restore(); } }
+  if (id === 'pile_gear') { ctx.strokeStyle = '#7e6a5a'; ctx.lineWidth = 5; [[-20, -14, 14], [10, -22, 18], [28, -10, 10], [-4, -40, 11]].forEach(([dx, dy, r]) => { ctx.beginPath(); ctx.arc(x + dx, gy + dy, r, 0, Math.PI * 2); ctx.stroke(); }); }
+  if (id === 'pile_copper') { const dug = state.flags.pz_chest; ctx.lineWidth = 7; ctx.lineCap = 'round'; for (let i = 0; i < 6; i++) { ctx.strokeStyle = i % 2 ? '#c88a4a' : '#e0a060'; ctx.beginPath(); ctx.moveTo(x - 40 + i * 8, gy - 4 - (i % 3) * 8); ctx.lineTo(x + 10 + i * 6, gy - 40 + (i % 2) * 10); ctx.stroke(); } if (dug) { ctx.fillStyle = '#1a1210'; ctx.beginPath(); ctx.ellipse(x + 30, gy + 4, 18, 6, 0, 0, Math.PI * 2); ctx.fill(); } }
+  if (id === 'pile_beam') { ctx.fillStyle = '#5a4a40'; ctx.save(); ctx.translate(x, gy - 14); ctx.rotate(-0.3); ctx.fillRect(-40, -6, 80, 12); ctx.restore(); ctx.save(); ctx.translate(x + 6, gy - 30); ctx.rotate(0.4); ctx.fillRect(-34, -5, 60, 10); ctx.restore(); }
 }
 
 // ---- Hết Hồi 1 ----------------------------------------------------------------------------------
@@ -1019,7 +1157,7 @@ function drawPhelieu(cam) {
     ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 3); ctx.lineTo(x - 3, y); ctx.closePath(); ctx.fill(); noglow();
   }
   // rìa vách đá cuối thung lũng; khi đã gặp Kaelen thì Kình Ngư đang ghé
-  const ex = 2080 - cam;
+  const ex = S.maps.phelieu.w - 220 - cam;
   ctx.fillStyle = '#2a1e22'; ctx.fillRect(ex, gy, W, H - gy);
   if (state.flags.met_kael) drawWhale(ex + 260, gy + 40, 0.6, state.t);
 }
@@ -1076,6 +1214,7 @@ function drawEntities(cam) {
     else if (e.type === 'puzzle') drawPuzzleProp(e.id, x, gy, !!state.flags['pz_' + e.id]);
     else if (e.type === 'pipe') drawPipe(e.id, x, gy);
     else if (e.id === 'quiet') drawQuietHill(x, gy);
+    else if (e.type === 'inspect') drawInspect(e.id, x, gy);
     else if (e.type === 'pickup' && e.id === 'mirror_scale') { glow('#e8f4fc', 10); ctx.fillStyle = '#e8f4fc'; ctx.fillRect(x - 8, gy - 4, 16, 3); noglow(); }
   }
 }
@@ -1352,8 +1491,12 @@ function drawWalkline() {
 }
 function drawDialog() {
   const d = state.dlg; if (!d) return;
-  const boxY = H - 200;
-  panel(40, boxY, W - 80, 170, 0.9);
+  let boxY = H - 200, boxH = 170;
+  if (d.choice) { // khung cao lên theo số lựa chọn, để không lựa chọn nào rơi ra ngoài
+    const need = d.choice.reduce((n, o) => n + wrap(`0. ${typeof o.t === 'function' ? o.t(view()) : o.t}`, W - 200, 17).length * 22 + 8, 70);
+    boxH = Math.max(170, need); boxY = H - 30 - boxH;
+  }
+  panel(40, boxY, W - 80, boxH, 0.9);
   if (d.choice) {
     text('Cậu làm gì?', 80, boxY + 26, 17, '#d8ccb4', 'left');
     let y = boxY + 56;
@@ -1364,7 +1507,7 @@ function drawDialog() {
       ls.forEach((l, k) => text(l, 80, y + k * 22, 17, sel ? '#f0c76a' : '#ece2cc', 'left'));
       y += ls.length * 22 + 8;
     });
-    text(S.ui.choose, W - 60, boxY + 158, 13, '#8a8370', 'right');
+    text(S.ui.choose, W - 60, boxY + boxH - 12, 13, '#8a8370', 'right');
     return;
   }
   const line = d.line; if (!line) return;
@@ -1631,6 +1774,7 @@ window.game = {
   },
 };
 
+buildAskScenes();
 reset();
 scene = params.get('scene') || 'title';
 if (params.get('map')) { scene = 'play'; state.map = params.get('map'); state.x = Number(params.get('x')) || 600; state.party = ['linh', 'kael', 'mira']; state.flags.flag_scale_exploded = true; } // ?map=chonoi&x=900: xem một vùng (chỉ để thử)

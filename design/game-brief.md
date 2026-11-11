@@ -10,6 +10,7 @@ After play: Cốt truyện = File 2 thay thế Trong · Lượt đầu = Hồi 1
 After play: sử dụng aseprite trên máy tính để thiết kế · Ai vẽ = Claude trên máy MSI vẽ · Độ phân giải = 640×360, phóng ×2 · Đợt đầu = 4 nhân vật chính
 After play: Xây dựng các gameplay giải đố cho game đi · Chọn: 1. Nghe mạch (Linh), 2. Cửa đá hát (Hồ Ly), 4. Tia sáng (Mira), 3 + 5 (Lò cua, Cân thử) · Bắt buộc? = Trộn
 After play: các câu đố phải giải bằng cách tương tác, tìm manh mối sau đó giải quyết chứ không nên làm các thao tác đơn giản · Duyệt = Làm 3 câu trước · Khoá gương = Giữ, thêm tìm gương
+After play: bạn hãy giành thời nghiên cứu và phát triển cơ chế giải đố · Duyệt = làm nền trước (Bốn cách hỏi + Bàn Ghép + Sổ 2.0) · tài liệu: prototypes/trong/PUZZLE_RESEARCH.md
 After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
 **Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
@@ -58,6 +59,8 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - [x] Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện
 
 - [x] Câu đố tìm manh mối + Sổ manh mối (phím J): Cửa Đá Hát (ghép thứ tự ký tự từ câu khắc trên cửa và 5 ống sắt rải khắp thung lũng; cáo được chia bánh thì ngân nốt đầu và cuối), Cây cầu gãy (nhận ra mảnh sắt gỡ từ càng cua là cái chốt; tha cua thì nó nung, giết thì đốt Lõi Lửa), Khoá Gương Chợ Đen (bắt buộc: tìm 2 tấm gương bị giấu theo lời đố của Mira, đặt đúng hốc, xoay đúng chiều). Mỗi câu +1 Mảnh Phản Chiếu
+- [x] Bốn cách hỏi thế giới: Nghe (Linh) · Định giá (Mira) · Vọng lại (hồ ly, chỉ khi đã chia bánh) · Soi; Bàn Ghép (câu chuyện bị khuyết, từ khoá nhặt được, xác nhận theo từng câu, sai 3 lần thì bạn đồng hành gợi cách hỏi, Mira bán đáp án một ô); Sổ 2.0 (hồ sơ, câu hỏi mở, vùng còn manh mối, từ khoá)
+- [x] Rương người thợ cũ: xưởng rèn bỏ hoang, 7 vật hỏi được, 2 câu ghép, có từ khoá mồi; +1 Mảnh Phản Chiếu, +40 Lumen
 - [x] Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa
 - [ ] Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)
 
@@ -70,7 +73,7 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - vũng nước lưu game · in the slice
 - giải đố · in the slice
 - Mảnh Phản Chiếu (0–12) · thin stand-in: 3 mảnh từ câu đố + thanh tẩy Memoria *(guessed: handover không nói nguồn)*
-- Rương người thợ cũ, Cân Thử (câu đố tìm manh mối) · later
+- Cân Thử (ma trận suy luận), Cửa Đá Hát dạng ngôn ngữ ký tự · later
 - Hồi 2–4 · later
 
 ## Keep
@@ -84,7 +87,7 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 ## Out of scope
 - Hồi 2, Hồi 3, Hồi 4 và ba kết thúc lớn: grow it
 - Mở khoá dòng chữ trên Khế Ước khi đủ Mảnh Phản Chiếu (Hồi 4): add it as a feature
-- Rương người thợ cũ, Cân Thử: add it as a feature
+- Cân Thử, Cửa Đá Hát dạng ngôn ngữ ký tự, ghi chép độ khó trên máy (PUZZLE_RESEARCH.md mục 7): add it as a feature
 - Chợ cung–cầu đầy đủ, đầu tư Khu Chợ Di Động: add it as a feature
 - Đòn phối hợp tổ đội (Combo Assist): add it as a feature
 - Nuôi và cộng sinh sinh vật lâu dài: grow it
