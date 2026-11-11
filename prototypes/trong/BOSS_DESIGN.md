@@ -133,6 +133,20 @@ Mỗi đòn khai báo trong `story.js` gồm: nguồn bắn (miệng, càng, v�
   - Vòng sáng có hình dạng, không chỉ màu.
 - *Chưa làm:* C (âm thanh báo trước) và E (cua đổi hình theo pha).
 
+### 6.4 Sau iteration 6 (A, B, D, F và phần nhắc, hỗ trợ của G)
+| Đường | Trước | Sau |
+|---|---|---|
+| Tha, có cáo | 44,4 giây | **27,6 giây** |
+| Tha, không cáo | 37,1 giây | 35,4 giây |
+| Đánh | 64,1 giây | **24,9 giây** |
+| Tha, đi bộ thật từ góc xa | 1/55 lần chạm được vòng | **5/5 lần** (48,2 giây) |
+| Số khoảng lặng | 5 | 1–3 |
+
+- Hai lỗi lộ ra khi đo, đã sửa:
+  - Chọn "Gỡ" quá sớm ở pha Đau thì kẹt mãi, vì không còn khoảng lặng nào để đổi ý. Giờ phản đòn không có tác dụng cũng mở khoảng lặng.
+  - Người né giỏi không bao giờ trúng đòn nên hồ ly không lên tiếng. Giờ hồ ly cũng lên tiếng khi trận sang pha Đau.
+- Còn lại của G: chuyển Cân và Bọ sang engine mới (kèm 4.2 và 4.3).
+
 ## Nguồn
 - [Game Developer: deep-dive hệ thống đánh của Undertale](https://gamedeveloper.com/design/game-design-deep-dive-i-undertale-i-s-action-based-rpg-battles)
 - [Game Developer: boss Psychonauts 2 bằng hệ "maneuver" (GDC 2023)](https://www.gamedeveloper.com/marketing/using-a-modular-system-of-maneuvers-to-design-i-psychonauts-2-i-s-boss-fights-in-a-hurry)

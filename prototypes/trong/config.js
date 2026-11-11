@@ -22,6 +22,7 @@ window.CONFIG = {
   arena_w_party: { value: 60, min: 0, max: 200, step: 10 },        // px: khung rộng thêm khi có bạn đồng hành
   wave_time: { value: 7, min: 3, max: 14, step: 0.5 },             // giây: một đợt đòn
   quiet_time: { value: 9, min: 3, max: 20, step: 0.5 },            // giây: khoảng lặng để chọn (hết giờ thì chọn Chờ)
+  boss_quiet_time: { value: 4, min: 2, max: 12, step: 0.5 },       // giây: khoảng lặng của trận boss (hết giờ thì giữ ý định cũ)
 
   // ---- Cua Giáp Lò Rèn (boss) ----
   crab_hp: { value: 60, min: 20, max: 200, step: 5 },              // máu, nếu chọn đánh
@@ -29,7 +30,7 @@ window.CONFIG = {
   crab_spark_speed: { value: 150, min: 60, max: 300, step: 10 },   // px/giây
   crab_slag_speed: { value: 170, min: 60, max: 300, step: 10 },    // xỉ lăn, px/giây
   crab_pillar_warn: { value: 0.9, min: 0.3, max: 2, step: 0.05 },  // giây: báo trước cột lửa
-  act_strike: { value: 15, min: 5, max: 40, step: 1 },             // Đánh: máu cua mất
+  act_strike: { value: 30, min: 5, max: 60, step: 1 },             // Đánh: máu cua mất (2 đòn: đánh phải nhanh hơn mọi đường tha)
   resonance_mult: { value: 2, min: 1, max: 4, step: 0.25 },        // cộng hưởng đầy: hành động nhân chừng này
 
   // ---- Trận boss (BOSS_DESIGN.md): báo trước → đánh → sơ hở ----
@@ -37,9 +38,17 @@ window.CONFIG = {
   boss_attack_time: { value: 4.2, min: 2, max: 8, step: 0.1 },     // giây một đòn
   boss_open_time: { value: 1.4, min: 0.6, max: 3, step: 0.1 },     // giây sơ hở sau đòn
   boss_open_tin: { value: 2.4, min: 1, max: 5, step: 0.1 },        // sơ hở dài hơn ở pha Tin
-  counter_r: { value: 22, min: 10, max: 50, step: 1 },             // px: chạm điểm đau trong bán kính này là phản đòn
+  counter_r: { value: 22, min: 10, max: 50, step: 1 },             // px: đứng trong vòng này và bấm E là phản đòn
+  boss_ring_lead: { value: 1, min: 0, max: 2, step: 0.1 },         // giây: vòng sáng hiện mờ trước sơ hở để kịp chạy tới
   quiet_every: { value: 2, min: 1, max: 4, step: 1 },              // khoảng lặng sau mỗi chừng ấy đòn (đòn đầu luôn có)
-  trust_need: { value: 2, min: 1, max: 6, step: 1 },               // phản đòn tử tế cần để sang pha Tin
+  trust_need: { value: 3, min: 1, max: 6, step: 1 },               // tin cần để sang pha Tin: Nói khẽ +1, Ngồi sưởi +2
+  listen_r: { value: 70, min: 30, max: 140, step: 5 },             // px: đứng gần khớp càng trong tầm này thì Linh nghe được
+  listen_time: { value: 1.5, min: 0.5, max: 4, step: 0.1 },        // giây đứng gần (cộng dồn) để nghe ra
+  glint_time: { value: 1.2, min: 0.4, max: 3, step: 0.1 },         // giây: ánh kim loé ở khớp càng lúc lò bừng
+  glint_r: { value: 18, min: 8, max: 40, step: 1 },                // px: chạm ánh kim trong tầm này là Soi thấy
+  glint_hint_mult: { value: 2, min: 1, max: 4, step: 0.25 },       // Linh đã nhắc: ánh kim hiện lâu gấp chừng này
+  assist_bullet: { value: 0.7, min: 0.3, max: 1, step: 0.05 },     // Né chậm (menu tạm dừng): đạn chậm và thưa còn chừng này
+  assist_open: { value: 1.3, min: 1, max: 2, step: 0.05 },         // Né chậm: sơ hở dài gấp chừng này
   speed_tin: { value: 0.5, min: 0.2, max: 1, step: 0.05 },         // pha Tin: đạn chậm lại
   speed_cung: { value: 1.4, min: 1, max: 2.5, step: 0.05 },        // pha Cùng đường: đạn nhanh và dày lên
   bullet_cap: { value: 120, min: 40, max: 300, step: 10 },         // tối đa đạn một lúc (luật dễ đọc)

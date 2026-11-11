@@ -670,6 +670,7 @@ window.STORY = {
       intro: 'Con cua gầm lên. Lò trên mai phun lửa.',
       pain: [0.2, 0.22],   // vị trí khớp càng trái trong khung né (tỉ lệ ngang, dọc)
       body: [0.5, 0.16],   // chỗ vòng sáng hiện ra khi chưa biết nó đau ở đâu
+      shard: [0.24, 0.3],  // chỗ ánh kim của mảnh sắt loé lên lúc lò bừng (sát khớp càng)
       phases: {
         gian: { name: 'Giận', attacks: ['rain', 'slag', 'pillars'] },
         dau: { name: 'Đau', attacks: ['fan', 'rain'] },
@@ -681,10 +682,13 @@ window.STORY = {
         pillars: 'Linh: "Chỗ nào đỏ lên là chỗ đó phụt lửa!"', fan: 'Linh: "Lửa phụt ra từ khớp càng! Lại gần chỗ đau mới tránh được!"',
         breath: 'Linh: "Nó... đang thở chậm lại."',
       },
-      asks: { // Bốn cách hỏi lên chính con cua; Mira chưa nhập đội nên không có Định giá
-        listen: { need: () => true, t: 'Khớp càng trái! Có tiếng rít, như sắt cứa vào thịt. Nó đau chỗ đó!', who: 'linh', clue: 'crab_pain', phase: 'dau' }, // guessed
-        look: { need: () => true, t: '(Cậu nhìn xuyên qua làn lửa. Ở khớp càng trái có gì đó lấp lánh: một mảnh sắt gỉ, cắm sâu.)', who: 'nar', clue: 'crab_shard', verb: 'pull' }, // guessed
-        echo: { need: s => s.flags.fox_fed && !s.foxShy, t: '(Cái đuôi chuông gió của hồ ly phát lại một giọng rất xưa, rất dịu: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua khựng lại, như nhận ra.)', who: 'nar', clue: 'crab_memory', verb: 'warm' }, // handover: dòng khắc trên mai cua
+      // Bốn cách hỏi lên chính con cua, làm bằng hành động trong lúc né chứ không bằng menu.
+      // how: 'near' = đứng gần chỗ đau đủ lâu; 'glint' = chạm ánh kim lúc lò bừng; 'hurt' = tự đến khi cậu trúng đòn lần đầu
+      // (hoặc khi vừa sang pha Đau). Mira chưa nhập đội nên không có Định giá.
+      asks: {
+        listen: { how: 'near', need: () => true, t: 'Khớp càng trái! Có tiếng rít, như sắt cứa vào thịt. Nó đau chỗ đó!', who: 'linh', clue: 'crab_pain', phase: 'dau' }, // guessed
+        look: { how: 'glint', need: () => true, t: '(Cậu nhìn xuyên qua làn lửa. Ở khớp càng trái có gì đó lấp lánh: một mảnh sắt gỉ, cắm sâu.)', who: 'nar', clue: 'crab_shard', verb: 'pull' }, // guessed
+        echo: { how: 'hurt', need: s => s.flags.fox_fed && !s.foxShy, t: '(Cái đuôi chuông gió của hồ ly phát lại một giọng rất xưa, rất dịu: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua khựng lại, như nhận ra.)', who: 'nar', clue: 'crab_memory', verb: 'warm' }, // handover: dòng khắc trên mai cua
       },
       verbs: {
         whisper: { label: 'Nói khẽ', hint: 'Mặc định. Có tác dụng khi nó đã thôi điên vì đau' },
@@ -701,7 +705,15 @@ window.STORY = {
         toDau: 'Giờ cậu biết nó đau ở đâu. Lửa của nó bắt đầu toả ra từ chính chỗ đó.',
         toTin: 'Con cua thôi gầm. Lửa trên mai hạ xuống, chỉ còn thở.',
         resonance: 'Hai nhịp tim trong ngực cậu đập cùng một lúc.',
-        down: 'Cậu gục xuống. Linh hét gì đó. Cậu chống tay đứng dậy.',
+        down: [ // gục: Linh băng bó và ghi nợ vào sổ xanh (handover: câu đùa 5 Lumen); n = số Lumen
+          n => `Cậu gục xuống. Linh lôi cậu ra sau tảng sắt, quấn băng quanh tay cậu, rồi rút cuốn sổ xanh ra. "Băng gạc: ${n} Lumen. Ghi nợ."`,
+          n => `Lại gục. Linh băng tiếp, không nói gì, chỉ ghi thêm ${n} Lumen vào sổ xanh.`,
+          n => `Linh thở dài, ghi thêm ${n} Lumen. "Cậu mà gục nữa là tôi phá sản trước cậu đấy."`,
+        ], // guessed: lời thoại khi gục
+        listenHint: 'Linh: "Cậu nghe không? Có tiếng rít, ở phía bên trái... Lại gần đó, tôi nghe rõ hơn."', // guessed
+        glintFirst: '(Lò bừng lên. Ở khớp càng trái có gì đó loé sáng.)', // guessed
+        tinHint: 'Linh: "Nó đang chờ cậu. Lúc lò bừng lên, nhìn kỹ khớp càng trái. Có gì lấp lánh ở đó!"', // guessed
+        newVerb: 'mới',
         shield: 'Kaelen giơ khiên gốm đỡ trọn đòn ấy.',
         missed: 'Sơ hở trôi qua.',
         cungSoft: 'Nó không còn nghe thấy gì nữa. Chỉ còn lửa.', // guessed: đường đánh không quay lại được
@@ -752,6 +764,6 @@ window.STORY = {
     inv: 'Túi đồ', invHint: 'Mũi tên: chọn · E: dùng · I: đóng', invEmpty: '(Trống.)', cleanse: 'E: Bóp vỡ / Thanh Tẩy', eat: 'E: Ăn',
     advance: 'Space', choose: 'Phím số, hoặc mũi tên rồi Enter',
     hp: 'Máu', resonance: 'Cộng hưởng', phase: 'Pha', ask: l => `Hỏi: ${l}`, plan: l => `Định: ${l}`, planNow: 'đang định', known: 'Đã hiểu', rage: 'Giận', hpBoss: 'Máu', left: n => `Còn ${n} con`, survive: n => `Chịu thêm ${n} giây`,
-    quietTitle: 'Khoảng lặng', quietHint: 'Phím số để chọn', again: 'Enter: chơi lại từ đầu',
+    quietTitle: 'Khoảng lặng', quietPick: 'Chọn ý định cho lần sơ hở tới', counterKey: 'E', slow: 'Né chậm', slowHint: 'N: bật, tắt né chậm (đạn chậm hơn, sơ hở dài hơn)', on: 'bật', off: 'tắt', quietHint: 'Phím số để chọn', again: 'Enter: chơi lại từ đầu',
   },
 };
