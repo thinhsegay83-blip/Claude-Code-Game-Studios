@@ -49,13 +49,13 @@ Phút 3–5, trận đầu: một "Lời Chê" chặn đường, báo trước �
 - Thua: thế giới Trong chết khi tâm trạng chạm đáy; đó là kết thúc thứ tư, kết buồn. *(cách ghép 3 + 1: guessed)*
 
 ## Features
-- [ ] Ba tầng đi xuyên được (Trong, Giữa, Ngoài), mỗi tầng một bảng màu; khe hẹp mở ra cảnh rộng, nhạc dâng
-- [ ] Tâm trạng 5 nấc điều khiển bầu trời, cây cối và lời cư dân tầng Trong, đổi ngay khi mình chọn
-- [ ] Lời thoại có lựa chọn: nhân vật có tên, gương mặt đổi theo câu; lựa chọn được nhớ và nhắc lại sau; dòng chữ hiện khi đang đi
-- [ ] 4 việc chăm mình (nghỉ, ăn, thở, ngủ), mỗi việc ở một chỗ trong tầng Giữa
-- [ ] Trận theo lượt: Đánh / Kỹ năng / Vật phẩm / Thủ, dải thứ tự lượt, đòn lớn báo trước; 3 loại địch, mỗi loại tấn công khác nhau, một loại là trùm
-- [ ] Đồ vật và ghi chép nhặt được, sáng nhẹ khi lại gần (thin stand-in)
-- [ ] 4 kết thúc; màn kết gọi tên kết thúc và cho biết có bao nhiêu; lưu ở mỗi lựa chọn, tốc độ chữ tự đặt, có nhật ký lời thoại
+- [x] Ba tầng đi xuyên được (Trong, Giữa, Ngoài), mỗi tầng một bảng màu; khe hẹp mở ra cảnh rộng, nhạc dâng
+- [x] Tâm trạng 5 nấc điều khiển bầu trời, cây cối và lời cư dân tầng Trong, đổi ngay khi mình chọn
+- [x] Lời thoại có lựa chọn: nhân vật có tên, gương mặt đổi theo câu; lựa chọn được nhớ và nhắc lại sau; dòng chữ hiện khi đang đi
+- [x] 4 việc chăm mình (nghỉ, ăn, thở, ngủ), mỗi việc ở một chỗ trong tầng Giữa
+- [x] Trận theo lượt: Đánh / Kỹ năng / Vật phẩm / Thủ, dải thứ tự lượt, đòn lớn báo trước; 3 loại địch, mỗi loại tấn công khác nhau, một loại là trùm
+- [x] Đồ vật và ghi chép nhặt được, sáng nhẹ khi lại gần (thin stand-in)
+- [x] 4 kết thúc; màn kết gọi tên kết thúc và cho biết có bao nhiêu; lưu ở mỗi lựa chọn, tốc độ chữ tự đặt, có nhật ký lời thoại
 
 ## Your systems
 - đi xuyên các tầng lồng nhau · in the slice

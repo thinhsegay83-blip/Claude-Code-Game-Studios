@@ -1,0 +1,28 @@
+L1	pass	evidence/trong-choice.png	Giữa xám lam, Trong vàng mật/xanh rêu đổi theo tâm trạng, vẽ phát sáng, mình sáng nhất; gương mặt mờ trên trời Trong đổi nét (index.html:826)
+L2	pass	evidence/nearest-game.txt	brief ghi không có game/ảnh tham chiếu; không lấy gì từ game nào làm mẫu (evidence/nearest-game.txt nói rõ khác Gris chỗ nào)
+L3	pass	evidence/play.png	nhìn ngang, camera theo nhân vật (camX), lớp nền trôi lệch 0.3-0.95x; trận đánh cảnh tĩnh (evidence/battle.png)
+F1	pass	index.html:252	ba tầng startTravel giua/trong/ngoai, mỗi tầng bảng màu riêng (PAL); lần đầu tới tầng mới: swell() nhạc dâng + vòng tròn lồng nhau (drawTravel)
+F2	pass	evidence/trong-choice.png	tâm trạng 5 nấc (moodAdd index.html:173); trời, đèn nhà, lá cây, lời cư dân đổi ngay sau lựa chọn (so ảnh xám nhánh tự trách lúc kiểm tra với ảnh vàng này)
+F3	pass	evidence/trong-choice.png	hộp thoại tên + gương mặt theo câu (drawDialog index.html:1071); lựa chọn được nhớ: flags.c1 đổi lời bà Sậy, Cơn Héo, Người Mang (story.js:133, 332); dòng chữ khi đi (drawWalkline index.html:1058, evidence/play.png)
+F4	pass	evidence/play.png	4 chỗ chăm mình trong tầng Giữa: Ổ rêu, Phiến ấm, Bầu sương, Khe gió (WORLD.giua.spots, startCare index.html:272)
+F5	pass	evidence/battle.png	Đánh/Kỹ năng/Vật phẩm/Thủ, dải "Lượt:", đòn lớn báo trước một lượt (scorn_charge index.html:400); 3 loại địch khác đòn: Lời Chê gom-giáng, Cơn Mỏi nặng dần + rút hơi, trùm Cơn Héo mạnh theo tâm trạng thiếu (index.html:323)
+F6	pass	evidence/play.png	đồ vật nhặt/đọc được, phát sáng nhẹ (readObject index.html:525; bát hứng sương cho Giọt Sương)
+F7	pass	index.html:469	4 kết thúc (story.js:266), màn kết gọi tên + "Bạn đã thấy X trên 4"; lưu ở mỗi lựa chọn (do:save, saveGame index.html:185); tốc độ chữ chỉnh trong Tạm dừng (index.html:1302); nhật ký L (drawLog index.html:1211)
+S1	pass	index.html:252	đi xuyên tầng qua vũng lặng, cột sáng, tấm Màng (interactable index.html:505)
+S2	pass	evidence/trong-choice.png	bầu trời/làng héo hay nở theo tâm trạng, chết thật khi chạm đáy (moodAdd -> startEnding('tat') index.html:173)
+S3	pass	index.html:272	nghỉ/ăn/thở/ngủ, mỗi việc một chỗ một hiệu ứng riêng (máu, hơi, Giọt Sương, ấm thêm)
+S4	pass	evidence/trong-choice.png	lựa chọn 3 nhánh, Enter/phím số, khóa 0.35s chống bấm nhầm
+S5	pass	evidence/battle.png	trận theo lượt chạy thật trong lượt kiểm tra (địch mất máu, mình 50/60)
+S6	pass	index.html:740	Người Mang ở chân trời tầng Ngoài, đốm hổ phách tắt dần; cảnh giant + lựa chọn cuối (story.js scenes.giant)
+S7	pass	index.html:525	stand-in mỏng: đọc chuỗi dòng, một món cho Giọt Sương, không có túi đồ
+M1	pass	evidence/play.png	mở mắt trong Hốc xám, vệt sáng ở ngực nhân vật
+M2	pass	evidence/play.png	dòng "Lại một buổi dậy muộn..." hiện dưới màn hình, không chặn bước
+M3	pass	index.html:252	E vào vũng lặng -> cảnh pool -> travel trong; lần đầu swell() nhạc dâng; trời mang gương mặt mình (drawTrongBG index.html:826)
+M4	pass	evidence/trong-choice.png	Mi tự chạy tới hỏi "vì sao hôm nay trời nặng thế" (story.js:94, auto trigger fieldStep)
+M5	pass	story.js:99	lựa chọn đầu: tự trách / dịu với mình / né câu hỏi
+M6	pass	evidence/trong-choice.png	chọn xong trời đổi màu ngay, cây nở/rụng lá, Mi nói về điều đó (ảnh nhánh kind; nhánh blame đã xem trong vòng kiểm tra: trời xám sập, lá rụng)
+C1	pass	evidence/battle.png	Lời Chê chặn bãi ~phút 3-5; "GOM LỜI... Lượt tới: PHÁN XÉT. Hãy THỦ!" báo trước một lượt (index.html:400)
+C2	pass	index.html:455	thua không tải lại: moodAdd(-mood_loss) = một nấc, về bãi với nửa máu, cảnh 'lost', làng héo theo
+C3	pass	index.html:173	mood 0 -> startEnding('tat') kết buồn; Enter quay về lựa chọn đầu (restartFromFirstChoice index.html:479)
+C4	pass	index.html:323	Cơn Héo chắn cuối Hốc trước tấm Màng; đòn nhân (1 + 0.12 * số nấc thiếu); lời thì thầm trúng đúng lựa chọn c1 của người chơi (story.js:332)
+C5	pass	story.js:11	ghi chú guessed trong brief, không phải một mục để dựng

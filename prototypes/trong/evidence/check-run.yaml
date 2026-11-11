@@ -1,0 +1,151 @@
+# The one-shot's small check (check-run/1).
+# Written by one-shot-check.sh --record: the results are /prototype's reading of
+# evidence/self-check.tsv; never edited by hand.
+kind: check-run/1
+engine: web
+browser: "HeadlessChrome/153.0.8010.12"
+time: "2026-11-11 03:37:00"
+checks:
+  - id: boots
+    result: pass
+    evidence:
+      - "evidence/self-check.tsv"
+  - id: shot
+    result: pass
+    evidence:
+      - "evidence/play.png"
+  - id: outlines
+    result: pass
+    evidence:
+      - "evidence/figures.png"
+  - id: brief-words
+    result: pass
+    evidence:
+      - "evidence/brief-words.tsv"
+  - id: emoji
+    result: pass
+    evidence:
+      - "evidence/self-check.tsv"
+  - id: nearest-game
+    result: pass
+    evidence:
+      - "evidence/nearest-game.txt"
+brief_checklist:
+  - id: L1
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "Look: buồn man mác rồi ấm dần, có lúc kỳ vĩ. 2D nhiều lớp có chiều sâu, vẽ tay phát sáng. Hình khối tròn mềm cho cư dân, góc gãy cho những thứ đang héo. Ba bảng màu: tầng Giữa xám lam (nền), tầng Trong vàng mật và xanh rêu (sự sống), tầng Ngoài tím than với đốm hổ phách (kẻ khổng lồ); nhân vật mình sáng nhất màn hình. Chi tiết dồn vào gương mặt và bầu trời. Dấu ấn riêng: bầu trời tầng Trong mang gương mặt mờ của chính mình, đổi sắc theo tâm trạng. Every figure drawn, no emoji, no plain circles."
+  - id: L2
+    result: pass
+    evidence: "evidence/nearest-game.txt"
+    item: "References: không có game hay ảnh nào được nêu."
+  - id: L3
+    result: pass
+    evidence: "evidence/play.png"
+    item: "View: 2D · Camera: nhìn ngang, đi theo nhân vật, các lớp nền trôi lệch tạo chiều sâu; trận đánh là cảnh tĩnh nhìn ngang."
+  - id: F1
+    result: pass
+    evidence: "index.html:252"
+    item: "Ba tầng đi xuyên được (Trong, Giữa, Ngoài), mỗi tầng một bảng màu; khe hẹp mở ra cảnh rộng, nhạc dâng"
+  - id: F2
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "Tâm trạng 5 nấc điều khiển bầu trời, cây cối và lời cư dân tầng Trong, đổi ngay khi mình chọn"
+  - id: F3
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "Lời thoại có lựa chọn: nhân vật có tên, gương mặt đổi theo câu; lựa chọn được nhớ và nhắc lại sau; dòng chữ hiện khi đang đi"
+  - id: F4
+    result: pass
+    evidence: "evidence/play.png"
+    item: "4 việc chăm mình (nghỉ, ăn, thở, ngủ), mỗi việc ở một chỗ trong tầng Giữa"
+  - id: F5
+    result: pass
+    evidence: "evidence/battle.png"
+    item: "Trận theo lượt: Đánh / Kỹ năng / Vật phẩm / Thủ, dải thứ tự lượt, đòn lớn báo trước; 3 loại địch, mỗi loại tấn công khác nhau, một loại là trùm"
+  - id: F6
+    result: pass
+    evidence: "evidence/play.png"
+    item: "Đồ vật và ghi chép nhặt được, sáng nhẹ khi lại gần (thin stand-in)"
+  - id: F7
+    result: pass
+    evidence: "index.html:469"
+    item: "4 kết thúc; màn kết gọi tên kết thúc và cho biết có bao nhiêu; lưu ở mỗi lựa chọn, tốc độ chữ tự đặt, có nhật ký lời thoại"
+  - id: S1
+    result: pass
+    evidence: "index.html:252"
+    item: "đi xuyên các tầng lồng nhau · in the slice"
+  - id: S2
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "thế giới của họ lụi tàn theo tâm trạng của mình · in the slice"
+  - id: S3
+    result: pass
+    evidence: "index.html:272"
+    item: "chăm lấy mình (nghỉ, ăn, thở, ngủ) · in the slice *(guessed)*"
+  - id: S4
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "trò chuyện có lựa chọn · in the slice *(guessed)*"
+  - id: S5
+    result: pass
+    evidence: "evidence/battle.png"
+    item: "đánh theo lượt kiểu JRPG · in the slice *(guessed)*"
+  - id: S6
+    result: pass
+    evidence: "index.html:740"
+    item: "kẻ khổng lồ đang héo dần · in the slice *(guessed)*"
+  - id: S7
+    result: pass
+    evidence: "index.html:525"
+    item: "đồ vật và ghi chép nhặt được · thin stand-in *(guessed)*"
+  - id: M1
+    result: pass
+    evidence: "evidence/play.png"
+    item: "Mở mắt trong tầng Giữa: một căn phòng xám, một vệt sáng lọt ra từ ngực mình."
+  - id: M2
+    result: pass
+    evidence: "evidence/play.png"
+    item: "Đi vài bước, dòng chữ hiện dưới màn hình mà không chặn bước."
+  - id: M3
+    result: pass
+    evidence: "index.html:252"
+    item: "Nhấn E vào vệt sáng, mình rơi vào tầng Trong: khe hẹp mở ra một ngôi làng tí hon dưới bầu trời mang gương mặt mình, đang xám, nhạc dâng lên."
+  - id: M4
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "Một cư dân ngẩng lên gọi \"Trời ơi\" và hỏi vì sao hôm nay trời nặng thế."
+  - id: M5
+    result: pass
+    evidence: "story.js:99"
+    item: "Lựa chọn đầu tiên: tự trách hay dịu với mình."
+  - id: M6
+    result: pass
+    evidence: "evidence/trong-choice.png"
+    item: "Chọn xong, bầu trời đổi màu ngay, cây nở hoặc rụng lá, và cư dân nói về điều đó."
+  - id: C1
+    result: pass
+    evidence: "evidence/battle.png"
+    item: "Phút 3–5, trận đầu: một \"Lời Chê\" chặn đường, báo trước đòn lớn một lượt để mình kịp thủ."
+  - id: C2
+    result: pass
+    evidence: "index.html:455"
+    item: "Thua không tải lại: tâm trạng tụt một nấc và làng héo thêm."
+  - id: C3
+    result: pass
+    evidence: "index.html:173"
+    item: "Tâm trạng chạm đáy thì thế giới Trong chết thật, game dừng ở kết buồn và chơi lại từ lựa chọn đầu."
+  - id: C4
+    result: pass
+    evidence: "index.html:323"
+    item: "Về sau: trùm \"Cơn Héo\" đứng trước lối ra tầng Ngoài, mạnh yếu tùy tâm trạng mình mang vào trận."
+  - id: C5
+    result: pass
+    evidence: "story.js:11"
+    item: "*(tên địch: guessed)*"
+measures:
+  - id: step-time
+    value: 0.700
+    unit: ms
+    by: browser
+    detail: "mean 0.009 ms, slowest 0.700 ms, 280 steps"

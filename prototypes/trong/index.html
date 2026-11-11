@@ -217,7 +217,7 @@ function nextStep() {
     if (st.do) { if (doAction(st.do)) return; continue; }
     if (st.c) {
       const opts = st.c.filter(o => !o.when || o.when(view()));
-      d.choice = opts; d.pick = 0; d.line = null; return;
+      d.choice = opts; d.pick = 0; d.line = null; d.guard = 0.35; return; // khóa ngắn: Space dồn từ dòng trước không chọn nhầm
     }
     const txt = typeof st.t === 'function' ? st.t(view()) : st.t;
     d.line = { w: st.w, f: st.f || 'neutral', t: txt }; d.chars = 0; d.choice = null;
@@ -576,10 +576,11 @@ function dialogStep(dt) {
   }
   if (d.choice) {
     const n = d.choice.length;
+    if (d.guard > 0) { d.guard -= dt; return; }
     if (pressed('ArrowUp') || pressed('KeyW')) { d.pick = (d.pick + n - 1) % n; blip(); }
     if (pressed('ArrowDown') || pressed('KeyS')) { d.pick = (d.pick + 1) % n; blip(); }
     for (let i = 0; i < n; i++) if (pressed('Digit' + (i + 1))) { pickChoice(d.choice[i]); return; }
-    if (pressed('Enter') || pressed('Space') || pressed('KeyE')) pickChoice(d.choice[d.pick]);
+    if (pressed('Enter')) pickChoice(d.choice[d.pick]); // chỉ Enter hoặc phím số: Space chỉ để đọc tiếp
     return;
   }
   if (d.line) {
