@@ -89,6 +89,50 @@ Mỗi đòn khai báo trong `story.js` gồm: nguồn bắn (miệng, càng, v�
 | 4 | Làm lại trận Cua Giáp Lò Rèn theo 4.1 |
 | 5 | Bọ Ký Sinh (4.2) và chi tiết Soi ở Cân Định Giá (4.3) |
 
+## 6. Review sau iteration 5 (`c317659`)
+
+### 6.1 Số đo (máy tự đánh trận cua, `bossmeasure.js`)
+| Đường | Tổng | Theo pha |
+|---|---|---|
+| Tha, có cáo | 44,4 giây | Giận 8,5 · Đau 12,9 · Tin 23 |
+| Tha, không cáo | 37,1 giây | Giận 8,5 · Đau 12,9 · Tin 15,7 |
+| Đánh | 64,1 giây (khoảng 36 giây chờ khoảng lặng hết giờ) | Giận 14,1 · Cùng đường 49,9 |
+| Tha, né ở góc xa | không xong sau 600 giây: 55 lần sơ hở, chạm được 1 | |
+
+- Góc xa nhất đến điểm đau: 390 px, tức 1,69 giây ở 230 px/giây. Sơ hở chỉ dài 1,4 giây.
+- Mỗi đòn có 21 viên (mưa) đến 29 viên (quạt). Trúng 7 lần thì gục.
+
+### 6.2 Hạn chế
+1. **"Hiểu" vẫn là menu.** Khoảng lặng liệt kê sẵn mọi câu hỏi, bấm lần lượt là xong. Đây vẫn là kiểu thử sai đơn giản, chỉ đổi tên.
+2. **Không chạy kịp tới vòng sáng.** Sơ hở ngắn hơn quãng đường xa nhất.
+3. **Phản đòn tự động.** Đi ngang qua vòng là phản đòn; ở pha Đau, lối an toàn dẫn thẳng vào vòng.
+4. **Nhịp đứt.** 4–5 khoảng lặng, mỗi cái tối đa 9 giây. Pha Tin dài gần gấp đôi pha Đau. Đánh chậm hơn tha, trái với 3.2. Đường có cáo chậm hơn đường không cáo, nên lựa chọn tốt bị phạt. Một lần "Ngồi sưởi" đã đủ `trust_need`.
+5. **Báo trước chỉ bằng chữ**, không có âm thanh hay động tác riêng.
+6. **Con cua gần như không đổi hình theo pha.**
+7. **Gục không mất gì**, thử lại miễn phí.
+8. **Không ai nhắc ở pha Tin** khi chưa Soi.
+9. **Hai engine song song.** Cân và Bọ còn chạy luật cũ.
+10. **Thiếu hỗ trợ tiếp cận.** Không có né chậm; vòng sáng chỉ phân biệt bằng màu.
+
+### 6.3 Cải tiến đã duyệt
+- **A. Hỏi bằng hành động, không bằng menu** (hạn chế 1, 4).
+  - *Nghe:* đứng gần khớp càng đủ 1,5 giây trong lúc né thì Linh nghe ra.
+  - *Soi:* chạm ánh kim loé lên ở khớp càng lúc lò bừng.
+  - *Vọng lại:* cáo tự lên tiếng khi cậu trúng đòn lần đầu.
+  - Khoảng lặng chỉ còn để chọn ý định.
+- **B. Vòng sáng hiện trước, phản đòn bấm E** (hạn chế 2, 3). Vòng hiện mờ trong giây cuối của đòn; phản đòn phải bấm E khi đứng trong vòng.
+- **D. Nhịp mới** (hạn chế 4).
+  - Khoảng lặng chỉ mở khi có điều mới để quyết, tối đa 4 giây.
+  - Pha Tin chỉ có một điệu múa rồi tới sơ hở cuối.
+  - Cân lại để đánh nhanh hơn tha, và đường có cáo không chậm hơn đường không cáo.
+- **F. Gục có giá trong truyện** (hạn chế 7). Linh băng bó và ghi thêm nợ vào sổ xanh (`linh_fee`, câu đùa 5 Lumen của handover).
+- **G. Nhắc, thống nhất engine, hỗ trợ** (hạn chế 8, 9, 10).
+  - Linh nhắc ở pha Tin.
+  - Cân và Bọ chuyển sang engine mới (kèm 4.2 và 4.3).
+  - Thêm né chậm trong menu tạm dừng.
+  - Vòng sáng có hình dạng, không chỉ màu.
+- *Chưa làm:* C (âm thanh báo trước) và E (cua đổi hình theo pha).
+
 ## Nguồn
 - [Game Developer: deep-dive hệ thống đánh của Undertale](https://gamedeveloper.com/design/game-design-deep-dive-i-undertale-i-s-action-based-rpg-battles)
 - [Game Developer: boss Psychonauts 2 bằng hệ "maneuver" (GDC 2023)](https://www.gamedeveloper.com/marketing/using-a-modular-system-of-maneuvers-to-design-i-psychonauts-2-i-s-boss-fights-in-a-hurry)
