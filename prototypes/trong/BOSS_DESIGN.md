@@ -145,7 +145,26 @@ Mỗi đòn khai báo trong `story.js` gồm: nguồn bắn (miệng, càng, v�
 - Hai lỗi lộ ra khi đo, đã sửa:
   - Chọn "Gỡ" quá sớm ở pha Đau thì kẹt mãi, vì không còn khoảng lặng nào để đổi ý. Giờ phản đòn không có tác dụng cũng mở khoảng lặng.
   - Người né giỏi không bao giờ trúng đòn nên hồ ly không lên tiếng. Giờ hồ ly cũng lên tiếng khi trận sang pha Đau.
-- Còn lại của G: chuyển Cân và Bọ sang engine mới (kèm 4.2 và 4.3).
+- Còn lại của G: chuyển Cân và Bọ sang engine mới (kèm 4.2 và 4.3). Đã làm ở iteration 7 (6.5).
+
+### 6.5 Sau iteration 7: một engine cho mọi trận
+- Engine boss nay có ba kiểu trận, chọn bằng `mode` trong `story.js`:
+  - `understand` (cua): hiểu một sinh vật, như mục 6.4.
+  - `survive` (Cân Định Giá): sống sót qua một đòn dài 8 giây. Chữ cổ loé lên ngay chỗ mảnh kính bắn ra; chạm 3 lần là đọc đủ `OVERFLOW: ORIGIN_ENTITY`, ghi vào Sổ. Gục thì Kaelen kéo ra, trận vẫn kết (biến cố truyện, không thể thua).
+  - `bugs` (Bọ Ký Sinh): mỗi con một vòng sáng. Đứng sát một con 1,2 giây thì Linh nghe ra nhịp. Con đầu đàn chọn theo hạt giống.
+- Engine cũ đã xoá (khoảng 190 dòng), cùng với `S.fights` và hai thông số `wave_time`, `quiet_time`.
+
+| Trận | Đường | Thời gian |
+|---|---|---|
+| Cân | đứng yên né | 12,8 giây, không đọc được chữ |
+| Cân | đi tới chữ loé | 12,8 giây, đọc đủ, có manh mối |
+| Bọ | nghe rồi gỡ đầu đàn trước | **9,3 giây**, gỡ 1 con |
+| Bọ | gỡ con thường trước | 24,6 giây, gỡ 3 con |
+| Cua | cả 4 đường | không đổi so với 6.4 |
+
+- Lỗi lộ ra khi đo, đã sửa:
+  - Dữ liệu cua thiếu khai báo máu, nên thanh máu pha Cùng đường làm sập game.
+  - Gỡ đầu đàn sau cùng bị tính là gỡ đầu đàn trước.
 
 ## Nguồn
 - [Game Developer: deep-dive hệ thống đánh của Undertale](https://gamedeveloper.com/design/game-design-deep-dive-i-undertale-i-s-action-based-rpg-battles)

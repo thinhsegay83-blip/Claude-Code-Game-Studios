@@ -4,7 +4,7 @@
 kind: check-run/1
 engine: web
 browser: "HeadlessChrome/153.0.8010.12"
-time: "2026-11-11 20:56:55"
+time: "2026-11-11 22:45:49"
 checks:
   - id: boots
     result: pass
@@ -42,6 +42,10 @@ brief_checklist:
   - id: L3
     result: pass
     evidence: "evidence/fight-crab.png"
+    item: "Pixel: hi-bit pixel vẽ bằng Aseprite, 640×360 phóng ×2, bảng màu `art/trong.gpl`, đặc tả `art/SPRITE_SPEC.md`; đợt 1 là 4 nhân vật chính, phần còn lại vẫn vẽ bằng code cho tới các đợt sau."
+  - id: L4
+    result: pass
+    evidence: "evidence/bug-rings.png"
     item: "View: 2D · Camera: nhìn ngang theo nhân vật; màn né: boss ở trên cảnh, khung né ở dưới, cảnh thế giới vẫn thấy phía sau."
   - id: F1
     result: pass
@@ -71,6 +75,42 @@ brief_checklist:
     result: pass
     evidence: "story.js:297"
     item: "Sinh vật: Hồ Ly Âm Bản, Cua Giáp Lò Rèn, Kình Ngư Ngược Gió, mỗi con một tương tác nhỏ; sổ xanh nợ của Linh trên giao diện"
+  - id: F8
+    result: pass
+    evidence: "evidence/puzzle-song.png"
+    item: "Câu đố tìm manh mối + Sổ manh mối (phím J): Cửa Đá Hát (ghép thứ tự ký tự từ câu khắc trên cửa và 5 ống sắt rải khắp thung lũng; cáo được chia bánh thì ngân nốt đầu và cuối), Cây cầu gãy (nhận ra mảnh sắt gỡ từ càng cua là cái chốt; tha cua thì nó nung, giết thì đốt Lõi Lửa), Khoá Gương Chợ Đen (bắt buộc: tìm 2 tấm gương bị giấu theo lời đố của Mira, đặt đúng hốc, xoay đúng chiều). Mỗi câu +1 Mảnh Phản Chiếu"
+  - id: F9
+    result: pass
+    evidence: "evidence/ask-menu.png"
+    item: "Bốn cách hỏi thế giới: Nghe (Linh) · Định giá (Mira) · Vọng lại (hồ ly, chỉ khi đã chia bánh) · Soi; Bàn Ghép (câu chuyện bị khuyết, từ khoá nhặt được, xác nhận theo từng câu, sai 3 lần thì bạn đồng hành gợi cách hỏi, Mira bán đáp án một ô); Sổ 2.0 (hồ sơ, câu hỏi mở, vùng còn manh mối, từ khoá)"
+  - id: F10
+    result: pass
+    evidence: "evidence/board-chest.png"
+    item: "Rương người thợ cũ: xưởng rèn bỏ hoang, 7 vật hỏi được, 2 câu ghép, có từ khoá mồi; +1 Mảnh Phản Chiếu, +40 Lumen"
+  - id: F11
+    result: pass
+    evidence: "evidence/boss-ring-open.png"
+    item: "Đánh boss là hiểu một sinh vật: nhịp báo trước → đánh → sơ hở, chạm vòng sáng để phản đòn theo ý định; khoảng lặng dùng Bốn cách hỏi lên chính boss (mở pha, mở động từ); ba pha Giận → Đau → Tin, Đánh là sang Cùng đường không quay lại; thử lại từ đầu pha; viên trúng nhấp nháy lại; khiên Kaelen"
+  - id: F12
+    result: pass
+    evidence: "evidence/boss-glint.png"
+    item: "Trận Cua Giáp Lò Rèn làm lại: Linh nghe ra chỗ đau, Soi thấy mảnh sắt, hồ ly vọng lại giọng xưa mở Ngồi sưởi; pha Đau: khe an toàn sát vết thương"
+  - id: F13
+    result: pass
+    evidence: "evidence/boss-quiet-intent.png"
+    item: "Boss sau review: hiểu bằng hành động trong lúc né (đứng gần khớp càng để Linh nghe, chạm ánh kim lúc lò bừng để Soi, hồ ly tự vọng lại khi cậu trúng đòn hoặc khi sang pha Đau); vòng sáng hiện mờ 1 giây trước sơ hở, phản đòn phải bấm E trong vòng; khoảng lặng chỉ mở khi có điều mới (tối đa 4 giây, chỉ định ý); gục thì Linh băng bó và ghi nợ vào sổ xanh; Linh nhắc ở pha Tin; Né chậm trong menu tạm dừng (phím N); vòng sáng phân biệt bằng hình (nét đứt, nét liền, hình thoi), không chỉ bằng màu"
+  - id: F14
+    result: pass
+    evidence: "evidence/scale-glyph.png"
+    item: "Chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss (Soi thấy OVERFLOW, Nghe ra bọ chúa), xoá engine cũ"
+  - id: F15
+    result: pass
+    evidence: "index.html:20"
+    item: "Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa"
+  - id: F16
+    result: fail
+    why: missing
+    item: "Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)"
   - id: S1
     result: pass
     evidence: "evidence/fight-quiet.png"
@@ -95,6 +135,14 @@ brief_checklist:
     result: pass
     evidence: "index.html:375"
     item: "vũng nước lưu game · in the slice"
+  - id: S7
+    result: pass
+    evidence: "evidence/puzzle-song.png"
+    item: "giải đố · in the slice"
+  - id: S8
+    result: pass
+    evidence: "index.html:933"
+    item: "Mảnh Phản Chiếu (0–12) · thin stand-in: 3 mảnh từ câu đố + thanh tẩy Memoria *(guessed: handover không nói nguồn)*"
   - id: M1
     result: pass
     evidence: "evidence/play.png"
@@ -141,7 +189,7 @@ brief_checklist:
     item: "Về sau: Cân Định Giá nổ (né mảnh vỡ), Bọ Ký Sinh trên lưng cá voi (tuỳ chọn)."
 measures:
   - id: step-time
-    value: 4.100
+    value: 1.000
     unit: ms
     by: browser
-    detail: "mean 0.017 ms, slowest 4.100 ms, 306 steps"
+    detail: "mean 0.011 ms, slowest 1.000 ms, 280 steps"

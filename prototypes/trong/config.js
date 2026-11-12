@@ -20,8 +20,6 @@ window.CONFIG = {
   arena_w: { value: 460, min: 240, max: 700, step: 10 },           // px
   arena_h: { value: 210, min: 140, max: 300, step: 10 },           // px
   arena_w_party: { value: 60, min: 0, max: 200, step: 10 },        // px: khung rộng thêm khi có bạn đồng hành
-  wave_time: { value: 7, min: 3, max: 14, step: 0.5 },             // giây: một đợt đòn
-  quiet_time: { value: 9, min: 3, max: 20, step: 0.5 },            // giây: khoảng lặng để chọn (hết giờ thì chọn Chờ)
   boss_quiet_time: { value: 4, min: 2, max: 12, step: 0.5 },       // giây: khoảng lặng của trận boss (hết giờ thì giữ ý định cũ)
 
   // ---- Cua Giáp Lò Rèn (boss) ----
@@ -63,11 +61,17 @@ window.CONFIG = {
   scale_time: { value: 8, min: 3, max: 20, step: 0.5 },            // giây
   scale_shard_rate: { value: 9, min: 2, max: 25, step: 0.5 },      // mảnh mỗi giây
   scale_shard_speed: { value: 210, min: 80, max: 400, step: 10 },
+  shard_hit: { value: 2, min: 1, max: 10, step: 1 },               // máu mất mỗi mảnh kính
+  scale_glyph_every: { value: 2.2, min: 1, max: 5, step: 0.1 },    // giây: chữ cổ loé lên trên mặt kính mỗi chừng này (3 lần chạm là đọc đủ)
 
   // ---- Bọ Ký Sinh (tuỳ chọn) ----
   bug_count: { value: 3, min: 1, max: 6, step: 1 },
   bug_spit_rate: { value: 2.2, min: 0.5, max: 8, step: 0.1 },      // ngụm mỗi giây mỗi con
   bug_spit_speed: { value: 140, min: 60, max: 300, step: 10 },
+  spit_hit: { value: 2, min: 1, max: 10, step: 1 },                // máu mất mỗi ngụm dịch chua
+  bug_listen_r: { value: 45, min: 20, max: 90, step: 5 },          // px: đứng sát một con trong tầm này thì Linh nghe nhịp nó
+  bug_listen_time: { value: 1.2, min: 0.4, max: 3, step: 0.1 },    // giây đứng sát (cộng dồn) để nghe ra
+  bug_enrage: { value: 1.35, min: 1, max: 2, step: 0.05 },         // gỡ nhầm con thường: đàn phun dồn gấp chừng này
   bug_tax_cut: { value: 0.2, min: 0, max: 0.5, step: 0.05 },       // handover: giảm 20% thuế khi gỡ hết
 
   // ---- Câu đố ----

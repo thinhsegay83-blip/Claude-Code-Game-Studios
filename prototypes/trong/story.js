@@ -349,6 +349,7 @@ window.STORY = {
     scale_after: [
       { w: 'nar', t: '(Trên mặt kính vỡ còn một dòng chữ cổ ngữ đang sáng:)' },
       { w: 'nar', t: 'OVERFLOW: ORIGIN_ENTITY' }, // handover
+      { w: 'mira', f: 'think', when: s => s.flags.scale_read, t: 'Cậu đọc được thứ chữ đó à? Thương Đoàn chỉ dạy nó cho người giữ cân. Thú vị thật.' }, // guessed: chỉ khi đã Soi đủ trong lúc né
       { w: 'linh', f: 'afraid', t: 'Mảnh sắt sượt qua vai cậu mà... không chảy giọt máu nào. Chỉ có mấy hạt bụi sáng bay lên.' }, // guessed, theo lời Linh ở Kịch bản 2
       { w: 'mira', f: 'think', t: 'Một chiếc cân của Thương Đoàn vừa nổ tung vì cậu. Tôi bắt đầu thấy khoản đầu tư này thú vị rồi đấy.' }, // guessed
       { w: 'kael', f: 'neutral', t: 'Đêm nay đốt lửa ở mũi tàu. Có chuyện gì thì nói sau khi ăn.' }, // guessed
@@ -404,11 +405,12 @@ window.STORY = {
     // Bọ Ký Sinh trên lưng Kình Ngư (tuỳ chọn; handover CRE_LEVIATHAN)
     bug_pre: [
       { w: 'nar', t: '(Mấy con bọ to bằng nắm tay bám chặt vào lớp da xanh thẫm giữa hai tấm ván. Chỗ đó, da cá voi đỏ ửng lên.)' },
-      { w: 'linh', f: 'think', t: 'Bọ Ký Sinh. Chúng phun dịch chua khi bị động vào. Né cho khéo rồi gỡ từng con một.' }, // guessed
+      { w: 'linh', f: 'think', t: 'Bọ Ký Sinh. Chúng phun dịch chua khi bị động vào. Né cho khéo, lúc chúng hít hơi thì đứng vào vòng sáng mà gỡ.' }, // guessed
       { do: 'fight:bug' },
     ],
     bug_after: [
       { w: 'nar', t: '(Con cuối cùng rời ra. Dưới chân cậu, cả sàn gỗ khẽ rung lên một hồi dài, như một tiếng thở phào.)' },
+      { w: 'linh', f: 'happy', when: s => s.flags.bug_queen_first, t: 'Gỡ đúng con đầu đàn là cả đàn đi. Như bắt mạch ấy: tìm chỗ đập lệch.' }, // guessed
       { w: 'mira', f: 'happy', t: 'Cá voi hết ngứa thì chợ bớt chòng chành, thuế chợ hạ. Cậu vừa làm giảm giá cả khu chợ đấy, biết không?' }, // guessed: handover "giảm 20% thuế"
     ],
 
@@ -456,32 +458,6 @@ window.STORY = {
   },
 
   // ---- Màn đấu né đòn -------------------------------------------------------------------------
-  fights: {
-    scale: {
-      title: 'Cân Định Giá Linh Hồn',
-      intro: 'Kim cân quay tít. Mặt kính nứt toác. Nó sắp nổ!',
-      warn: { burst: 'Kaelen: "Nằm xuống! Mảnh kính bay tứ phía!"' },
-      end: 'Tiếng nổ tắt. Kaelen hạ chiếc khiên gốm xuống.',
-      down: 'Một mảnh kính sượt qua vai cậu. Kaelen kéo cậu ra sau khiên.',
-    },
-    bug: {
-      title: 'Bọ Ký Sinh',
-      intro: 'Mấy con bọ dựng lưng, phun dịch chua.',
-      warn: { spit: 'Linh: "Chúng phun theo hướng cậu đứng! Đi vòng, đừng đứng yên!"' },
-      quiet: () => 'Mấy con bọ phun mệt, đang hít hơi.',
-      actions: [
-        { id: 'pick', label: 'Gỡ một con', hint: 'Gỡ con gần nhất ra khỏi da cá voi' },
-        { id: 'soup', label: 'Ăn súp', hint: 'Hồi đầy máu', needs: 'soup' },
-      ],
-      lines: {
-        pick: 'Cậu luồn tay gỡ một con. Da cá voi bên dưới đỏ ửng, nhưng dịu dần.',
-        soup: 'Cậu húp vội bát súp.',
-        wait: 'Cậu chần chừ. Khoảng lặng trôi qua.',
-        down: 'Dịch chua bắn trúng mắt. Linh lau cho cậu. Thử lại nào.',
-      },
-    },
-  },
-
   // ---- Câu đố tìm manh mối (dữ liệu; engine ở index.html) -----------------------------------
   // Luật: màn câu đố không chứa sẵn đáp án. Manh mối nằm ngoài thế giới (soi đồ, gõ ống, nghe người
   // nói) và được ghi vào Sổ manh mối (phím J). Sai không bị khoá; đi tìm thêm rồi quay lại.
@@ -535,6 +511,8 @@ window.STORY = {
     scale_glass: { case: 'light', title: 'Mặt kính cân vỡ', text: 'Một tấm kính của Cân Định Giá còn nguyên, phẳng, soi được: một tấm gương.' },
     crab_pain: { case: 'crab', title: 'Linh nghe con cua', text: 'Khớp càng trái có tiếng rít, như sắt cứa vào thịt.' },
     crab_shard: { case: 'crab', title: 'Soi khớp càng', text: 'Một mảnh sắt gỉ cắm sâu ở khớp càng trái.' },
+    scale_overflow: { case: 'scale', title: 'Chữ trên mặt kính cân', text: 'OVERFLOW: ORIGIN_ENTITY. Cậu đọc được thứ chữ không ai dạy.' }, // handover: dòng chữ; guessed: cậu tự đọc
+    bug_queen: { case: 'bug', title: 'Con bọ đầu đàn', text: 'Một con đập chậm, nặng, lệch nhịp; cả đàn đập theo nó. Gỡ nó là cả đàn bỏ đi.' }, // guessed
     crab_memory: { case: 'crab', title: 'Hồ ly vọng lại', text: 'Một giọng rất xưa: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua nhận ra giọng ấy.' },
     need_heat: { case: 'bridge', title: 'Chốt còn lỏng', text: 'Mảnh sắt vừa khớp lỗ chốt nhưng còn lỏng. Phải nung cho chảy mép.' },
     // Rương người thợ cũ: mỗi manh mối có thể cho từ khoá (keys) để điền Bàn Ghép
@@ -570,7 +548,7 @@ window.STORY = {
       { q: 'Lấy cái chốt ở đâu?', clues: ['shard_marks'] },
       { q: 'Lấy gì nung chốt?', clues: ['need_heat'] },
     ] },
-    crab: { title: 'Con cua lò rèn', region: 'Trong trận: hỏi lên chính con cua ở khoảng lặng', questions: [
+    crab: { title: 'Con cua lò rèn', region: 'Trong trận: đứng gần, nhìn kỹ con cua trong lúc né', questions: [
       { q: 'Nó đau ở đâu?', clues: ['crab_pain'] },
       { q: 'Cái gì làm nó đau?', clues: ['crab_shard'] },
       { q: 'Nó có nhớ ai không?', clues: ['crab_memory'] },
@@ -580,6 +558,12 @@ window.STORY = {
       { q: 'Vật gì bị giấu?', clues: ['pool_look'] },
       { q: 'Giấu dưới đống nào?', clues: ['copper_listen', 'forge_echo'] },
       { q: 'Khi nào, vì sao vội?', clues: ['forge_order', 'belt_look'] },
+    ] },
+    scale: { title: 'Cân Định Giá Linh Hồn', region: 'Cổng Chợ Nổi: chữ loé trên mặt kính khi cân nổ', questions: [
+      { q: 'Chiếc cân nói gì về cậu?', clues: ['scale_overflow'] },
+    ] },
+    bug: { title: 'Bọ Ký Sinh', region: 'Lưng Kình Ngư: nghe từng con trong lúc né', questions: [
+      { q: 'Con nào là đầu đàn?', clues: ['bug_queen'] },
     ] },
     light: { title: 'Khoá Gương Chợ Đen', region: 'Chợ Nổi: cổng, vũng nước, lời Mira', questions: [
       { q: 'Bàn gương thiếu gì?', clues: ['lock_mirrors'] },
@@ -667,6 +651,7 @@ window.STORY = {
   bosses: {
     crab: {
       title: 'Cua Giáp Lò Rèn',
+      hp: 'crab_hp',       // tên thông số máu trong config.js (chỉ dùng khi chọn Đánh)
       intro: 'Con cua gầm lên. Lò trên mai phun lửa.',
       pain: [0.2, 0.22],   // vị trí khớp càng trái trong khung né (tỉ lệ ngang, dọc)
       body: [0.5, 0.16],   // chỗ vòng sáng hiện ra khi chưa biết nó đau ở đâu
@@ -718,6 +703,45 @@ window.STORY = {
         missed: 'Sơ hở trôi qua.',
         cungSoft: 'Nó không còn nghe thấy gì nữa. Chỉ còn lửa.', // guessed: đường đánh không quay lại được
         intent: v => `Lần sơ hở tới: ${v}.`,
+      },
+    },
+    scale: { // Cân Định Giá Linh Hồn (BOSS_DESIGN 4.3): sống sót; Soi chữ cổ trên mặt kính trong lúc né
+      title: 'Cân Định Giá Linh Hồn', mode: 'survive',
+      intro: 'Kim cân quay tít. Mặt kính nứt toác. Nó sắp nổ!',
+      glyph: [0.5, 0.12],  // chữ loé lên ngay chỗ mảnh kính bắn ra: muốn đọc phải dám lại gần
+      glyphs: ['OVERFLOW: ', 'ORIGIN_', 'ENTITY'], // handover: dòng chữ OVERFLOW: ORIGIN_ENTITY, chia ba lần đọc
+      clue: 'scale_overflow',
+      phases: { gian: { name: 'Sắp nổ', attacks: ['burst'] } },
+      warn: { burst: 'Kaelen: "Nằm xuống! Mảnh kính bay tứ phía!"' },
+      lines: {
+        end: 'Tiếng nổ tắt. Kaelen hạ chiếc khiên gốm xuống.',
+        down: 'Một mảnh kính sượt qua vai cậu. Kaelen kéo cậu ra sau khiên.',
+        shield: 'Kaelen giơ khiên gốm đỡ trọn đợt kính ấy.',
+        readMore: '(Trên mặt kính có chữ đang sáng. Cậu đọc được thêm một đoạn.)', // guessed
+        readDone: '(Cậu đọc hết dòng chữ trên mặt kính. Không ai dạy cậu thứ chữ này. Vậy mà cậu đọc được.)', // guessed
+        missed: '', intent: () => '',
+      },
+    },
+    bug: { // Bọ Ký Sinh (BOSS_DESIGN 4.2): Nghe ra con đầu đàn; gỡ nó trước thì cả đàn bỏ đi
+      title: 'Bọ Ký Sinh', mode: 'bugs',
+      intro: 'Mấy con bọ dựng lưng, phun dịch chua.',
+      clue: 'bug_queen',
+      phases: { gian: { name: 'Bám chặt', attacks: ['spit'] } },
+      warn: { spit: 'Linh: "Chúng phun theo hướng cậu đứng! Đi vòng, đừng đứng yên!"' },
+      lines: {
+        listenHint: 'Linh: "Khoan. Mấy con này không đập cùng một nhịp. Đứng sát từng con, tôi nghe thử."', // guessed
+        listenNormal: 'Linh: "Con này đập đều, nhanh. Bọ thường."', // guessed
+        listenQueen: 'Linh: "Con này... đập chậm, nặng, lệch nhịp. Cả đàn đang đập theo nó. Con đầu đàn đấy!"', // guessed
+        resonanceHear: 'Hai nhịp tim trong ngực cậu đập cùng một lúc. Linh nghe được cả đàn.', // guessed
+        tagQueen: 'Đầu đàn', tagNormal: 'Bọ thường', tagUnknown: 'Gỡ',
+        pickNormal: 'Cậu luồn tay gỡ một con. Da cá voi bên dưới đỡ đỏ. Mấy con còn lại phun dồn hơn.', // guessed
+        pickQueen: 'Cậu gỡ con đầu đàn. Mấy con còn lại co chân, rời khỏi da cá voi, bò đi mất.', // guessed
+        soupLabel: 'Ăn súp', soupHint: 'Hồi đầy máu', skipLabel: 'Thôi, né tiếp', soup: 'Cậu húp vội bát súp.',
+        down: [
+          n => `Dịch chua bắn trúng mắt. Linh lau cho cậu, rồi ghi ${n} Lumen vào sổ xanh. "Nước rửa mắt."`, // guessed
+          n => `Lại trúng. Linh lau tiếp, ghi thêm ${n} Lumen.`, // guessed
+        ],
+        shield: 'Kaelen giơ khiên gốm đỡ trọn ngụm ấy.', missed: 'Sơ hở trôi qua.', intent: () => '',
       },
     },
   },

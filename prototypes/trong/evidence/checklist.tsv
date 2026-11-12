@@ -25,3 +25,15 @@ C2	pass	evidence/fight-crab.png	sparks, slag and warned fire pillars cycle (inde
 C3	pass	index.html:579	at 0 HP the fight restarts from its start, nothing lost
 C4	pass	index.html:594	pull works only under the calm line; strike is faster and costs eco and corruption at index.html:622
 C5	pass	evidence/fight-bug.png	scale burst and optional bugs on the whale
+L4	pass	evidence/bug-rings.png	side view follows the hero; every fight keeps the boss above, the dodge box below and the world behind
+F8	pass	evidence/puzzle-song.png	song door, broken bridge and mirror lock read clues from the journal (J); evidence/puzzle-light.png, evidence/journal.png
+F9	pass	evidence/ask-menu.png	four asks on world objects, fill-in board with per-line check and hints (evidence/board-chest.png), journal 2.0 (evidence/journal2.png)
+F10	pass	evidence/board-chest.png	old smith chest: 7 askable objects, 2 board lines, seeded keywords, +1 fragment and +40 Lumen
+F11	pass	evidence/boss-ring-open.png	telegraph, attack, opening; counter ring by intent; three emotional phases plus the strike path; retry from phase start
+F12	pass	evidence/boss-glint.png	crab: Linh hears the joint, the glint shows the shard, the fox echo unlocks warming; fan gap points at the wound
+F13	pass	evidence/boss-quiet-intent.png	asks happen while dodging, ring shows a second early and needs E, quiet only on news, falls add debt, slow-dodge in pause (evidence/pause-slow.png)
+F14	pass	evidence/scale-glyph.png	scale survive mode reads OVERFLOW from the glass in three touches; bugs mode hears the leader (evidence/bug-rings.png); old engine removed
+F15	pass	index.html:20	sprite pipeline: game draws with code until sprites.js has frames (art/ folder, art/PROMPT_MSI.md)
+F16	missing	-	sprites are drawn on the MSI machine per art/PROMPT_MSI.md; none delivered yet
+S7	pass	evidence/puzzle-song.png	three clue puzzles and the smith chest are in the slice
+S8	pass	index.html:933	fragments go up by one per solved puzzle (pz_fragment) and by cleansing Memoria; 0–12 cap from the handover
