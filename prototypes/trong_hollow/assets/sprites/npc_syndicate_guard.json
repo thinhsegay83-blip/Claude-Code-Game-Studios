@@ -1,0 +1,87 @@
+{ "frames": [
+   {
+    "filename": "npc_syndicate_guard 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 240
+   },
+   {
+    "filename": "npc_syndicate_guard 1.aseprite",
+    "frame": { "x": 40, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 240
+   },
+   {
+    "filename": "npc_syndicate_guard 2.aseprite",
+    "frame": { "x": 80, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 240
+   },
+   {
+    "filename": "npc_syndicate_guard 3.aseprite",
+    "frame": { "x": 120, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 240
+   },
+   {
+    "filename": "npc_syndicate_guard 4.aseprite",
+    "frame": { "x": 160, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 180
+   },
+   {
+    "filename": "npc_syndicate_guard 5.aseprite",
+    "frame": { "x": 200, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 180
+   },
+   {
+    "filename": "npc_syndicate_guard 6.aseprite",
+    "frame": { "x": 240, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 180
+   },
+   {
+    "filename": "npc_syndicate_guard 7.aseprite",
+    "frame": { "x": 280, "y": 0, "w": 40, "h": 50 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 50 },
+    "sourceSize": { "w": 40, "h": 50 },
+    "duration": 180
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "npc_syndicate_guard.png",
+  "format": "RGBA8888",
+  "size": { "w": 320, "h": 50 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "idle", "from": 0, "to": 3, "direction": "forward", "color": "#000000ff" },
+   { "name": "halberd", "from": 4, "to": 7, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

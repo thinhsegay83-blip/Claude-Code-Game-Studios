@@ -1,0 +1,89 @@
+{ "frames": [
+   {
+    "filename": "ui_boss_shield 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 1.aseprite",
+    "frame": { "x": 180, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 2.aseprite",
+    "frame": { "x": 360, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 3.aseprite",
+    "frame": { "x": 540, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 4.aseprite",
+    "frame": { "x": 720, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 5.aseprite",
+    "frame": { "x": 900, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 6.aseprite",
+    "frame": { "x": 1080, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   },
+   {
+    "filename": "ui_boss_shield 7.aseprite",
+    "frame": { "x": 1260, "y": 0, "w": 180, "h": 42 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 180, "h": 42 },
+    "sourceSize": { "w": 180, "h": 42 },
+    "duration": 240
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "ui_boss_shield.png",
+  "format": "RGBA8888",
+  "size": { "w": 1440, "h": 42 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "shielded_4", "from": 0, "to": 1, "direction": "forward", "color": "#000000ff" },
+   { "name": "shielded_2", "from": 2, "to": 3, "direction": "forward", "color": "#000000ff" },
+   { "name": "broken", "from": 4, "to": 5, "direction": "forward", "color": "#000000ff" },
+   { "name": "purified", "from": 6, "to": 7, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

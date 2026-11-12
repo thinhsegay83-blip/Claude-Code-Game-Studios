@@ -1,0 +1,22 @@
+{ "frames": [
+   {
+    "filename": "prop_sky_book.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 28, "h": 22 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 22 },
+    "sourceSize": { "w": 28, "h": 22 },
+    "duration": 200
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "prop_sky_book.png",
+  "format": "RGBA8888",
+  "size": { "w": 28, "h": 22 },
+  "scale": "1",
+  "frameTags": [
+  ]
+ }
+}

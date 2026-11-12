@@ -1,0 +1,60 @@
+{ "frames": [
+   {
+    "filename": "env_hut_moss 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "sourceSize": { "w": 62, "h": 58 },
+    "duration": 220
+   },
+   {
+    "filename": "env_hut_moss 1.aseprite",
+    "frame": { "x": 62, "y": 0, "w": 62, "h": 58 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "sourceSize": { "w": 62, "h": 58 },
+    "duration": 220
+   },
+   {
+    "filename": "env_hut_moss 2.aseprite",
+    "frame": { "x": 124, "y": 0, "w": 62, "h": 58 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "sourceSize": { "w": 62, "h": 58 },
+    "duration": 220
+   },
+   {
+    "filename": "env_hut_moss 3.aseprite",
+    "frame": { "x": 186, "y": 0, "w": 62, "h": 58 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "sourceSize": { "w": 62, "h": 58 },
+    "duration": 220
+   },
+   {
+    "filename": "env_hut_moss 4.aseprite",
+    "frame": { "x": 248, "y": 0, "w": 62, "h": 58 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 62, "h": 58 },
+    "sourceSize": { "w": 62, "h": 58 },
+    "duration": 220
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "env_hut_moss.png",
+  "format": "RGBA8888",
+  "size": { "w": 310, "h": 58 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "dark", "from": 0, "to": 0, "direction": "forward", "color": "#000000ff" },
+   { "name": "lit", "from": 1, "to": 4, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

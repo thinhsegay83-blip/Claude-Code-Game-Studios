@@ -1,0 +1,51 @@
+{ "frames": [
+   {
+    "filename": "ui_hud_linh 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 124, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 124, "h": 44 },
+    "sourceSize": { "w": 124, "h": 44 },
+    "duration": 260
+   },
+   {
+    "filename": "ui_hud_linh 1.aseprite",
+    "frame": { "x": 124, "y": 0, "w": 124, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 124, "h": 44 },
+    "sourceSize": { "w": 124, "h": 44 },
+    "duration": 260
+   },
+   {
+    "filename": "ui_hud_linh 2.aseprite",
+    "frame": { "x": 248, "y": 0, "w": 124, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 124, "h": 44 },
+    "sourceSize": { "w": 124, "h": 44 },
+    "duration": 260
+   },
+   {
+    "filename": "ui_hud_linh 3.aseprite",
+    "frame": { "x": 372, "y": 0, "w": 124, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 124, "h": 44 },
+    "sourceSize": { "w": 124, "h": 44 },
+    "duration": 260
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "ui_hud_linh.png",
+  "format": "RGBA8888",
+  "size": { "w": 496, "h": 44 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "active", "from": 0, "to": 1, "direction": "forward", "color": "#000000ff" },
+   { "name": "low", "from": 2, "to": 3, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

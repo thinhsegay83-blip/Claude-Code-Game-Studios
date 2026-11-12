@@ -1,0 +1,87 @@
+{ "frames": [
+   {
+    "filename": "fx_music_box 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 210
+   },
+   {
+    "filename": "fx_music_box 1.aseprite",
+    "frame": { "x": 28, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 210
+   },
+   {
+    "filename": "fx_music_box 2.aseprite",
+    "frame": { "x": 56, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 210
+   },
+   {
+    "filename": "fx_music_box 3.aseprite",
+    "frame": { "x": 84, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 210
+   },
+   {
+    "filename": "fx_music_box 4.aseprite",
+    "frame": { "x": 112, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 260
+   },
+   {
+    "filename": "fx_music_box 5.aseprite",
+    "frame": { "x": 140, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 260
+   },
+   {
+    "filename": "fx_music_box 6.aseprite",
+    "frame": { "x": 168, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 260
+   },
+   {
+    "filename": "fx_music_box 7.aseprite",
+    "frame": { "x": 196, "y": 0, "w": 28, "h": 28 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 28, "h": 28 },
+    "sourceSize": { "w": 28, "h": 28 },
+    "duration": 260
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "fx_music_box.png",
+  "format": "RGBA8888",
+  "size": { "w": 224, "h": 28 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "intact", "from": 0, "to": 3, "direction": "forward", "color": "#000000ff" },
+   { "name": "shattered", "from": 4, "to": 7, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

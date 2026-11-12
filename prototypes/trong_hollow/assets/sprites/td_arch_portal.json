@@ -1,0 +1,51 @@
+{ "frames": [
+   {
+    "filename": "td_arch_portal 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 44, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 44, "h": 44 },
+    "sourceSize": { "w": 44, "h": 44 },
+    "duration": 360
+   },
+   {
+    "filename": "td_arch_portal 1.aseprite",
+    "frame": { "x": 44, "y": 0, "w": 44, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 44, "h": 44 },
+    "sourceSize": { "w": 44, "h": 44 },
+    "duration": 360
+   },
+   {
+    "filename": "td_arch_portal 2.aseprite",
+    "frame": { "x": 88, "y": 0, "w": 44, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 44, "h": 44 },
+    "sourceSize": { "w": 44, "h": 44 },
+    "duration": 360
+   },
+   {
+    "filename": "td_arch_portal 3.aseprite",
+    "frame": { "x": 132, "y": 0, "w": 44, "h": 44 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 44, "h": 44 },
+    "sourceSize": { "w": 44, "h": 44 },
+    "duration": 360
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "td_arch_portal.png",
+  "format": "RGBA8888",
+  "size": { "w": 176, "h": 44 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "cave", "from": 0, "to": 1, "direction": "forward", "color": "#000000ff" },
+   { "name": "village", "from": 2, "to": 3, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

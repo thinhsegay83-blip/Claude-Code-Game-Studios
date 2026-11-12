@@ -1,0 +1,1581 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRONG: Thế Giới Tinh Cầu Rỗng — Thiết Kế Nhân Vật, Thế Giới & UI (v2)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #090910; overflow: hidden; }
+  canvas { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script src="assets.js"></script>
+<script src="narrative_extras.js"></script>
+<script>
+'use strict';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 1280, H = 720;
+const PIXEL_SCALE = 2;
+const params = new URLSearchParams(location.search);
+const STEP = 1 / 60;
+
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  const r = k * (devicePixelRatio || 1);
+  canvas.width = Math.round(W * r); canvas.height = Math.round(H * r);
+  canvas.style.width = Math.round(W * k) + 'px';
+  canvas.style.height = Math.round(H * k) + 'px';
+  canvas.style.marginTop = Math.max(0, Math.floor((innerHeight - H * k) / 2)) + 'px';
+  ctx.setTransform(r, 0, 0, r, 0, 0);
+}
+addEventListener('resize', fit); fit();
+
+// ---- Typography -----------------------------------------------------------------------------
+const ROLES = {
+  display: '600 {s}px "Sitka Display", Georgia, serif',
+  story:   '500 {s}px "Sitka Text", Georgia, serif',
+  thought: 'italic 400 {s}px "Sitka Text", Georgia, serif',
+  ui:      '600 {s}px "Candara", "Segoe UI", sans-serif',
+  label:   '700 {s}px "Candara", "Segoe UI", sans-serif',
+  mono:    '600 {s}px "Cascadia Mono", Consolas, monospace',
+};
+function fnt(size, role = 'ui') { return (ROLES[role] || ROLES.ui).replace('{s}', Math.round(size)); }
+function measureW(s, size, role = 'ui') {
+  ctx.save(); ctx.font = fnt(size, role);
+  const w = ctx.measureText(String(s)).width; ctx.restore(); return w;
+}
+function txt(s, x, y, size, col, align = 'center', role = 'ui') {
+  ctx.save(); ctx.font = fnt(size, role); ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(6,8,14,0.88)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
+  ctx.fillStyle = col; ctx.fillText(String(s), Math.round(x), Math.round(y)); ctx.restore();
+}
+function wrap(s, maxW, size, role = 'story') {
+  const words = String(s).split(' '), out = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (measureW(t, size, role) > maxW && cur) { out.push(cur); cur = w; } else cur = t;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+// ---- Assets loader --------------------------------------------------------------------------
+const ASSETS = window.HOLLOW_ASSETS || {};
+const SPRITES = {};
+const READY_PROMISES = Object.entries(ASSETS).map(([k, v]) => {
+  const img = new Image(); SPRITES[k] = img;
+  return new Promise(res => {
+    img.onload = () => { if (params.get('manual') === '1') drawFrame(); res(); };
+    img.onerror = res; img.src = v.src;
+  });
+});
+
+function animFrame(key, tag, t) {
+  const meta = ASSETS[key]; if (!meta || !meta.frames.length) return null;
+  const tg = tag && meta.tags ? meta.tags[tag] : null;
+  const from = tg ? tg.from : 0, to = tg ? tg.to : meta.frames.length - 1;
+  if (from === to) return meta.frames[from];
+  let total = 0; for (let i = from; i <= to; i++) total += meta.frames[i].dur || 200;
+  let ms = (Math.max(0, t || 0) * 1000) % total;
+  for (let i = from; i <= to; i++) { const d = meta.frames[i].dur || 200; if (ms < d) return meta.frames[i]; ms -= d; }
+  return meta.frames[from];
+}
+function drawSprite(key, tag, x, y, opts = {}) {
+  const img = SPRITES[key], meta = ASSETS[key];
+  if (!img || !meta || !img.complete || !img.naturalWidth) return false;
+  const fr = animFrame(key, tag, opts.t); if (!fr) return false;
+  const scale = (opts.scale !== undefined ? opts.scale : 1) * PIXEL_SCALE;
+  const facing = opts.facing !== undefined ? opts.facing : 1;
+  const ax = opts.ax !== undefined ? opts.ax : meta.ax;
+  const ay = opts.ay !== undefined ? opts.ay : meta.ay;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  if (opts.alpha !== undefined) ctx.globalAlpha *= opts.alpha;
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(facing * scale, scale);
+  ctx.drawImage(img, fr.x, fr.y, fr.w, fr.h, -ax, -ay, fr.w, fr.h);
+  ctx.restore();
+  return true;
+}
+function drawParallax(key, scrollX) {
+  const img = SPRITES[key]; if (!img || !img.complete || !img.naturalWidth) return;
+  const tw = img.naturalWidth * PIXEL_SCALE, th = img.naturalHeight * PIXEL_SCALE;
+  const start = -(((Math.round(scrollX) % tw) + tw) % tw);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  for (let x = start; x < W; x += tw) ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, 0, tw, th);
+  ctx.restore();
+}
+
+// ---- Design Data (100% Synced with DESIGN_HANDOVER.md & handover_story.md v4.3) -------------
+const CHAR_CARDS = [
+  { key: 'char_protag', ports: ['protag_hooded', 'protag_warm', 'protag_shock', 'protag_fading'], name: 'Kẻ Trắng Tay', title: 'CHAR_PROTAG · Mảnh Lương Tri', tags: ['hooded', 'hooded_walk', 'idle', 'walk', 'walk_up', 'walk_side', 'puddle', 'pulse', 'dissolve'], pal: ['#f0ebe0', '#475750', '#e8b058', '#eef2fa', '#8ff5e8'], desc: 'Hồi 1–2 trùm mũ kiểu char_me giấu mái tóc bạc; từ Hồi 3 trở đi lộ mặt giống hệt Vaelen. Đủ 3 hướng Top-Down & dissolve.' },
+  { key: 'comp_linh', ports: ['linh_smile', 'linh_shock', 'linh_teary'], name: 'Linh & Cáo Mốc', title: 'COMP_LINH · Thợ Máy Thính Âm', tags: ['idle', 'listen', 'wrench', 'walk_up', 'walk_side'], pal: ['#c47349', '#593a32', '#f2c85b', '#4287b8', '#7ce8ff'], desc: 'Quản lý thanh HP vẽ chì & sổ bìa xanh 5 Lumen. Kính lúp đồng, ống nghe và chú cáo 4 tai Mốc trên vai trái.' },
+  { key: 'comp_kael', ports: ['kael_warm', 'kael_sad', 'kael_glow'], name: 'Kaelen', title: 'COMP_KAEL · Hiệp Sĩ Gốm Hàn Vàng', tags: ['idle', 'soup', 'guard', 'walk_up', 'walk_side'], pal: ['#f0ebe0', '#f5c249', '#c76d44', '#8c8782'], desc: 'Giáp gốm Kintsugi hàn chỉ vàng giữ tro cốt đồng đội cũ; quản lý thanh Hơi Ấm và chừa bát súp mẻ thứ tư ít hành.' },
+  { key: 'comp_mira', ports: ['mira_smirk', 'mira_fierce', 'mira_gentle'], name: 'Mira', title: 'COMP_MIRA · Tiểu Thư Buôn Gió', tags: ['idle', 'abacus', 'step', 'walk_up', 'walk_side'], pal: ['#3f548c', '#f0c259', '#242f59', '#8df5ff'], desc: 'Áo choàng chàm, bàn tính pha lê quản lý HUD kinh tế Lumen và định giá cậu "0 Lumen — vô giá không thể tịch thu".' },
+  { key: 'boss_vaelen', ports: ['vaelen_cold', 'vaelen_pained', 'vaelen_old'], name: 'Vaelen', title: 'BOSS_VAELEN · Đại Kiến Trúc Sư', tags: ['cabled', 'idle', 'cast', 'old'], pal: ['#ebe8f2', '#9be3ff', '#d9c27e', '#8f3f52'], desc: 'Trên ngai tháp cắm dây dẫn Memoria (cabled) nuôi Mặt Trời Sinh Học; mắt trắng vô cảm nhưng cùng phom mặt với cậu.' },
+  { key: 'npc_vex', ports: ['vex_smug'], name: 'Broker Vex', title: 'NPC_BROKER_VEX · Thương Lái Chợ Đen', tags: ['idle'], pal: ['#4c385e', '#75578f', '#e3b74d', '#96ebff'], desc: 'Thương lái Chợ Đen đặt giá 3.000 Lumen hoặc 2 Xu Ký Ức cho quả trứng Hồ Ly Hoàng Gia.' },
+  { key: 'cre_echofox', ports: [], name: 'Hồ Ly Âm Bản', title: 'CRE_ECHOFOX · Echo-Vulpis', tags: ['idle', 'chime'], pal: ['#f0eafc', '#c7b8eb', '#f29cb8', '#ffd46b'], desc: 'Sinh vật bốn tai đổi sắc theo âm thanh, đuôi gắn chuông gió ghi âm lại lời an ủi đầu tiên của cậu.' },
+  { key: 'cre_rustcrab', ports: [], name: 'Cua Giáp Lò Rèn', title: 'CRE_RUSTCRAB · Forge-Carapace', tags: ['idle', 'warm'], pal: ['#8a6856', '#634639', '#ff6e30', '#ffe082'], desc: 'Mai sắt mang lò địa nhiệt cùng dòng chữ 300 năm: "Đừng chạm vào, coi chừng phỏng tay nhé."' },
+  { key: 'cre_prismweaver', ports: [], name: 'Nhện Khúc Xạ', title: 'CRE_PRISMWEAVER · Prism-Weaver', tags: ['idle', 'weave'], pal: ['#363859', '#8ff7ff', '#d89eff', '#ffe68a'], desc: 'Bụng lục giác 7 sắc, dệt cầu ánh sáng nối đảo Tilemap và tặng vòng tơ lấp lánh dẫn đường trong đêm tối.' },
+  { key: 'npc_syndicate_guard', ports: ['mira_fierce'], name: 'Vệ Binh Thương Đoàn', title: 'NPC_SYNDICATE_GUARD · Lính Thu Thuế 20%', tags: ['idle', 'halberd'], pal: ['#4c5775', '#2c3247', '#f0c259', '#8ff7ff'], desc: 'Lính gác Ngân Hàng Ký Ức cầm kích đòi 20% thuế bến Chợ Nổi Hồi 2 trừ khi có ấn miễn trừ của Mira hoặc chữa cho Kình Ngư.' },
+  { key: 'cre_parasite_mite', ports: ['linh_smile'], name: 'Bọ Ký Sinh Kình Ngư', title: 'CRE_PARASITE_MITE · Ký Sinh Lưng Cá Voi', tags: ['cling', 'removed'], pal: ['#7d4c8c', '#523466', '#9be3ff', '#fff4c4'], desc: 'Ký sinh hút quang trên lưng cá voi 500 tuổi (Hồi 2). Nhổ sạch bọ để chuyển sang hạt sáng êm dịu và giảm 20% thuế chợ!' },
+];
+
+const ACTS = {
+  act1: {
+    num: 1, name: 'Hồi 1 · Thung Lũng Phế Liệu Tầng Ngoài', short: '1 Phế Liệu',
+    sub: 'Tỉnh dậy từ Kén Hổ Phách nứt vỡ, bàn tay tan thành bụi sáng trước khi gặp Linh.',
+    w: 2400, gy: 610, bgs: ['bg_scrapyard_sky', 'bg_scrapyard_junk_far', 'bg_scrapyard_ground'],
+    coreY: 132, coreScale: 0.72, rain: false,
+    decor: [
+      { x: 370, key: 'fx_ambient_flora', tag: 'scrap_blossom' },
+      { x: 600, key: 'fx_ambient_flora', tag: 'scrap_blossom' },
+      { x: 1020, key: 'fx_ambient_flora', tag: 'scrap_blossom' },
+      { x: 1580, key: 'fx_ambient_flora', tag: 'scrap_blossom' },
+      { x: 1980, key: 'fx_ambient_flora', tag: 'scrap_blossom' },
+    ],
+    entities: [
+      { x: 280,  key: 'prop_cocoon', tag: 'open', name: 'Kén Hổ Phách Nứt Vỡ', port: 'protag_warm', text: 'Chiếc kén từng giữ nửa nhịp đập của Tinh Cầu suốt 300 năm. Trong túi áo chỉ còn tờ Khế Ước Trắng.' },
+      { x: 460,  key: 'prop_amber_fleck', tag: 'idle', name: 'Mảnh Hổ Phách Phát Sáng (Legacy)', port: 'protag_warm', text: 'Hạt hổ phách cổ vương vãi trên bãi phế liệu, dẫn lối về phía ánh lửa ấm.' },
+      { x: 680,  key: 'prop_puddle', tag: s => s.corrupt ? 'corrupt' : 'one', name: 'Vũng Nước Lưu Game (Hồi 1)', port: 'protag_warm', text: s => s.corrupt ? 'Mặt nước tối sầm lại dù mới đầu hành trình.' : 'Chỉ là một vũng nước mưa nhỏ. Trông cậu hơi ướt và lem luốc, nhưng không sao cả.' },
+      { x: 910,  key: 'wp_world_props', tag: 'stone_lantern', name: 'Đèn Đá Rêu Cổ (Legacy)', port: 'protag_warm', text: 'Chiếc đèn đá phủ rêu vẫn âm ỉ sáng suốt ba thế kỷ nơi rìa thung lũng.' },
+      { x: 1120, key: 'cre_rustcrab', tag: s => s.corrupt ? 'idle' : 'warm', name: 'Cua Giáp Lò Rèn', port: 'protag_warm', text: 'Cua khổng lồ khép bớt cửa lò để hơi nóng không làm bỏng mặt cậu. Trên mai còn nét khắc cổ: "Đừng chạm vào, coi chừng phỏng tay nhé."' },
+      { x: 1480, key: 'comp_linh', tag: 'listen', name: 'Linh & Cáo Mốc', port: 'linh_smile', text: '"Khám nhịp tim với dán băng cá nhân một lần tính 5 Lumen nhé. Tôi ghi vào cuốn sổ bìa xanh này rồi đấy!"' },
+      { x: 1680, key: 'env_tree', tag: s => s.corrupt ? 'lvl1' : 'lvl4', name: 'Cây Cổ Thụ Tầng Ngoài (Legacy)', port: 'protag_warm', text: 'Cây cổ thụ đâm chồi lộc vàng mỗi khi sự sống cộng sinh lan tỏa quanh vùng.' },
+      { x: 1860, key: 'cre_echofox', tag: s => s.corrupt ? 'idle' : 'chime', name: 'Hồ Ly Âm Bản', port: 'protag_warm', text: 'Chú cáo 4 tai nhại lại tiếng bụng đói "Ọc… ọc…" rồi dụi đầu vào giày cậu.' },
+      { x: 2140, key: 'env_hut_moss', tag: s => s.corrupt ? 'dark' : 'lit', name: 'Trạm Rêu Lên Lưng Cá (Legacy)', port: 'linh_smile', text: 'Túp lều rêu nhỏ đánh dấu bến đỗ lên chuyến tàu Lưng Kình Ngư.' },
+    ],
+  },
+  act2: {
+    num: 2, name: 'Hồi 2 · Chợ Nổi Lưng Kình Ngư', short: '2 Chợ Kình Ngư',
+    sub: 'Thị trấn gỗ bắc dọc lưng con cá voi 500 tuổi dưới ánh Cân Định Giá & Trứng Hồ Ly.',
+    w: 2400, gy: 610, bgs: ['bg_market_sky', 'bg_market_stalls_far', 'bg_market_deck'],
+    coreY: 118, coreScale: 0.85, rain: false,
+    decor: [
+      { x: 870, key: 'fx_ambient_flora', tag: 'lantern_sway' },
+      { x: 1030, key: 'fx_ambient_flora', tag: 'lantern_sway' },
+      { x: 1340, key: 'fx_ambient_flora', tag: 'lantern_sway' },
+      { x: 1525, key: 'fx_ambient_flora', tag: 'lantern_sway' },
+      { x: 2040, key: 'fx_ambient_flora', tag: 'lantern_sway' },
+    ],
+    entities: [
+      { x: 320,  key: 'prop_leviathan', tag: 'idle', yOff: 44, front: true, name: 'Kình Ngư Ngược Gió', port: 'protag_warm', text: 'Con cá voi sinh học năm trăm tuổi nghiêng mình che gió lùa cho đống lửa trại trên lưng không bị tắt.' },
+      { x: 430,  key: 'cre_parasite_mite', tag: s => s.miteRemoved ? 'removed' : 'cling', yOff: 26, front: true, name: 'Bọ Ký Sinh Lưng Kình Ngư', port: 'linh_smile', text: s => s.miteRemoved ? 'Kình Ngư hết ngứa, lớp da lưng phát sáng vàng dịu — thuế Chợ Nổi giảm 20%!' : 'Nhấn [E] nhổ bọ ký sinh đang hút quang lưng Kình Ngư để giảm 20% thuế chợ.' },
+      { x: 520,  key: 'wp_world_props', tag: 'bell_tower', name: 'Tháp Chuông Bến Chợ (Legacy)', port: 'protag_warm', text: 'Chiếc chuông gỗ gõ nhịp mỗi lần Kình Ngư đổi hướng gió qua tầng mây.' },
+      { x: 640,  key: 'npc_syndicate_guard', tag: 'halberd', name: 'Vệ Binh Thương Đoàn', port: 'mira_fierce', text: s => s.miteRemoved ? '"Có ấn giảm 20% thuế và chữ ký Mira rồi à? Đi qua bến đi."' : '"Thuế bến 20% Lumen! Giúp Kình Ngư gỡ bọ ký sinh hoặc nhờ Mira định giá 0 Lumen để miễn thuế."' },
+      { x: 760,  key: 'prop_scale', tag: 'overflow', name: 'Cân Định Giá Linh Hồn', port: 'linh_smile', text: 'Bộ máy phát nổ với dòng cổ ngữ OVERFLOW: ORIGIN_ENTITY — không ngân hàng nào đo nổi lòng trắc ẩn.' },
+      { x: 1160, key: 'npc_vex', tag: 'idle', name: 'Broker Vex (Chợ Đen)', port: 'vex_smug', text: '"Giao quả trứng cho tôi, các vị cầm ngay 3.000 Lumen — hoặc 2 Đồng Xu Ký Ức nguyên niêm phong."' },
+      { x: 1260, key: 'prop_fox_egg', tag: 'chime', name: 'Quả Trứng Hồ Ly Hoàng Gia', port: 'linh_teary', text: 'Vỏ trứng ấm áp rung nhẹ theo tiếng chuông gió thanh tẩy, đối diện khay xu của Vex.' },
+      { x: 1410, key: 'comp_mira', tag: 'abacus', name: 'Mira — Tiểu Thư Buôn Gió', port: 'mira_smirk', text: '"Theo sổ cái của tôi thì hiện tại cậu đáng giá đúng… 0 Lumen tròn trĩnh. Thứ giá 0 Lumen không thể bị tịch thu!"' },
+      { x: 1660, key: 'prop_campfire', tag: s => s.corrupt ? 'cold' : 'warm', name: 'Lửa Trại & Nồi Súp 4 Bát', port: 'kael_warm', text: 'Bốn chiếc bát quanh lửa; chiếc bát sứt vành bên trái đã được Kaelen nhặt sạch từng cọng hành lá.' },
+      { x: 1800, key: 'comp_kael', tag: 'soup', name: 'Kaelen — Hiệp Sĩ Kintsugi', port: 'kael_warm', text: '"Tại tôi lỡ tay cắt dư một củ nấm phát quang nên mới thừa ra phần thứ tư thôi, không phải nấu riêng cho cậu đâu."' },
+      { x: 1930, key: 'env_hut_lantern', tag: s => s.corrupt ? 'dark' : 'lit', name: 'Quán Trọ Lồng Đèn Kaelen (Legacy)', port: 'kael_warm', text: 'Ánh đèn lồng treo mái gỗ nơi tiếng hộp nhạc của mẹ Linh ngân vang ở cái kết Cộng Sinh.' },
+      { x: 2140, key: 'prop_puddle', tag: s => s.corrupt ? 'corrupt' : 'four', name: 'Vũng Nước Chợ Nổi', port: 'mira_smirk', text: s => s.corrupt ? 'Mặt nước tối lạnh như thủy ngân.' : 'Vũng nước hơi chật. Phải chen chúc lắm mới đủ chỗ cho bốn cái bóng cùng cúi xuống nhìn một lúc.' },
+    ],
+  },
+  act3: {
+    num: 3, name: 'Hồi 3 · Rừng Khúc Xạ & Hầm Ký Ức', short: '3 Rừng & Hầm',
+    sub: 'Đoạn Độc Hành không HUD / Súp Khê (S) vs Đêm Đoàn Tụ Bát Súp Thứ Tư.',
+    w: 2400, gy: 610, bgs: ['bg_vault_sky', 'bg_vault_prism_far', 'bg_vault_hall'],
+    coreY: 126, coreScale: 0.78, rain: true,
+    decor: [
+      { x: 330, key: 'fx_ambient_flora', tag: 'prism_crystal' },
+      { x: 630, key: 'fx_ambient_flora', tag: 'prism_crystal' },
+      { x: 920, key: 'fx_ambient_flora', tag: 'prism_crystal' },
+      { x: 1440, key: 'fx_ambient_flora', tag: 'prism_crystal' },
+      { x: 2010, key: 'fx_ambient_flora', tag: 'prism_crystal' },
+    ],
+    entities: [
+      { x: 240,  key: 'env_tree_willow', tag: s => s.corrupt ? 'lvl1' : 'lvl3', name: 'Cây Liễu Khúc Xạ (Legacy)', port: 'protag_warm', text: 'Tán liễu rủ đọng bụi sương khúc xạ ánh sáng lam từ rừng tơ.' },
+      { x: 420,  key: 'cre_prismweaver', tag: 'weave', name: 'Nhện Khúc Xạ', port: 'protag_warm', text: 'Tơ phát sáng quấn cổ tay cậu: "Chẳng có tác dụng cộng giáp nào cả, nhưng nhìn nó lấp lánh làm bạn thấy vui vui."' },
+      { x: 740,  key: 'prop_solo_stove', tag: s => s.solo ? 'burnt' : 'cold', name: 'Bếp Đá & Nồi Súp Khê', port: 'protag_fading', text: 'Cậu tự nấu một bát súp. Chẳng có ai vớt hành ra giúp cậu cả. Cậu nuốt thử một thìa… lạnh ngắt.' },
+      { x: 1040, key: 'prop_statue', tag: 'idle', name: 'Tượng Đá Đại Kiến Trúc Sư', port: 'protag_shock', text: 'Bức tượng đá 300 năm mang khuôn mặt giống hệt cậu — nhưng Linh gõ thử bảo bên trong đặc quánh, chẳng có tiếng vọng.' },
+      { x: 1280, key: 'enemy_scorn', tag: s => s.corrupt ? 'attack' : 'charge', name: 'Vệ Binh Thu Hồi Nợ (Legacy)', port: 'linh_shock', text: 'Cỗ máy tinh thể canh giữ Hầm Ngân Hàng Ký Ức sẵn sàng bao vây bất kỳ con nợ nào.' },
+      { x: 1580, key: 'prop_campfire', tag: s => s.corrupt ? 'cold' : 'warm', name: 'Lửa Trại Đêm Đoàn Tụ', port: 'kael_warm', text: s => s.corrupt ? 'Ngọn lửa tắt ngấm bên một bát súp nguội lạnh.' : 'Chiếc bát sứt vành thứ tư vẫn nóng hổi đặt ở bên trái bếp lửa giữa màn mưa bụi sắt.' },
+      { x: 1700, key: 'comp_kael', tag: 'soup', hidden: s => s.solo, name: 'Kaelen (Đoàn Tụ)', port: 'kael_warm', text: '"Bát của cậu ở bên trái, chỗ tôi vớt hết hành ra như mọi khi ấy. Ngồi xuống ăn đi kẻo nguội."' },
+      { x: 1810, key: 'comp_linh', tag: 'idle', hidden: s => s.solo, name: 'Linh (Sổ Xanh Hết Giấy)', port: 'linh_teary', text: '"Dán vết xước đi. Lần này tôi khám miễn phí, sổ xanh của tôi hết chỗ ghi nợ của cậu rồi."' },
+      { x: 1910, key: 'comp_mira', tag: 'idle', hidden: s => s.solo, name: 'Mira (Bàn Ăn 4 Người)', port: 'mira_gentle', text: '"Cậu thuộc về cái bàn ăn bốn người này. Cầm thìa lên đi cậu."' },
+      { x: 2100, key: 'prop_puddle', tag: s => s.corrupt ? 'corrupt' : (s.solo ? 'solo_fade' : 'four'), name: 'Vũng Nước Dưới Cơn Mưa', port: s => s.corrupt ? 'vaelen_cold' : (s.solo ? 'protag_fading' : 'protag_warm'), text: s => s.corrupt ? 'Nước rất tĩnh. Không chắc người đang mỉm cười dưới đáy nước là mình hay là ông ta.' : (s.solo ? 'Vũng nước rộng thênh thang. Chẳng còn ai chen chỗ của cậu nữa…' : 'Dù bức tượng đá ngoài kia có mang khuôn mặt ai… người đang cúi xuống nhìn vẫn chỉ là cậu thôi.') },
+    ],
+  },
+  act4: {
+    num: 4, name: 'Hồi 4 · Đỉnh Tháp Lõi Nhịp Tim', short: '4 Lõi Nhịp Tim',
+    sub: 'Tấm bia cổ chữ TRONG và cuộc đối đầu bên dưới Mặt Trời Sinh Học.',
+    w: 2000, gy: 610, bgs: ['bg_core_sky', 'bg_core_spires', 'bg_core_floor'],
+    coreY: 162, coreScale: 1.55, rain: false,
+    decor: [
+      { x: 170, key: 'fx_ambient_flora', tag: 'core_ember' },
+      { x: 440, key: 'fx_ambient_flora', tag: 'core_ember' },
+      { x: 740, key: 'fx_ambient_flora', tag: 'core_ember' },
+      { x: 1680, key: 'fx_ambient_flora', tag: 'core_ember' },
+      { x: 1840, key: 'fx_ambient_flora', tag: 'core_ember' },
+    ],
+    entities: [
+      { x: 320,  key: 'prop_stele_trong', tag: s => s.corrupt ? 'rusted' : 'cleaned', name: 'Tấm Bia Đá Cổ "TRONG"', port: 'protag_warm', text: s => s.corrupt ? 'Lớp bụi sắt che mờ dấu thanh điệu: kẻ thù đọc là TRỐNG, kẻ buôn đọc là TRỌNG.' : 'Khi lau sạch bụi sắt: chữ TRONG vốn không có dấu. Mặt trời nằm BÊN TRONG mỗi bếp lửa trại, và mặt nước TRONG VẮT.' },
+      { x: 560,  key: 'prop_puddle', tag: s => s.corrupt ? 'corrupt' : 'clear', name: 'Vũng Nước Cuối Trước Cửa Lõi', port: s => s.corrupt ? 'vaelen_cold' : 'protag_warm', text: s => s.corrupt ? 'Mặt nước phẳng lặng như gương. Ngài giàu nhất thế giới này rồi… nhưng chẳng còn bóng của ai ngoài ngài Chủ tịch.' : 'Nước trong vắt. Sau bao nhiêu vết xước, thật mừng vì người đứng ở đây vẫn là cậu.' },
+      { x: 880,  key: 'comp_kael', tag: 'guard', name: 'Kaelen (Khiên Kintsugi)', port: 'kael_glow', text: '"Người ta ấm lên khi ngồi quanh nồi súp nóng và nhớ rõ tên từng người. Huống hồ tối nay ai ăn nốt bát súp thứ tư của tôi?"' },
+      { x: 990,  key: 'comp_linh', tag: 'wrench', name: 'Linh (Cờ-lê Cộng Hưởng)', port: 'linh_smile', text: '"Đừng có tin lời lão già chỉ có một nhịp tim! Rút tờ giấy gói bánh mì ra cho lão ta xem ai mới là chủ bếp lửa!"' },
+      { x: 1100, key: 'comp_mira', tag: 'step', name: 'Mira (Chắn Khiên Nợ)', port: 'mira_fierce', text: '"Cả cái tòa tháp Ngân Hàng của ngài không đủ tiền lẻ để đòi lại một kẻ có mệnh giá 0 Lumen đâu!"' },
+      { x: 1210, key: 'cre_echofox', tag: 'chime', name: 'Hồ Ly Âm Bản (Phản Đòn)', port: 'protag_warm', text: 'Chiếc đuôi chuông gió ngân vang câu đầu tiên cậu từng nói: "Ăn đi, đừng sợ, tôi không làm đau cậu đâu."' },
+      { x: 1360, key: 'battle_soul', tag: s => s.corrupt ? 'hurt' : 'focus', yOff: -42, name: 'Trái Tim Cộng Sinh (Battle SOUL Legacy)', port: 'protag_warm', text: 'Biểu tượng nhịp tim 2 sắc giữ lấy ý chí né đòn trước các làn sóng Xu Ký Ức của Vaelen.' },
+      { x: 1540, key: 'boss_vaelen', tag: s => s.corrupt ? 'cabled' : 'old', name: 'Đại Kiến Trúc Sư Vaelen', port: s => s.corrupt ? 'vaelen_pained' : 'vaelen_old', text: s => s.corrupt ? '"Để cứu thế giới này, ta buộc phải cắt ngươi — phần biết đau, biết thương xót — vứt xuống đáy vực."' : 'Dưới muôn vạn đốm lửa trại, Vaelen lặng lẽ nhìn đốm lửa nhỏ đậu trên lòng bàn tay già nua và mỉm cười thanh thản.' },
+    ],
+  },
+};
+
+const state = {
+  t: 0, view: 'world', act: 'act1', x: 420, facing: 1, moving: false,
+  corrupt: false, solo: false, hooded: true, hudHidden: false, dlg: null,
+  charIdx: 0, charTagIdx: 0, portIdx: 0, hudAlt: false,
+  miteRemoved: false, cutsceneMode: false, csIdx: 0,
+  pillars: [false, false, false, false], bossPurified: false, foxRescue: false,
+  holdT: 0, purifyCount: 0, purifyBurstT: 0,
+  itemIdx: 0, bagCtx: 'early', beastIdx: 0, wheelSel: 0, wheelMsg: '',
+  buttons: [],
+  fx: { dust: [], dissolve: [], stepTick: 0 },
+};
+
+const CUTSCENES = [
+  { key: 'panel_cs01_hand', code: 'CS_01', title: 'CS_01 · Bàn Tay Rã Sáng & Băng Ngôi Sao',
+    arch: 'Mức rò rỉ Lumen vượt ngưỡng an toàn. Đề nghị thu hồi mảnh ghép ngay lập tức.',
+    symb: 'Băng cá nhân hình ngôi sao hơi sờn… nhưng hơi ấm từ tay Linh níu cậu ở lại.' },
+  { key: 'panel_cs02_leviathan', code: 'CS_02', title: 'CS_02 · Bình Minh Trong Lòng Tinh Cầu',
+    arch: 'Kết cấu sinh học Kình Ngư đang lão hóa; áp suất tầng mây giảm 12.4%.',
+    symb: 'Cáo Mốc rúc vào cổ áo, cả bốn cái bóng cùng ngẩng nhìn Mặt Trời Sinh Học.' },
+  { key: 'panel_cs03_scale', code: 'CS_03', title: 'CS_03 · Mệnh Giá 0 Lumen',
+    arch: 'TRÀN DỮ LIỆU: ORIGIN_ENTITY. Không thể định lượng bằng bảng thuế Ngân Hàng.',
+    symb: 'Mira gẩy hạt pha lê về vạch 0: thứ có giá 0 Lumen thì không ai tịch thu nổi.' },
+  { key: 'panel_cs04_split', code: 'CS_04', title: 'CS_04 · Tượng Vaelen vs Cậu (Unmask)',
+    arch: 'Tượng đá Vaelen khớp 99.8% cấu trúc sọ. Ngươi chính là mảnh tách của Hắn.',
+    symb: 'Khuôn mặt giống nhau thì sao? Kẻ biết đau thay người khác mới là chính cậu.' },
+  { key: 'panel_cs05_soup', code: 'CS_05', title: 'CS_05 · Nồi Súp Khê Đầy Hành (Hồi 3.1)',
+    arch: 'Biến số phụ thuộc đã loại bỏ. Tiêu hao năng lượng đơn lẻ đạt mức tối ưu.',
+    symb: 'Nồi súp khét đen ngập toàn hành lá. Cậu nuốt không trôi vì chẳng còn ai vớt hộ.' },
+  { key: 'panel_cs06_bowl', code: 'CS_06', title: 'CS_06 · Bát Súp Thứ 4 & Sổ MIỄN PHÍ',
+    arch: 'Chi phí y tế bị Linh gạch bỏ sai quy chuẩn. Định mức Kaelen bất hợp lý.',
+    symb: 'Chiếc bát sứt vành bên trái không hề có một cọng hành. Đêm mưa bỗng ấm lạ.' },
+  { key: 'panel_cs07_hearths', code: 'CS_07', title: 'CS_07 · Muôn Vạn Đốm Lửa Trại',
+    arch: 'CẢNH BÁO ĐỎ: Mạng lõi tập quyền tan rã thành hàng vạn điểm phát sáng tự trị!',
+    symb: 'Bốn bàn tay chạm chung Khế Ước Trắng — không một mái nhà nào bị bỏ tối nữa.' },
+  { key: 'panel_cs08_puddle', code: 'CS_08', title: 'CS_08 · Sau Tất Cả, Vẫn Là Cậu',
+    arch: 'Chu trình phản chiếu ổn định. Định danh ký chủ: Đã từ bỏ ngôi Kiến Trúc Sư.',
+    symb: 'Nước trong vắt. Sau bao vết gốm hàn vàng, thật mừng vì người ở đây vẫn là cậu.' },
+];
+
+const down = new Set(), hit = new Set();
+const pressed = c => hit.has(c);
+addEventListener('keydown', e => {
+  if (!e.repeat) { down.add(e.code); hit.add(e.code); }
+  if (['Space', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e => down.delete(e.code));
+addEventListener('blur', () => down.clear());
+canvas.addEventListener('pointerdown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  for (const b of state.buttons) {
+    if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) { b.fn(); drawFrame(); return; }
+  }
+});
+
+function setAct(id) {
+  if (!ACTS[id]) return;
+  state.act = id; state.x = 420; state.facing = 1; state.dlg = null;
+  state.hooded = (id === 'act1' || id === 'act2');
+  state.fx = { dust: [], dissolve: [], stepTick: 0 };
+}
+function interactTarget() {
+  if (state.view !== 'world') return null;
+  let best = null, bestD = 92;
+  for (const en of ACTS[state.act].entities) {
+    if (en.hidden && en.hidden(state)) continue;
+    const d = Math.abs(state.x - en.x);
+    if (d < bestD) { bestD = d; best = en; }
+  }
+  return best;
+}
+
+function stepOnce() {
+  state.t += STEP;
+  if (state.purifyBurstT > 0) state.purifyBurstT = Math.max(0, state.purifyBurstT - STEP);
+  if (pressed('Tab')) {
+    state.cutsceneMode = false;
+    const order = ['world', 'chars', 'gallery', 'boss', 'bag', 'endings', 'legacy'];
+    state.view = order[(order.indexOf(state.view) + 1) % order.length];
+    state.dlg = null;
+  }
+  if (pressed('KeyB')) { state.cutsceneMode = false; state.view = state.view === 'boss' ? 'world' : 'boss'; state.dlg = null; }
+  if (pressed('KeyJ')) { state.cutsceneMode = false; state.view = state.view === 'bag' ? 'world' : 'bag'; state.dlg = null; }
+  if (pressed('KeyO')) { state.cutsceneMode = false; state.view = state.view === 'endings' ? 'world' : 'endings'; state.dlg = null; }
+  if (pressed('KeyC')) { state.cutsceneMode = !state.cutsceneMode; state.dlg = null; }
+  if (pressed('KeyI')) { state.cutsceneMode = false; state.view = state.view === 'gallery' ? 'world' : 'gallery'; state.dlg = null; }
+  if (pressed('KeyL')) { state.cutsceneMode = false; state.view = state.view === 'legacy' ? 'world' : 'legacy'; state.dlg = null; }
+  if (pressed('KeyT')) { location.href = 'topdown_maps.html'; }
+  if (pressed('KeyU')) state.hooded = !state.hooded;
+  if (pressed('KeyH')) state.hudHidden = !state.hudHidden;
+  if (pressed('KeyM')) state.corrupt = !state.corrupt;
+  if (pressed('KeyS')) { state.solo = !state.solo; if (state.view === 'gallery') state.hudAlt = state.solo; }
+  if (pressed('Digit1')) { state.cutsceneMode = false; state.view = 'world'; setAct('act1'); }
+  if (pressed('Digit2')) { state.cutsceneMode = false; state.view = 'world'; setAct('act2'); }
+  if (pressed('Digit3')) { state.cutsceneMode = false; state.view = 'world'; setAct('act3'); }
+  if (pressed('Digit4')) { state.cutsceneMode = false; state.view = 'world'; setAct('act4'); }
+
+  if (state.cutsceneMode) {
+    if (pressed('ArrowRight') || pressed('KeyD')) state.csIdx = (state.csIdx + 1) % CUTSCENES.length;
+    if (pressed('ArrowLeft') || pressed('KeyA')) state.csIdx = (state.csIdx + CUTSCENES.length - 1) % CUTSCENES.length;
+    if (pressed('Escape')) state.cutsceneMode = false;
+    return;
+  }
+
+  if (state.view === 'chars') {
+    if (pressed('ArrowRight') || pressed('KeyD')) { state.charIdx = (state.charIdx + 1) % CHAR_CARDS.length; state.charTagIdx = 0; state.portIdx = 0; }
+    if (pressed('ArrowLeft') || pressed('KeyA')) { state.charIdx = (state.charIdx + CHAR_CARDS.length - 1) % CHAR_CARDS.length; state.charTagIdx = 0; state.portIdx = 0; }
+    if (pressed('Space') || pressed('KeyE')) state.charTagIdx++;
+    if (pressed('KeyP')) state.portIdx++;
+    return;
+  }
+  if (state.view === 'bag') {
+    if (pressed('ArrowRight') || pressed('KeyD')) state.itemIdx = (state.itemIdx + 1) % 7;
+    if (pressed('ArrowLeft') || pressed('KeyA')) state.itemIdx = (state.itemIdx + 6) % 7;
+    if (pressed('ArrowDown')) { state.beastIdx = (state.beastIdx + 1) % 4; state.wheelMsg = ''; }
+    if (pressed('ArrowUp') || pressed('KeyW')) { state.beastIdx = (state.beastIdx + 3) % 4; state.wheelMsg = ''; }
+    if (down.has('Space')) {
+      state.holdT = Math.min(2.5, state.holdT + STEP);
+      if (state.holdT >= 2.5) { state.holdT = 0; state.purifyBurstT = 0.85; state.purifyCount++; }
+    } else if (state.holdT > 0) {
+      state.holdT = Math.max(0, state.holdT - STEP * 2.5);
+    }
+    return;
+  }
+  if (state.view === 'endings') {
+    return;
+  }
+  if (state.view === 'gallery' || state.view === 'legacy') {
+    if (pressed('Space') || pressed('KeyE')) state.hudAlt = !state.hudAlt;
+    return;
+  }
+  if (state.view === 'boss') {
+    if (pressed('KeyP')) {
+      const nxt = state.pillars.indexOf(false);
+      if (nxt !== -1) state.pillars[nxt] = true;
+      else { state.pillars = [false, false, false, false]; state.bossPurified = false; }
+    }
+    if (pressed('KeyF')) {
+      if (!state.pillars.every(Boolean)) state.pillars = [true, true, true, true];
+      state.bossPurified = !state.bossPurified;
+    }
+    if (down.has('Space')) {
+      state.holdT = Math.min(2.5, state.holdT + STEP);
+      if (state.holdT >= 2.5) { state.holdT = 0; state.purifyBurstT = 0.85; state.purifyCount++; }
+    } else if (state.holdT > 0) {
+      state.holdT = Math.max(0, state.holdT - STEP * 2.5);
+    }
+    return;
+  }
+
+  if (state.dlg) {
+    if (pressed('Space') || pressed('Enter') || pressed('KeyE') || pressed('Escape')) state.dlg = null;
+    return;
+  }
+
+  let v = 0;
+  if (down.has('ArrowLeft') || down.has('KeyA')) v -= 260;
+  if (down.has('ArrowRight') || down.has('KeyD')) v += 260;
+  state.moving = v !== 0;
+  if (v) {
+    state.facing = v > 0 ? 1 : -1;
+    state.x = Math.max(80, Math.min(ACTS[state.act].w - 80, state.x + v * STEP));
+  }
+  if (pressed('KeyE')) {
+    const t = interactTarget();
+    if (t) {
+      if (t.key === 'cre_parasite_mite') state.miteRemoved = !state.miteRemoved;
+      const text = typeof t.text === 'function' ? t.text(state) : t.text;
+      const port = typeof t.port === 'function' ? t.port(state) : t.port;
+      state.dlg = { name: t.name, text, port };
+    }
+  }
+  stepWorldEffects();
+}
+
+function fxRand(seedVal) {
+  const s = Math.sin(seedVal * 12.9898 + 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+function stepWorldEffects() {
+  const fx = state.fx;
+  fx.stepTick++;
+  const gy = ACTS[state.act].gy;
+  if (state.moving && fx.stepTick % 6 === 0) {
+    const dustCol = state.act === 'act2' ? '#f4e4c4' : (state.act === 'act3' ? '#95adc4' : (state.act === 'act4' ? '#f5dba0' : '#cab896'));
+    fx.dust.push({
+      x: state.x - state.facing * (8 + fxRand(fx.stepTick) * 6),
+      y: gy - 2,
+      vx: -state.facing * (28 + fxRand(fx.stepTick + 1) * 20),
+      vy: -(12 + fxRand(fx.stepTick + 2) * 14),
+      life: 0.48, maxLife: 0.48, r: 4, col: dustCol,
+    });
+  }
+  const isAct1Dissolve = state.act === 'act1' && (state.hooded || state.x < 1480);
+  const isAct3SoloDissolve = state.act === 'act3' && state.solo;
+  if ((isAct1Dissolve || isAct3SoloDissolve) && fx.stepTick % 4 === 0) {
+    const side = fxRand(fx.stepTick * 1.3) < 0.5 ? -1 : 1;
+    const isWarm = state.act === 'act1' && !state.corrupt;
+    fx.dissolve.push({
+      x: state.x + side * (8 + fxRand(fx.stepTick + 3) * 10),
+      y: gy - 42 - fxRand(fx.stepTick + 4) * 16,
+      vx: side * (6 + fxRand(fx.stepTick + 5) * 10),
+      vy: -(18 + fxRand(fx.stepTick + 6) * 18),
+      life: 0.95, maxLife: 0.95, sz: 2,
+      col: isWarm ? (fxRand(fx.stepTick + 7) > 0.4 ? '#ffd984' : '#f4ecd8') : '#92f5ec',
+    });
+  }
+  for (let i = fx.dust.length - 1; i >= 0; i--) {
+    const p = fx.dust[i]; p.x += p.vx * STEP; p.y += p.vy * STEP; p.life -= STEP;
+    if (p.life <= 0) fx.dust.splice(i, 1);
+  }
+  if (fx.dust.length > 64) fx.dust.splice(0, fx.dust.length - 64);
+  for (let i = fx.dissolve.length - 1; i >= 0; i--) {
+    const p = fx.dissolve[i];
+    p.x += (p.vx + Math.sin(state.t * 4 + i) * 6) * STEP;
+    p.y += p.vy * STEP; p.life -= STEP;
+    if (p.life <= 0) fx.dissolve.splice(i, 1);
+  }
+  if (fx.dissolve.length > 48) fx.dissolve.splice(0, fx.dissolve.length - 48);
+}
+
+function drawPointLight(x, y, r, rgb, alpha) {
+  if (x < -r || x > W + r || y < -r || y > H + r || alpha <= 0.005) return;
+  const g = ctx.createRadialGradient(Math.round(x), Math.round(y), 2, Math.round(x), Math.round(y), r);
+  g.addColorStop(0, `rgba(${rgb},${alpha})`);
+  g.addColorStop(0.45, `rgba(${rgb},${alpha * 0.44})`);
+  g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), r, 0, Math.PI * 2); ctx.fill();
+}
+
+// ---- Renderers ------------------------------------------------------------------------------
+function drawWorld() {
+  const act = ACTS[state.act];
+  const cam = Math.max(0, Math.min(act.w - W, state.x - W / 2));
+
+  drawParallax(act.bgs[0], cam * 0.06);
+  const coreX = W / 2 - cam * 0.04;
+  const pulseTag = state.corrupt ? 'strained' : 'warm';
+  ctx.save();
+  for (let i = 0; i < 6; i++) {
+    const a = (i - 2.5) * 0.24 + Math.sin(state.t * 0.5 + i) * 0.03;
+    const rg = ctx.createLinearGradient(coreX, act.coreY, coreX + Math.sin(a) * 540, act.gy);
+    const col = state.corrupt ? '155,227,255' : '255,224,148';
+    rg.addColorStop(0, `rgba(${col},0)`); rg.addColorStop(0.22, `rgba(${col},${state.corrupt ? 0.08 : 0.14})`); rg.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.moveTo(coreX - 18, act.coreY); ctx.lineTo(coreX + 18, act.coreY);
+    ctx.lineTo(coreX + Math.sin(a) * 540 + 90, act.gy); ctx.lineTo(coreX + Math.sin(a) * 540 - 90, act.gy);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+  drawSprite('prop_pulse_core', pulseTag, coreX, act.coreY, { scale: act.coreScale, t: state.t });
+
+  drawParallax(act.bgs[1], cam * 0.38);
+
+  // Drifting high-altitude cloud wisps in Act 2 behind the Leviathan deck
+  if (state.act === 'act2') {
+    ctx.save();
+    for (let i = 0; i < 6; i++) {
+      const cx = (((i * 290 + state.t * 14 - cam * 0.45) % (W + 320)) + (W + 320)) % (W + 320) - 160;
+      const cy = 240 + (i % 3) * 74 + Math.sin(state.t * 0.4 + i) * 6;
+      ctx.globalAlpha = state.corrupt ? 0.14 : 0.24;
+      ctx.fillStyle = state.corrupt ? '#6e819c' : '#fff2cf';
+      ctx.fillRect(Math.round(cx), Math.round(cy), 116, 18);
+      ctx.fillRect(Math.round(cx + 18), Math.round(cy - 8), 72, 12);
+    }
+    ctx.restore();
+  }
+
+  drawParallax(act.bgs[2], cam);
+
+  if (act.rain) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(6, 9, 18, 0.16)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(182,196,220,0.44)';
+    for (let i = 0; i < 32; i++) {
+      const rx = ((i * 53 - state.t * 102) % W + W) % W;
+      const ry = (i * 47 + state.t * 380) % act.gy;
+      ctx.fillRect(rx, ry, 2, 12);
+    }
+    for (let i = 0; i < 6; i++) {
+      const phase = (state.t * 1.4 + i * 0.19) % 1;
+      const sx = ((i * 241 + 90 - cam * 0.85) % (W - 120) + W - 120) % (W - 120) + 60;
+      ctx.strokeStyle = `rgba(180,218,242,${(1 - phase) * 0.35})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(Math.round(sx), act.gy + 8, 4 + phase * 14, 2 + phase * 5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+  } else if (state.act === 'act1') {
+    ctx.save();
+    for (let i = 0; i < 16; i++) {
+      const prog = (state.t * 0.14 + i * 0.31) % 1;
+      const fx = (((i * 157 + state.t * 12 - cam * 0.45) % (W + 80)) + (W + 80)) % (W + 80) - 40;
+      const fy = act.gy - prog * 360 + Math.sin(state.t + i) * 10;
+      ctx.globalAlpha = Math.sin(prog * Math.PI) * 0.48;
+      ctx.fillStyle = state.corrupt ? '#9eb2c7' : (i % 2 === 0 ? '#ffd480' : '#ffeab3');
+      ctx.fillRect(Math.round(fx), Math.round(fy), 2, 2);
+    }
+    ctx.restore();
+  } else if (state.act === 'act4') {
+    ctx.save();
+    for (let i = 0; i < 20; i++) {
+      const fx = ((i * 89 + Math.sin(state.t + i) * 28) % W + W) % W;
+      const fy = ((act.gy - 30 - i * 24 - state.t * 22) % act.gy + act.gy) % act.gy;
+      ctx.fillStyle = state.corrupt ? 'rgba(155,227,255,0.5)' : 'rgba(255,214,107,0.55)';
+      ctx.fillRect(fx, fy, 3, 3);
+    }
+    ctx.restore();
+  }
+
+  // Non-solid ambient flora decor (fx_ambient_flora) behind story entities
+  for (const d of (act.decor || [])) {
+    if (!ASSETS[d.key]) continue;
+    const sx = d.x - cam; if (sx < -120 || sx > W + 120) continue;
+    drawSprite(d.key, d.tag, sx, act.gy + 4, { scale: 1.05, t: state.t + d.x * 0.01 });
+  }
+
+  for (const en of act.entities) {
+    if (en.front || (en.hidden && en.hidden(state))) continue;
+    const sx = en.x - cam; if (sx < -220 || sx > W + 220) continue;
+    const tag = typeof en.tag === 'function' ? en.tag(state) : en.tag;
+    drawSprite(en.key, tag, sx, act.gy + (en.yOff || 0), { scale: 1.15, facing: en.x < state.x ? 1 : -1, t: state.t });
+    if (en.key === 'prop_puddle') {
+      const cnt = act.rain ? 3 : 2;
+      for (let r = 0; r < cnt; r++) {
+        const ph = (state.t * (act.rain ? 1.15 : 0.65) + r / cnt) % 1;
+        ctx.save();
+        ctx.strokeStyle = state.corrupt ? `rgba(155,227,255,${(1 - ph) * 0.32})` : `rgba(224,248,255,${(1 - ph) * 0.44})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(Math.round(sx), act.gy + 2, 12 + ph * 34, 4 + ph * 10, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+  }
+
+  // Footstep dust & Pixel Dissolve behind/around Protag
+  const px = state.x - cam;
+  ctx.save();
+  for (const p of state.fx.dust) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife) * 0.52;
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x - cam), Math.round(p.y), Math.round(p.r), Math.round(p.r));
+  }
+  for (const p of state.fx.dissolve) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife) * 0.85;
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x - cam), Math.round(p.y), p.sz, p.sz);
+  }
+  const isAct1Dissolve = state.act === 'act1' && (state.hooded || state.x < 1480);
+  const isAct3SoloDissolve = state.act === 'act3' && state.solo;
+  if (isAct1Dissolve || isAct3SoloDissolve) {
+    for (let i = 0; i < 6; i++) {
+      const prog = (state.t * 0.75 + i * 0.17) % 1;
+      const side = (i % 2 === 0) ? -1 : 1;
+      const dx = px + side * (12 + prog * 10 + Math.sin(state.t * 3 + i) * 3);
+      const dy = act.gy - 48 - prog * 28;
+      ctx.globalAlpha = Math.sin(prog * Math.PI) * 0.85;
+      ctx.fillStyle = (state.act === 'act1' && !state.corrupt) ? (i % 2 === 0 ? '#ffd984' : '#f5ecd8') : '#92f5ec';
+      ctx.fillRect(Math.round(dx), Math.round(dy), 2, 2);
+    }
+  }
+  ctx.restore();
+
+  // Player (hooded in Act 1-2 like char_me, unmasked in Act 3-4 revealing Vaelen face; `dissolve` in Solo!)
+  const near = interactTarget();
+  const isSoloFade = (state.act === 'act3' && state.solo);
+  const ptag = state.hooded
+    ? (state.moving ? 'hooded_walk' : 'hooded')
+    : (state.moving ? 'walk' : (isSoloFade ? 'dissolve' : (near && near.key === 'prop_puddle' ? 'puddle' : (state.dlg ? 'pulse' : 'idle'))));
+  drawSprite('char_protag', ptag, px, act.gy + 2, { scale: 1.18, facing: state.facing, t: state.t });
+
+  // Foreground entities overlapping dock lip (Leviathan bow below boardwalk!)
+  for (const en of act.entities) {
+    if (!en.front) continue;
+    const sx = en.x - cam; if (sx < -260 || sx > W + 260) continue;
+    const tag = typeof en.tag === 'function' ? en.tag(state) : en.tag;
+    drawSprite(en.key, tag, sx, act.gy + (en.yOff || 0), { scale: 1.08, facing: 1, t: state.t });
+  }
+
+  // 2D Point Lighting & Soft Theater Vignette (ALWAYS before Prompts/Dialog/HUD!)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  drawPointLight(coreX, act.coreY, 160 * act.coreScale, state.corrupt ? '145,220,255' : '255,212,126', 0.18);
+  for (const d of (act.decor || [])) {
+    if (!ASSETS[d.key]) continue;
+    const sx = d.x - cam; if (sx < -120 || sx > W + 120) continue;
+    const col = d.tag === 'prism_crystal' ? '155,218,255' : '255,204,116';
+    drawPointLight(sx, act.gy - 18, 72, col, 0.16);
+  }
+  for (const en of act.entities) {
+    if (en.hidden && en.hidden(state)) continue;
+    const sx = en.x - cam; if (sx < -160 || sx > W + 160) continue;
+    if (en.key === 'prop_campfire') {
+      drawPointLight(sx, act.gy - 24, state.corrupt ? 86 : 148, state.corrupt ? '120,174,210' : '255,176,82', state.corrupt ? 0.12 : 0.24);
+    } else if (en.key === 'prop_cocoon') {
+      drawPointLight(sx, act.gy - 36, 128, '255,194,96', 0.20);
+    } else if (en.key === 'prop_fox_egg') {
+      drawPointLight(sx, act.gy - 18, 92, '255,232,168', 0.18);
+    } else if (en.key === 'prop_stele_trong') {
+      drawPointLight(sx, act.gy - 40, 124, state.corrupt ? '138,178,208' : '255,214,116', state.corrupt ? 0.12 : 0.22);
+    } else if (en.key === 'prop_amber_fleck' || en.key === 'wp_world_props') {
+      drawPointLight(sx, act.gy - 22, 82, '255,206,120', 0.16);
+    } else if (en.key === 'comp_linh' && state.act === 'act3') {
+      drawPointLight(sx, act.gy - 32, 146, '255,212,132', 0.22);
+    } else if (en.key === 'battle_soul') {
+      drawPointLight(sx, act.gy + (en.yOff || 0), 96, state.corrupt ? '232,122,122' : '255,218,128', 0.18);
+    } else if (en.key === 'cre_prismweaver') {
+      drawPointLight(sx, act.gy - 18, 86, '168,236,255', 0.17);
+    }
+  }
+  ctx.restore();
+
+  ctx.save();
+  const vg = ctx.createRadialGradient(W / 2, H / 2, W * 0.32, W / 2, H / 2, W * 0.72);
+  vg.addColorStop(0, 'rgba(4,6,12,0)');
+  vg.addColorStop(1, 'rgba(4,6,12,0.38)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  if (near && !state.dlg && !state.hudHidden) {
+    const lb = near.name;
+    const bw = measureW(lb, 16, 'ui') + 54;
+    const bx = Math.max(20, Math.min(W - bw - 20, px - bw / 2));
+    const by = act.gy - 134;
+    ctx.fillStyle = 'rgba(10,11,18,0.84)'; ctx.fillRect(bx, by, bw, 30);
+    ctx.strokeStyle = 'rgba(240,199,106,0.55)'; ctx.strokeRect(bx, by, bw, 30);
+    ctx.fillStyle = 'rgba(240,199,106,0.22)'; ctx.fillRect(bx + 8, by + 5, 20, 20);
+    txt('E', bx + 18, by + 15, 13, '#f0c76a', 'center', 'mono');
+    txt(lb, bx + 36, by + 15, 16, '#f4ecd8', 'left', 'ui');
+  }
+
+  if (state.dlg) {
+    ctx.fillStyle = 'rgba(10,11,18,0.92)'; ctx.fillRect(60, H - 184, W - 120, 152);
+    ctx.strokeStyle = 'rgba(240,199,106,0.5)'; ctx.lineWidth = 1.5; ctx.strokeRect(60, H - 184, W - 120, 152);
+    const pKey = (state.dlg.port === 'protag_warm' && state.hooded) ? 'protag_hooded' : state.dlg.port;
+    if (pKey) {
+      ctx.fillStyle = '#151724'; ctx.fillRect(82, H - 166, 102, 108);
+      ctx.strokeStyle = 'rgba(240,199,106,0.45)'; ctx.strokeRect(82, H - 166, 102, 108);
+      drawSprite('hollow_portraits', pKey, 133, H - 112, { scale: 0.96, t: state.t });
+    }
+    txt(state.dlg.name, 204, H - 152, 18, '#f0c76a', 'left', 'label');
+    wrap(state.dlg.text, W - 300, 20, 'story').slice(0, 3).forEach((ln, i) => txt(ln, 204, H - 116 + i * 28, 20, '#f3ebd8', 'left', 'story'));
+    txt('Space / E: đóng', W - 82, H - 48, 13, '#9a9380', 'right', 'ui');
+  } else if (!state.hudHidden) {
+    const subLines = wrap(act.sub, 408, 14, 'thought');
+    const bw = 440, bh = 48 + subLines.length * 20;
+    ctx.fillStyle = 'rgba(10,12,20,0.78)'; ctx.fillRect(20, 62, bw, bh);
+    ctx.strokeStyle = 'rgba(240,199,106,0.28)'; ctx.strokeRect(20, 62, bw, bh);
+    txt(act.name, 36, 84, 19, '#f0e8d0', 'left', 'display');
+    subLines.forEach((ln, i) => txt(ln, 36, 110 + i * 20, 14, '#cfc7b2', 'left', 'thought'));
+
+    // Diegetic Companion HUD (Linh HP + Kaelen Warmth + Mira Abacus) — vanishes completely in Act 3 Solo!
+    if (!(state.act === 'act3' && state.solo)) {
+      drawSprite('ui_hud_linh', state.corrupt ? 'low' : 'active', 896, 62, { scale: 0.5, t: state.t });
+      drawSprite('ui_hud_kael', state.corrupt ? 'cold' : 'warm', 1026, 62, { scale: 0.5, t: state.t });
+      drawSprite('ui_hud_mira', state.corrupt ? 'zero' : 'active', 1140, 62, { scale: 0.5, t: state.t });
+    } else {
+      ctx.fillStyle = 'rgba(10,12,20,0.72)'; ctx.fillRect(948, 62, 312, 34);
+      ctx.strokeStyle = 'rgba(143,245,232,0.35)'; ctx.strokeRect(948, 62, 312, 34);
+      txt('Mất đồng đội — Diegetic HUD đã tắt', 1104, 79, 13, '#9a9380', 'center', 'thought');
+    }
+  }
+}
+
+function drawCharSheet() {
+  ctx.fillStyle = '#10121c'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(240,199,106,0.14)'; ctx.lineWidth = 1; ctx.strokeRect(36, 72, W - 72, H - 122);
+  const card = CHAR_CARDS[state.charIdx];
+  const tag = card.tags[state.charTagIdx % card.tags.length];
+  const port = card.ports.length ? card.ports[state.portIdx % card.ports.length] : null;
+
+  CHAR_CARDS.forEach((c, i) => {
+    const bx = 56, by = 92 + i * 56, bw = 276, bh = 46, sel = i === state.charIdx;
+    ctx.fillStyle = sel ? 'rgba(240,199,106,0.18)' : 'rgba(255,255,255,0.04)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = sel ? '#f0c76a' : 'rgba(255,255,255,0.1)'; ctx.strokeRect(bx, by, bw, bh);
+    txt(c.name, bx + 14, by + 17, 16, sel ? '#f0c76a' : '#e8e0cc', 'left', 'label');
+    txt(c.title.split('·')[0].trim(), bx + 14, by + 35, 12, '#9a9380', 'left', 'mono');
+    state.buttons.push({ x: bx, y: by, w: bw, h: bh, fn: () => { state.charIdx = i; state.charTagIdx = 0; state.portIdx = 0; } });
+  });
+
+  const stageX = 684, stageY = 330;
+  const rg = ctx.createRadialGradient(stageX, stageY - 30, 16, stageX, stageY - 30, 180);
+  rg.addColorStop(0, 'rgba(240,199,106,0.16)'); rg.addColorStop(1, 'rgba(16,18,28,0)');
+  ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(stageX, stageY - 30, 180, 0, Math.PI * 2); ctx.fill();
+  drawSprite(card.key, tag, stageX, stageY + 42, { scale: 2.15, t: state.t });
+
+  if (port) {
+    ctx.fillStyle = '#181a28'; ctx.fillRect(1028, 114, 152, 160);
+    ctx.strokeStyle = 'rgba(240,199,106,0.5)'; ctx.strokeRect(1028, 114, 152, 160);
+    drawSprite('hollow_portraits', port, 1104, 194, { scale: 1.35, t: state.t });
+    txt(`[ ${port} ]`, 1104, 292, 12, '#9ee8ff', 'center', 'mono');
+    txt('Bấm P hoặc click để đổi sắc thái', 1104, 310, 12, '#9a9380', 'center', 'ui');
+    state.buttons.push({ x: 1028, y: 114, w: 152, h: 160, fn: () => { state.portIdx++; } });
+  }
+
+  card.pal.forEach((col, pi) => {
+    const sx = 1040, sy = 344 + pi * 36;
+    ctx.fillStyle = col; ctx.fillRect(sx, sy, 26, 24);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.strokeRect(sx, sy, 26, 24);
+    txt(col, sx + 36, sy + 12, 13, '#d8d0bc', 'left', 'mono');
+  });
+
+  txt(card.name, 684, 112, 32, '#f0c76a', 'center', 'display');
+  txt(card.title, 684, 144, 15, '#9ee8ff', 'center', 'mono');
+  txt(`Hoạt ảnh: [ ${tag} ]  (E / Space đổi tag · P đổi chân dung · ←/→ chuyển nhân vật)`, 684, 446, 14, '#f0e8d0', 'center', 'ui');
+  wrap(card.desc, 610, 17, 'story').forEach((ln, i) => txt(ln, 684, 488 + i * 26, 17, '#e8e0cc', 'center', 'story'));
+}
+
+function drawGallery() {
+  ctx.fillStyle = '#0f111a'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(240,199,106,0.16)'; ctx.strokeRect(36, 62, W - 72, H - 104);
+  txt('THƯ VIỆN 8/8 CẬN CẢNH CUTSCENE (160×90), DIEGETIC HUD & VẬT PHẨM (v4.3)', W / 2, 78, 17, '#f0c76a', 'center', 'display');
+  txt('Click bất kỳ khung cảnh nào hoặc bấm [C] để mở Chế Độ 12% Letterbox + Song Mạch Nội Tâm (60 vs 85 BPM)', W / 2, 98, 12, '#9ee8ff', 'center', 'thought');
+
+  CUTSCENES.forEach((cs, i) => {
+    const col = i % 4, row = Math.floor(i / 4);
+    const px = 186 + col * 302;
+    const py = 180 + row * 162;
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(px - 122, py - 70, 244, 152);
+    ctx.strokeStyle = (state.csIdx === i && state.cutsceneMode) ? '#f0c76a' : 'rgba(255,255,255,0.14)';
+    ctx.strokeRect(px - 122, py - 70, 244, 152);
+    drawSprite(cs.key, 'idle', px, py, { scale: 0.72, t: state.t });
+    txt(cs.title, px, py + 74, 11, '#e8e0cc', 'center', 'ui');
+    state.buttons.push({ x: px - 122, y: py - 70, w: 244, h: 152, fn: () => { state.csIdx = i; state.cutsceneMode = true; state.dlg = null; } });
+  });
+
+  // Diegetic HUD block bottom-left
+  ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(50, 446, 580, 230);
+  ctx.strokeStyle = 'rgba(240,199,106,0.22)'; ctx.strokeRect(50, 446, 580, 230);
+  txt(`DIEGETIC COMPANION HUD · ${state.hudAlt ? 'Suy Yếu / Lạnh' : 'Ổn Định'} (E / S để đổi)`, 340, 466, 13, '#9ee8ff', 'center', 'ui');
+  drawSprite('ui_hud_linh', state.hudAlt ? 'low' : 'active', 76, 488, { scale: 0.56, t: state.t });
+  txt('HP Nét Vẽ Chì & Sổ Bìa Xanh (Linh)', 244, 514, 13, '#e8dec8', 'left', 'ui');
+  drawSprite('ui_hud_kael', state.hudAlt ? 'cold' : 'warm', 76, 548, { scale: 0.56, t: state.t });
+  txt('Nồi Súp Hơi Ấm Gốm Hàn (Kaelen)', 244, 574, 13, '#ffd66b', 'left', 'ui');
+  drawSprite('ui_hud_mira', state.hudAlt ? 'zero' : 'active', 76, 608, { scale: 0.56, t: state.t });
+  txt('Bàn Tính Pha Lê 0 Lumen (Mira)', 244, 634, 13, '#8df5ff', 'left', 'ui');
+
+  // Items + New Landmarks bottom-right
+  ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(650, 446, 580, 230);
+  ctx.strokeStyle = 'rgba(240,199,106,0.22)'; ctx.strokeRect(650, 446, 580, 230);
+  txt('7 ICON VẬT PHẨM & 3 ĐẠO CỤ MỚI (Bia TRONG, Trứng Hồ Ly, Bếp Đá Súp Khê)', 940, 466, 13, '#f0c76a', 'center', 'ui');
+  const items = [
+    ['deed_blank', 'Khế Ước Trắng'], ['deed_lit', 'Khế Ước Sáng'], ['soup_clean', 'Súp Ít Hành'],
+    ['soup_burnt', 'Súp Cháy Khê'], ['memoria_coin', 'Xu Ký Ức'], ['lumen_coin', 'Lumen'], ['prism_thread', 'Vòng Tơ']
+  ];
+  items.forEach(([tag, lb], idx) => {
+    const ix = 696 + idx * 78;
+    drawSprite('ui_items', tag, ix, 516, { scale: 1.05, t: state.t });
+    txt(lb, ix, 550, 10, '#cfc7b2', 'center', 'ui');
+  });
+  drawSprite('prop_stele_trong', state.hudAlt ? 'rusted' : 'cleaned', 742, 642, { scale: 0.50, t: state.t });
+  txt('Bia TRONG', 742, 664, 11, '#ffd66b', 'center', 'mono');
+  drawSprite('prop_fox_egg', 'chime', 940, 634, { scale: 0.96, t: state.t });
+  txt('Trứng Hồ Ly', 940, 664, 11, '#fff4c4', 'center', 'mono');
+  drawSprite('prop_solo_stove', state.hudAlt ? 'cold' : 'burnt', 1134, 640, { scale: 0.72, t: state.t });
+  txt('Bếp Đá Súp Khê', 1134, 664, 11, '#9ee8ff', 'center', 'mono');
+}
+
+function drawCutsceneOverlay() {
+  const cs = CUTSCENES[state.csIdx % CUTSCENES.length];
+  const barH = Math.round(H * 0.12); // 12% Cinema Letterbox (86px top + 86px bottom)
+  ctx.fillStyle = 'rgba(7,8,13,0.92)'; ctx.fillRect(0, 0, W, H);
+
+  // Subtle ambient backlight around the 160x90 pixel insert panel
+  const glow = ctx.createRadialGradient(W / 2, 248, 24, W / 2, 248, 300);
+  glow.addColorStop(0, 'rgba(255,214,107,0.16)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, barH, W, H - barH * 2);
+
+  txt(cs.title, W / 2, 106, 17, '#f0c76a', 'center', 'display');
+  drawSprite(cs.key, 'idle', W / 2, 248, { scale: 1.32, t: state.t });
+
+  // Dual-Pulse Inner Voice Debate (60 BPM Architect Monospace vs 85 BPM Symbiosis Serif)
+  const archPulse = Math.pow(Math.max(0, Math.sin(state.t * Math.PI * (60 / 60))), 6);
+  const symbPulse = Math.pow(Math.max(0, Math.sin(state.t * Math.PI * (85 / 60))), 6);
+
+  // Left Box: [NHỊP KIẾN TRÚC - 60 BPM] — Square cold geometric box
+  const lx = 56, ly = 392, lw = 566, lh = 220;
+  ctx.fillStyle = 'rgba(9,16,32,0.95)'; ctx.fillRect(lx, ly, lw, lh);
+  ctx.strokeStyle = `rgba(155,227,255,${0.55 + archPulse * 0.45})`; ctx.lineWidth = 2;
+  ctx.strokeRect(lx, ly, lw, lh);
+  ctx.fillStyle = `rgba(155,227,255,${0.14 + archPulse * 0.2})`; ctx.fillRect(lx + 16, ly + 16, lw - 32, 30);
+  ctx.fillStyle = '#9be3ff'; ctx.fillRect(lx + 26, ly + 25, 10 + Math.round(archPulse * 4), 10 + Math.round(archPulse * 4));
+  txt('[NHỊP KIẾN TRÚC - 60 BPM] · Ý THỨC ĐỒNG HỒ LẠNH', lx + 50, ly + 31, 13, '#9be3ff', 'left', 'mono');
+  wrap(cs.arch, lw - 48, 16, 'mono').forEach((ln, i) => txt(ln, lx + 24, ly + 82 + i * 28, 16, '#d8f4ff', 'left', 'mono'));
+  txt('Font vuông vức · Nhịp 1.00s · Kiểm soát & Phân tách', lx + 24, ly + 194, 11, '#79a8bd', 'left', 'mono');
+
+  // Right Box: [NHỊP CỘNG SINH - 85 BPM] — Soft rounded warm gold box
+  const rx = 658, ry = 392, rw = 566, rh = 220;
+  ctx.save();
+  ctx.fillStyle = 'rgba(28,17,22,0.95)';
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 14); ctx.fill();
+  ctx.strokeStyle = `rgba(255,203,107,${0.55 + symbPulse * 0.45})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 14); ctx.stroke();
+  ctx.fillStyle = `rgba(255,203,107,${0.14 + symbPulse * 0.2})`;
+  ctx.beginPath(); ctx.roundRect(rx + 16, ry + 16, rw - 32, 30, 8); ctx.fill();
+  ctx.fillStyle = '#ffcb6b';
+  ctx.beginPath(); ctx.arc(rx + 32, ry + 31, 6 + symbPulse * 3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  txt('[NHỊP CỘNG SINH - 85 BPM] · NHỊP TIM ẤM ÁP', rx + 50, ry + 31, 14, '#ffcb6b', 'left', 'label');
+  wrap(cs.symb, rw - 48, 18, 'story').forEach((ln, i) => txt(ln, rx + 24, ry + 84 + i * 30, 18, '#fff1d4', 'left', 'story'));
+  txt('Font mềm mại · Nhịp 0.71s · Kết nối & Hơi ấm bếp lửa', rx + 24, ry + 194, 12, '#bda47a', 'left', 'thought');
+
+  // True 12% Black Letterbox Bars (top 86px, bottom 86px)
+  ctx.fillStyle = '#040508';
+  ctx.fillRect(0, 0, W, barH);
+  ctx.fillRect(0, H - barH, W, barH);
+  ctx.strokeStyle = 'rgba(240,199,106,0.3)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, barH); ctx.lineTo(W, barH); ctx.moveTo(0, H - barH); ctx.lineTo(W, H - barH); ctx.stroke();
+
+  txt('CHẾ ĐỘ ĐIỆN ẢNH · LETTERBOX 12% (86px/720px) · TRÌNH CHIẾU SONG MẠCH NỘI TÂM', W / 2, 20, 12, '#c8c0ac', 'center', 'mono');
+  let cx = 220;
+  CUTSCENES.forEach((item, idx) => {
+    const pw = 88;
+    const act = idx === state.csIdx;
+    ctx.fillStyle = act ? 'rgba(240,199,106,0.24)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(cx, 40, pw, 28);
+    ctx.strokeStyle = act ? '#f0c76a' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(cx, 40, pw, 28);
+    txt(item.code, cx + pw / 2, 54, 12, act ? '#f0c76a' : '#cfc7b2', 'center', 'mono');
+    state.buttons.push({ x: cx, y: 40, w: pw, h: 28, fn: () => { state.csIdx = idx; } });
+    cx += pw + 8;
+  });
+  ctx.fillStyle = 'rgba(235,94,75,0.22)'; ctx.fillRect(1140, 40, 108, 28);
+  ctx.strokeStyle = '#eb5e4b'; ctx.strokeRect(1140, 40, 108, 28);
+  txt('✕ Đóng [C]', 1194, 54, 12, '#ffbfb5', 'center', 'ui');
+  state.buttons.push({ x: 1140, y: 40, w: 108, h: 28, fn: () => { state.cutsceneMode = false; } });
+
+  txt('← / → hoặc A / D : Chuyển cảnh CS_01..CS_08 · C hoặc Esc : Quay lại Màn chơi / Thư viện', W / 2, H - barH / 2, 13, '#b8b09a', 'center', 'ui');
+}
+
+function drawLegacyKit() {
+  ctx.fillStyle = '#0e1018'; ctx.fillRect(0, 0, W, H);
+  txt('KHO MODEL CŨ KẾ THỪA TỪ PROTOTYPES/TRONG (29 SPRITES: BATTLE, TOP-DOWN TILES, NHÀ & CÂY)', W / 2, 80, 16, '#f0c76a', 'center', 'display');
+
+  const drawBox = (x, y, w, h, title, col = '#9ee8ff') => {
+    ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(240,199,106,0.22)'; ctx.strokeRect(x, y, w, h);
+    txt(title, x + w / 2, y + 18, 13, col, 'center', 'ui');
+  };
+
+  // 1. Top-Left: Undertale Combat Core (Soul, Bullets, 3 Enemies)
+  drawBox(48, 104, 574, 266, 'BỘ CHIẾN ĐẤU UNDERTALE & VỆ BINH (battle_soul, battle_bullets, enemy_*)');
+  drawSprite('battle_soul', state.corrupt ? 'hurt' : 'focus', 110, 210, { scale: 1.4, t: state.t });
+  txt('battle_soul', 110, 250, 11, '#ffd66b', 'center', 'mono');
+  ['shard', 'orb', 'leaf', 'thorn'].forEach((tg, i) => {
+    drawSprite('battle_bullets', tg, 186 + i * 36, 210, { scale: 1.2, t: state.t });
+  });
+  txt('battle_bullets', 240, 250, 11, '#9ee8ff', 'center', 'mono');
+  drawSprite('enemy_scorn', 'idle', 385, 292, { scale: 0.9, t: state.t });
+  txt('enemy_scorn', 385, 344, 11, '#e8e0cc', 'center', 'mono');
+  drawSprite('enemy_weary', 'idle', 485, 286, { scale: 0.78, t: state.t });
+  txt('enemy_weary', 485, 344, 11, '#e8e0cc', 'center', 'mono');
+  drawSprite('enemy_wither', 'idle', 575, 294, { scale: 0.65, t: state.t });
+  txt('enemy_wither', 575, 344, 11, '#e8e0cc', 'center', 'mono');
+
+  // 2. Top-Right: Legacy Characters + Top-Down Chars
+  drawBox(642, 104, 590, 266, 'NHÂN VẬT & DÂN LÀNG CŨ (char_me/lau/mi/say, td_char_me/lau, td_npcs)');
+  const lChars = [
+    ['char_me', 'idle', 'char_me'], ['char_lau', 'idle', 'char_lau'], ['char_mi', 'idle', 'char_mi'], ['char_say', 'idle', 'char_say'],
+    ['td_char_me', 'down_walk', 'td_char_me'], ['td_char_lau', 'down', 'td_char_lau'], ['td_npcs', 'thao_stir', 'td_npcs']
+  ];
+  lChars.forEach(([k, tg, lb], i) => {
+    const cx = 690 + i * 82;
+    drawSprite(k, tg, cx, 290, { scale: 1.05, t: state.t });
+    txt(lb, cx, 344, 11, '#e8e0cc', 'center', 'mono');
+  });
+
+  // 3. Bottom-Left: Top-Down 3/4 Tilemap + Huts + Portal
+  drawBox(48, 388, 574, 284, 'KIT BẢN ĐỒ TOP-DOWN 3/4 (td_tiles, td_hut_*, td_arch_portal, td_tree)', '#ffd66b');
+  const grid = [
+    ['grass_gold_0', 'grass_gold_1', 'path_0', 'wood_0', 'water', 'bridge'],
+    ['grass_gray_0', 'soil', 'path_1', 'wood_1', 'water', 'cavern_floor_0'],
+    ['cavern_wall', 'cavern_floor_1', 'rug_c', 'mat', 'cavern_bridge', 'grass_gold_2'],
+  ];
+  grid.forEach((row, r) => row.forEach((tg, c) => {
+    drawSprite('td_tiles', tg, 70 + c * 28, 466 + r * 28, { scale: 0.875, t: state.t });
+  }));
+  txt('td_tiles (53)', 152, 636, 11, '#b8b09a', 'center', 'mono');
+  drawSprite('td_hut_small', 'lit', 292, 570, { scale: 0.72, t: state.t });
+  txt('td_hut_small', 292, 636, 11, '#e8e0cc', 'center', 'mono');
+  drawSprite('td_hut_say', 'lit', 386, 576, { scale: 0.72, t: state.t });
+  txt('td_hut_say', 386, 636, 11, '#e8e0cc', 'center', 'mono');
+  drawSprite('td_arch_portal', 'village', 488, 570, { scale: 0.78, t: state.t });
+  txt('td_arch_portal', 488, 636, 11, '#e8e0cc', 'center', 'mono');
+  drawSprite('td_tree', 'gold', 576, 574, { scale: 0.72, t: state.t });
+  txt('td_tree', 576, 636, 11, '#e8e0cc', 'center', 'mono');
+
+  // 4. Bottom-Right: Environment Huts, Trees & World Props
+  drawBox(642, 388, 590, 284, 'NHÀ CỬA, CÂY CỔ & ĐẠO CỤ THẾ GIỚI (env_hut*, env_tree, wp_world_props)', '#ffd66b');
+  const wProps = [
+    ['env_hut_moss', 'lit', 'env_hut_moss'], ['env_hut_lantern', 'lit', 'env_hut_lantern'],
+    ['env_tree', 'lvl4', 'env_tree'], ['wp_world_props', 'bell_tower', 'bell_tower'],
+    ['wp_world_props', 'leaf_boat', 'leaf_boat'], ['wp_world_props', 'amber_shrine', 'amber_shrine']
+  ];
+  wProps.forEach(([k, tg, lb], i) => {
+    const px = 702 + i * 94;
+    drawSprite(k, tg, px, 592, { scale: 0.85, t: state.t });
+    txt(lb, px, 636, 11, '#cfc7b2', 'center', 'mono');
+  });
+}
+
+function drawBossSpec() {
+  ctx.fillStyle = '#0c0e18'; ctx.fillRect(0, 0, W, H);
+  const brokenN = state.pillars.filter(Boolean).length;
+  const allBroken = brokenN === 4;
+
+  // Top-Center Boss Shield Banner & 4 Clickable Corner Pillar Chips
+  const bTag = state.bossPurified ? 'purified' : (allBroken ? 'broken' : (brokenN >= 2 ? 'shielded_2' : 'shielded_4'));
+  drawSprite('ui_boss_shield', bTag, W / 2 - 153, 58, { scale: 0.85, t: state.t });
+  const shieldLabel = state.bossPurified
+    ? 'CS_07 · MUÔN VẠN ĐỐM LỬA TRẠI (6 CÁP ĐÃ GỠ)'
+    : (allBroken ? 'SẬP KHIÊN! VAELEN MỞ LÕI — BẤM [ĐỐT KHẾ ƯỚC]' : `KHIÊN NỢ VAELEN · ĐÃ PHÁ ${brokenN}/4 TRỤ NỢ`);
+  txt(shieldLabel, W / 2, 144, 12, state.bossPurified ? '#ffd66b' : '#9be3ff', 'center', 'mono');
+
+  const chipPos = [
+    { i: 0, label: 'NW · Bắc-Tây', x: 56,  y: 62 },
+    { i: 2, label: 'SW · Nam-Tây', x: 56,  y: 102 },
+    { i: 1, label: 'NE · Bắc-Đông', x: 1030, y: 62 },
+    { i: 3, label: 'SE · Nam-Đông', x: 1030, y: 102 },
+  ];
+  for (const ch of chipPos) {
+    const brk = state.pillars[ch.i];
+    ctx.fillStyle = brk ? 'rgba(240,199,106,0.2)' : 'rgba(155,227,255,0.1)'; ctx.fillRect(ch.x, ch.y, 194, 30);
+    ctx.strokeStyle = brk ? '#f0c76a' : '#6adbf2'; ctx.strokeRect(ch.x, ch.y, 194, 30);
+    txt(`${ch.label}: ${brk ? 'ĐÃ PHÁ (0L)' : 'KHÓA CÁP'}`, ch.x + 97, ch.y + 15, 11, brk ? '#ffd66b' : '#d8f4ff', 'center', 'mono');
+    state.buttons.push({ x: ch.x, y: ch.y, w: 194, h: 30, fn: () => { state.pillars[ch.i] = !state.pillars[ch.i]; if (!state.pillars[ch.i]) state.bossPurified = false; } });
+  }
+
+  // Left Card: Core Arena Spec, 4 Corner Debt Pillars, 6 Tower Cables & Undertale Battle Box
+  ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(46, 160, 680, 516);
+  ctx.strokeStyle = state.bossPurified ? '#ffcb6b' : 'rgba(240,199,106,0.28)'; ctx.strokeRect(46, 160, 680, 516);
+  txt('SPEC ĐẤU TRƯỜNG ĐỈNH THÁP HỒI 4 · 4 TRỤ KHIÊN NỢ & BIẾN ĐỔI 6 CÁP -> LỬA TRẠI', 386, 178, 12, '#f0c76a', 'center', 'ui');
+
+  ctx.fillStyle = state.bossPurified ? '#1b1521' : '#111626';
+  ctx.fillRect(68, 196, 636, 464);
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.strokeRect(68, 196, 636, 464);
+
+  const vx = 386, vy = 356;
+  const pCoords = [
+    { i: 0, x: 128, y: 282 }, { i: 1, x: 644, y: 282 },
+    { i: 2, x: 128, y: 584 }, { i: 3, x: 644, y: 584 },
+  ];
+
+  // 4 Corner Pillar -> Vaelen Laser Tethers OR Golden Embers
+  for (const p of pCoords) {
+    const broken = state.pillars[p.i];
+    if (!broken) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(143,247,255,0.32)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 44); ctx.lineTo(vx, vy - 54); ctx.stroke();
+      ctx.strokeStyle = '#d4fcff'; ctx.lineWidth = 1.8;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - 44); ctx.lineTo(vx, vy - 54); ctx.stroke();
+      ctx.restore();
+    }
+    drawSprite('prop_debt_pillar', broken ? 'shattered' : 'locked', p.x, p.y, { scale: 0.60, t: state.t });
+    state.buttons.push({ x: p.x - 32, y: p.y - 78, w: 64, h: 90, fn: () => { state.pillars[p.i] = !state.pillars[p.i]; if (!state.pillars[p.i]) state.bossPurified = false; } });
+  }
+
+  // Vaelen 6 Overhead Tower Memoria Cables vs CS_07 Ten Thousand Hearths Wisps
+  if (!state.bossPurified) {
+    ctx.save();
+    for (let c = -3; c <= 3; c++) {
+      if (c === 0) continue;
+      ctx.strokeStyle = 'rgba(143,247,255,0.42)'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(vx + c * 6, vy - 58); ctx.quadraticCurveTo(vx + c * 22, 232, vx + c * 42, 196); ctx.stroke();
+      ctx.strokeStyle = '#9be3ff'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(vx + c * 6, vy - 58); ctx.quadraticCurveTo(vx + c * 22, 232, vx + c * 42, 196); ctx.stroke();
+    }
+    ctx.restore();
+  } else {
+    const glow = ctx.createRadialGradient(vx, vy - 30, 12, vx, vy - 30, 260);
+    glow.addColorStop(0, 'rgba(255,203,107,0.32)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow; ctx.fillRect(68, 196, 636, 464);
+    for (let i = 0; i < 14; i++) {
+      const wx = 110 + ((i * 83 + Math.sin(state.t + i) * 36) % 550);
+      const wy = 216 + ((580 - (state.t * 38 + i * 47)) % 390 + 390) % 390;
+      drawSprite('fx_hearth_wisp', i % 3 === 0 ? 'mint' : 'gold', wx, wy, { scale: 0.9, t: state.t });
+    }
+  }
+  drawSprite('boss_vaelen', state.bossPurified ? 'old' : (allBroken ? 'cast' : 'cabled'), vx, vy, { scale: 1.18, t: state.t });
+
+  // Undertale Battle Frame + Orbiting Bullets + Fox Rescue
+  ctx.fillStyle = 'rgba(8,10,18,0.88)'; ctx.fillRect(256, 386, 260, 114);
+  ctx.strokeStyle = state.bossPurified ? '#ffcb6b' : '#eef2fa'; ctx.lineWidth = 2; ctx.strokeRect(256, 386, 260, 114);
+  drawSprite('battle_soul', state.foxRescue ? 'hurt' : 'focus', 386, 443, { scale: 1.2, t: state.t });
+  if (!state.bossPurified) {
+    for (let i = 0; i < 6; i++) {
+      const ang = state.t * 1.4 + (i / 6) * Math.PI * 2;
+      drawSprite('battle_bullets', i % 2 === 0 ? 'shard' : 'orb', 386 + Math.cos(ang) * 90, 443 + Math.sin(ang) * 38, { scale: 0.9, t: state.t });
+    }
+  }
+  if (state.foxRescue) {
+    drawSprite('cre_echofox', 'chime', 310, 460, { scale: 1.0, t: state.t });
+    ctx.fillStyle = 'rgba(12,14,22,0.92)'; ctx.fillRect(262, 392, 248, 24);
+    txt('Cáo 4 Tai: "Ăn đi, đừng sợ…" (Hồi 100% HP!)', 386, 404, 11, '#fff4c4', 'center', 'thought');
+  }
+
+  // Allied Companions & Creatures below Battle Box
+  drawSprite('comp_mira', 'abacus', 226, 614, { scale: 1.0, t: state.t });
+  drawSprite('comp_kael', 'guard', 386, 616, { scale: 1.0, t: state.t });
+  drawSprite('comp_linh', 'wrench', 546, 614, { scale: 1.0, t: state.t });
+  if (state.bossPurified) {
+    drawSprite('cre_rustcrab', 'warm', 302, 622, { scale: 0.78, t: state.t });
+    drawSprite('cre_prismweaver', 'weave', 474, 620, { scale: 0.82, t: state.t });
+  }
+  txt('Click trụ ở 4 góc để phá/khóa · Mira mở Trụ Nợ 0L · Kaelen che khiên · Linh cắt cáp Tháp', 386, 646, 11, '#cfc7b2', 'center', 'ui');
+
+  // Right Panel: 2.5s Memoria Purification + Companion Synergy + Transformation Controls
+  ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(746, 160, 488, 516);
+  ctx.strokeStyle = 'rgba(240,199,106,0.28)'; ctx.strokeRect(746, 160, 488, 516);
+
+  // Sub-Card 1: MemoriaPurificationHold (2.5s Hold)
+  ctx.fillStyle = 'rgba(13,18,34,0.75)'; ctx.fillRect(762, 176, 456, 194);
+  ctx.strokeStyle = state.holdT > 0 ? '#ffcb6b' : 'rgba(143,247,255,0.32)'; ctx.strokeRect(762, 176, 456, 194);
+  txt('MEMORIA PURIFICATION HOLD · GIỮ [SPACE] 2.5s BÓP VỠ XU KÝ ỨC', 990, 196, 12, '#8df5ff', 'center', 'mono');
+  const rTag = state.purifyBurstT > 0 ? 'burst' : (state.holdT > 0 ? 'purify' : 'idle');
+  drawSprite('ui_memoria_ring', rTag, 834, 278, { scale: 0.92, t: state.t });
+  if (state.holdT > 0) {
+    ctx.save(); ctx.strokeStyle = '#ffcb6b'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(834, 278, 48, -Math.PI / 2, -Math.PI / 2 + (state.holdT / 2.5) * Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  const pct = state.holdT / 2.5;
+  ctx.fillStyle = '#182036'; ctx.fillRect(916, 224, 282, 16);
+  ctx.fillStyle = '#ffcb6b'; ctx.fillRect(916, 224, Math.round(282 * pct), 16);
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.strokeRect(916, 224, 282, 16);
+  txt(`${state.holdT.toFixed(2)}s / 2.50s · Đã thanh tẩy: ${state.purifyCount} xu`, 916, 256, 12, '#ffd66b', 'left', 'mono');
+  wrap('"Đồng xu vỡ tan thành làn gió ấm bay về khu dân cư..."', 282, 12, 'thought').forEach((ln, i) => txt(ln, 916, 278 + i * 16, 12, '#e3dcd0', 'left', 'thought'));
+
+  const mb = [
+    { label: '⚡ Thanh Tẩy 2.5s', x: 916, w: 136, fn: () => { state.holdT = 0; state.purifyBurstT = 0.85; state.purifyCount++; } },
+    { label: `Phá Trụ (${brokenN}/4) [P]`, x: 1060, w: 138, fn: () => { const i = state.pillars.indexOf(false); if (i !== -1) state.pillars[i] = true; else { state.pillars = [false,false,false,false]; state.bossPurified = false; } } },
+  ];
+  for (const b of mb) {
+    ctx.fillStyle = 'rgba(255,203,107,0.16)'; ctx.fillRect(b.x, 322, b.w, 32);
+    ctx.strokeStyle = '#ffcb6b'; ctx.strokeRect(b.x, 322, b.w, 32);
+    txt(b.label, b.x + b.w / 2, 338, 11, '#ffd66b', 'center', 'ui');
+    state.buttons.push({ x: b.x, y: 322, w: b.w, h: 32, fn: b.fn });
+  }
+
+  // Sub-Card 2: Companion Synergy + Beasts
+  ctx.fillStyle = 'rgba(13,18,34,0.65)'; ctx.fillRect(762, 384, 456, 200);
+  ctx.strokeStyle = 'rgba(240,199,106,0.25)'; ctx.strokeRect(762, 384, 456, 200);
+  txt('PHỐI HỢP NHÓM BẠN & CỨU VIỆN SINH VẬT HỒI 4', 990, 404, 12, '#f0c76a', 'center', 'ui');
+  const syn = [
+    ['mira_fierce', 'Mira · Phá 4 Trụ Khiên Nợ bằng ấn "0 Lumen"'],
+    ['kael_glow',   'Kaelen · Đỡ đòn bằng Khiên Gốm & Bát Súp Thứ 4'],
+    ['linh_smile',  'Linh · Cắt cáp Memoria & Sổ xanh HẾT GIẤY (Miễn phí)'],
+  ];
+  syn.forEach(([pk, line], idx) => {
+    const sy = 442 + idx * 42;
+    drawSprite('hollow_portraits', pk, 796, sy, { scale: 0.36, t: state.t });
+    txt(line, 830, sy, 12, '#e8e0cc', 'left', 'ui');
+  });
+  ctx.fillStyle = state.foxRescue ? 'rgba(255,214,107,0.24)' : 'rgba(255,255,255,0.06)';
+  ctx.fillRect(782, 548, 416, 26); ctx.strokeStyle = state.foxRescue ? '#ffcb6b' : 'rgba(255,255,255,0.2)'; ctx.strokeRect(782, 548, 416, 26);
+  txt(`🦊 Bật Demo Hồ Ly Âm Bản Cứu Nguy Khi HP = 1 (${state.foxRescue ? 'ĐANG BẬT' : 'TẮT'})`, 990, 561, 11, '#fff4c4', 'center', 'ui');
+  state.buttons.push({ x: 782, y: 548, w: 416, h: 26, fn: () => { state.foxRescue = !state.foxRescue; } });
+
+  // Bottom Final CTA Buttons
+  ctx.fillStyle = state.bossPurified ? 'rgba(255,203,107,0.28)' : 'rgba(235,94,75,0.22)';
+  ctx.fillRect(762, 602, 294, 54);
+  ctx.strokeStyle = state.bossPurified ? '#ffcb6b' : '#eb5e4b'; ctx.strokeRect(762, 602, 294, 54);
+  txt(state.bossPurified ? '✨ ĐÃ HÓA MUÔN VẠN ĐỐM LỬA!' : '🔥 ĐỐT KHẾ ƯỚC TRẮNG (CS_07) [F]', 909, 629, 12, '#fff4c4', 'center', 'label');
+  state.buttons.push({ x: 762, y: 602, w: 294, h: 54, fn: () => { state.pillars = [true,true,true,true]; state.bossPurified = !state.bossPurified; } });
+
+  ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(1068, 602, 150, 54);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.strokeRect(1068, 602, 150, 54);
+  txt('↺ Reset Pha Boss', 1143, 629, 12, '#cfc7b2', 'center', 'ui');
+  state.buttons.push({ x: 1068, y: 602, w: 150, h: 54, fn: () => { state.pillars = [false,false,false,false]; state.bossPurified = false; state.foxRescue = false; state.holdT = 0; } });
+}
+
+function getNarrativeExtras() {
+  return window.HOLLOW_NARRATIVE_EXTRAS || {};
+}
+
+function getItemsLore() {
+  const ex = getNarrativeExtras();
+  if (Array.isArray(ex.ITEMS_LORE) && ex.ITEMS_LORE.length) return ex.ITEMS_LORE;
+  if (ex.ITEMS_LORE && typeof ex.ITEMS_LORE === 'object') return Object.values(ex.ITEMS_LORE);
+  return [
+    { tag: 'deed_blank', code: 'deed_blank', name: 'Tờ Khế Ước Trắng', role: 'Khởi Đầu', effect: 'Vật phẩm mở đường không ghi nợ',
+      descEarly: 'Mảnh giấy thô dùng để gói ổ bánh mì nóng trong ngày đầu rã kén.',
+      descSolo: 'Tờ giấy trống nhăn nheo trong túi áo người độc hành.',
+      descAct4: 'Soi dưới ánh Lõi Nhịp Tim mới hiện nét chữ 300 năm trước.' },
+    { tag: 'deed_lit', code: 'deed_lit', name: 'Tờ Khế Ước Sáng', role: 'Thanh Tẩy', effect: 'Phát sáng khi 4 bàn tay chạm chung',
+      descEarly: 'Chữ ký cộng sinh ẩn mình dưới lớp mực vô hình.',
+      descSolo: 'Cần hơi ấm của nhiều hơn một bàn tay để chữ hiện lên.',
+      descAct4: 'Bốn người cùng đặt tay, biến trang giấy thành muôn vạn đốm lửa.' },
+    { tag: 'soup_clean', code: 'soup_clean', name: 'Bát Súp Ít Hành', role: 'Hồi Phục', effect: 'Hồi HP & tăng Hơi Ấm đồng đội',
+      descEarly: 'Nồi súp nấm phát quang Kaelen nấu riêng cho chiếc bát sứt vành bên trái.',
+      descSolo: 'Hơi ấm quen thuộc nhắc rằng cậu từng có một bàn ăn bốn người.',
+      descAct4: 'Uống một ngụm trước trận cuối, lòng bàn tay bớt run hẳn.' },
+    { tag: 'soup_burnt', code: 'soup_burnt', name: 'Nồi Súp Cháy Khê', role: 'Kỷ Vật', effect: 'Hồi 1 HP (đắng ngắt)',
+      descEarly: 'Món ăn cậu tự nấu vụng về khi chưa có ai bên cạnh.',
+      descSolo: 'Đầy hành lá không ai vớt hộ. Nuốt một thìa mà lạnh buốt ngực.',
+      descAct4: 'Lời nhắc về cái giá của một bầu trời khép kín chỉ còn một người.' },
+    { tag: 'memoria_coin', code: 'memoria_coin', name: 'Đồng Xu Ký Ức', role: 'Thanh Tẩy', effect: 'Giữ [Space 2.5s] bóp vỡ',
+      descEarly: 'Áp tai vào nghe rõ tiếng cười trẻ nhỏ trong ký ức bị niêm phong.',
+      descSolo: 'Lạnh buốt trong lòng bàn tay giữa hành lang vắng.',
+      descAct4: 'Bóp vỡ để đồng xu hóa thành làn gió ấm bay về khu dân cư.' },
+    { tag: 'lumen_coin', code: 'lumen_coin', name: 'Xu Lumen', role: 'Tiền Tệ', effect: 'Giao thương Chợ Nổi & Phí 5 Lumen',
+      descEarly: 'Đồng tiền sáng dùng trả phí dán băng cá nhân 5 Lumen của Linh.',
+      descSolo: 'Mira bảo: thứ đắt nhất thế gian lại được định giá 0 Lumen.',
+      descAct4: 'Không ngân hàng nào tịch thu nổi lòng trắc ẩn.' },
+    { tag: 'prism_thread', code: 'prism_thread', name: 'Vòng Tơ Nhện', role: 'Kỷ Vật', effect: '+0 Giáp (Chỉ làm cậu thấy vui)',
+      descEarly: 'Món quà lấp lánh của Nhện Khúc Xạ quấn nhẹ quanh cổ tay.',
+      descSolo: 'Dù đi một mình trong hang tối, sợi tơ vẫn dắt cậu nhớ đường về.',
+      descAct4: 'Sợi chỉ mảnh nối nhịp tim cậu với những sinh vật từng được cứu.' },
+  ];
+}
+
+function getBestiaryList() {
+  const ex = getNarrativeExtras();
+  const order = ['cre_echofox', 'cre_rustcrab', 'cre_prismweaver', 'cre_parasite_mite'];
+  const fb = {
+    cre_echofox: {
+      key: 'cre_echofox', port: 'fox_happy', name: 'Hồ Ly Âm Bản', latinName: 'Echo-Vulpis',
+      econHarvest: 'Thu 1.200 Lumen (làm im lặng tiếng chuông)', econSymbiosis: 'Mở khóa phản đòn âm thanh & hồi sinh khi HP = 1',
+      payoff: 'Hồi 4: Đuôi chuông ngân lại câu an ủi đầu tiên giúp đánh thức Vaelen.',
+      wheel: { listen: 'Nghe tiếng tim Mốc hòa nhịp chuông.', feed: 'Cáo bốn tai vui sướng: "Ọc… ọc… ♫"', heal: 'Chải lông tơ ấm áp.' },
+    },
+    cre_rustcrab: {
+      key: 'cre_rustcrab', port: 'crab_warm', name: 'Cua Giáp Lò Rèn', latinName: 'Forge-Carapace',
+      econHarvest: 'Tháo mai sắt bán 900 Lumen', econSymbiosis: 'Sưởi ấm trạm nghỉ & giải mã chữ khắc 300 năm',
+      payoff: 'Hồi 4: Đứng cạnh đồng đội sưởi ấm đấu trường sau khi đốt Khế Ước.',
+      wheel: { listen: 'Nghe nhịp bễ lò rèn 300 năm.', feed: 'Cua hạ nhiệt dịu dàng tránh làm bỏng tay.', heal: 'Rút mảnh sắt rỉ kẹt khỏi khớp mai.' },
+    },
+    cre_prismweaver: {
+      key: 'cre_prismweaver', port: 'weaver_spark', name: 'Nhện Khúc Xạ', latinName: 'Prism-Weaver',
+      econHarvest: 'Cắt tơ bán 1.400 Lumen', econSymbiosis: 'Dệt cầu ánh sáng & tặng Vòng Tơ dẫn đường',
+      payoff: 'Hồi 4: Nối nhịp sáng dưới chân bệ Tháp Lõi.',
+      wheel: { listen: 'Tơ bảy sắc ngân lên khúc nhạc trong hang.', feed: 'Ánh sáng làm bụng tinh thể tỏa cầu vồng.', heal: 'Gỡ nút tơ rối, nhận Vòng Tơ Nhện.' },
+    },
+    cre_parasite_mite: {
+      key: 'cre_parasite_mite', port: 'mite_clean', name: 'Bọ Ký Sinh Kình Ngư', latinName: 'Cetus-Mite',
+      econHarvest: 'Ép lấy dịch quang 450 Lumen', econSymbiosis: 'Làm dịu lưng Kình Ngư & giảm 20% thuế chợ',
+      payoff: 'Hồi 2–4: Vệ binh mở lối miễn thuế bến Chợ Nổi.',
+      wheel: { listen: 'Nghe nhịp thở mệt mỏi của cá voi 500 tuổi.', feed: 'Chia đốm quang để bọ tự nhả ngàm.', heal: 'Nhổ sạch bọ — da Kình Ngư sáng dịu & giảm 20% thuế!' },
+    },
+  };
+  if (ex.BESTIARY_SPECS) {
+    const arr = Array.isArray(ex.BESTIARY_SPECS) ? ex.BESTIARY_SPECS : null;
+    return order.map((k, idx) => {
+      const src = arr ? (arr.find(b => b.key === k || b.code === k) || arr[idx] || {}) : (ex.BESTIARY_SPECS[k] || {});
+      return Object.assign({}, fb[k], src, { key: k, port: src.portrait || src.port || fb[k].port });
+    });
+  }
+  return order.map(k => fb[k]);
+}
+
+function getEndingsList() {
+  const ex = getNarrativeExtras();
+  const ed = ex.ENDINGS_DATA || {};
+  const fb = [
+    {
+      id: 'true', key: 'TRUE_SYMBIOSIS_ENDING',
+      title: 'Bàn Ăn Bốn Người Trên Lưng Kình Ngư',
+      flagCondition: '4 Trụ Đã Phá · Đốt Khế Ước · Cộng Sinh ≥ 80%',
+      toneColor: '#ffd66b',
+      puddleQuote: '"Sau tất cả mọi vết gốm hàn vàng… thật mừng vì người đứng ở đây vẫn là cậu."',
+      details: ['Mạng lưới 6 cáp tan thành muôn vạn đốm lửa trại.', 'Quán trọ lồng đèn vang tiếng hộp nhạc của mẹ Linh.', 'Bốn chiếc bát quanh nồi súp — chiếc bên trái không có hành.'],
+    },
+    {
+      id: 'freedom', key: 'FREEDOM_ENDING',
+      title: 'Chuyến Tàu Đi Tiếp',
+      flagCondition: 'Đánh Bại Lõi · Giữ Độc Lập Hành Trình',
+      toneColor: '#8df5ff',
+      puddleQuote: '"Bầu trời không còn là lồng kính, dù phía trước gió vẫn còn lạnh."',
+      details: ['Kình Ngư rẽ mây đưa những lữ khách sang tầng trời mới.', 'Hồ ly âm bản vẫn giữ tiếng chuông lời hứa cũ.', 'Vảy tro ấm trên bờ vai chưa tắt hẳn.'],
+    },
+    {
+      id: 'syndicate', key: 'HOLLOW_SYNDICATE_ENDING',
+      title: 'Vị Chủ Tịch Mới',
+      flagCondition: 'Nhánh Tha Hóa · Tích Lũy Nợ Memoria Cao',
+      toneColor: '#e87a7a',
+      puddleQuote: '"Ngài giàu nhất thế giới này rồi… nhưng vũng nước chỉ còn một cái bóng."',
+      details: ['Cáp Memoria nối thẳng về ngai tháp lạnh ngắt.', 'Đội hình tan rã, bếp lửa trại ngoài chợ tắt ngấm.', 'Mặt Trời Sinh Học rọi sáng nhưng không còn hơi ấm.'],
+    },
+  ];
+  return fb.map((f, idx) => {
+    const src = Array.isArray(ed) ? (ed.find(e => e.code === f.key || e.id === f.id) || ed[idx] || {}) : (ed[f.key] || {});
+    return Object.assign({}, f, src, {
+      title: src.title || src.name || f.title,
+      details: Array.isArray(src.details) ? src.details : f.details,
+    });
+  });
+}
+
+function getStateFlagsRows() {
+  const ex = getNarrativeExtras();
+  if (Array.isArray(ex.STATE_FLAGS_TABLE) && ex.STATE_FLAGS_TABLE.length) return ex.STATE_FLAGS_TABLE;
+  return [
+    ['enum_cutscene_state', 'Trạng thái chuỗi CS_01..CS_08 & Letterbox 12%'],
+    ['flag_party_separated', 'Bật/tắt Trường Đoạn Độc Hành Hồi 3 (tắt HUD & đồng đội)'],
+    ['bool_hud_*', 'Trạng thái từng thành phần Diegetic HUD (Linh/Kaelen/Mira)'],
+    ['float_body_cohesion', 'Độ gắn kết thân thể & mức rã hạt Pixel Dissolve'],
+    ['int_voice_dominance', 'Cán cân nhịp 60 BPM Kiến Trúc vs 85 BPM Cộng Sinh'],
+    ['int_puddle_check_count', 'Số lần soi Vũng Nước qua các hồi & phát hiện Vaelen'],
+    ['var_free_merchant_network', 'Ấn 0 Lumen & giảm 20% thuế bến Chợ Nổi của Mira'],
+    ['var_architect_corruption', 'Chỉ số Tha Hóa / tích lũy nợ Memoria'],
+    ['var_eco_balance', 'Mức cân bằng sinh thái (Cáo, Cua, Nhện, Bọ Kình Ngư)'],
+    ['int_clue_fragments_found', 'Số mảnh manh mối Bia TRONG & Hộp Nhạc đã tìm'],
+  ];
+}
+
+function drawBagBestiaryView() {
+  ctx.fillStyle = '#0e1018'; ctx.fillRect(0, 0, W, H);
+  const items = getItemsLore();
+  const beasts = getBestiaryList();
+  const curItem = items[state.itemIdx % items.length];
+  const curBeast = beasts[state.beastIdx % beasts.length];
+  const itemTags = ['deed_blank', 'deed_lit', 'soup_clean', 'soup_burnt', 'memoria_coin', 'lumen_coin', 'prism_thread'];
+
+  // Left Column: Túi Đồ Biết Kể Chuyện
+  ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(42, 64, 582, 616);
+  ctx.strokeStyle = 'rgba(240,199,106,0.28)'; ctx.strokeRect(42, 64, 582, 616);
+  txt('TÚI ĐỒ BIẾT KỂ CHUYỆN (7 VẬT PHẨM · ĐỔI THEO NGỮ CẢNH)', 333, 84, 14, '#f0c76a', 'center', 'label');
+
+  // Context Toggle Pills (Hồi 1 / Độc Hành / Hồi 4)
+  const ctxOpts = [
+    { id: 'early', label: 'Hồi 1: Khởi Đầu' },
+    { id: 'solo',  label: 'Hồi 3: Độc Hành' },
+    { id: 'act4',  label: 'Hồi 4: Lõi Tim' },
+  ];
+  ctxOpts.forEach((c, i) => {
+    const bx = 66 + i * 182, by = 104, bw = 172, bh = 26, act = state.bagCtx === c.id;
+    ctx.fillStyle = act ? 'rgba(143,245,232,0.18)' : 'rgba(255,255,255,0.05)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = act ? '#8ff5e8' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(bx, by, bw, bh);
+    txt(c.label, bx + bw / 2, by + 13, 12, act ? '#8ff5e8' : '#cfc7b2', 'center', 'ui');
+    state.buttons.push({ x: bx, y: by, w: bw, h: bh, fn: () => { state.bagCtx = c.id; } });
+  });
+
+  // 7 Item Icon Slots
+  items.forEach((it, idx) => {
+    const sx = 60 + idx * 79, sy = 142, sw = 72, sh = 74, sel = idx === (state.itemIdx % items.length);
+    ctx.fillStyle = sel ? 'rgba(240,199,106,0.2)' : 'rgba(14,18,30,0.75)'; ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = sel ? '#ffd66b' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(sx, sy, sw, sh);
+    const tg = it.tag || it.code || itemTags[idx];
+    drawSprite('ui_items', tg, sx + sw / 2, sy + 30, { scale: 1.0, t: state.t });
+    const shortN = (it.name || '').split(' ').slice(0, 2).join(' ');
+    txt(shortN, sx + sw / 2, sy + 60, 10, sel ? '#ffd66b' : '#cfc7b2', 'center', 'ui');
+    state.buttons.push({ x: sx, y: sy, w: sw, h: sh, fn: () => { state.itemIdx = idx; } });
+  });
+
+  // Selected Item Lore Card
+  ctx.fillStyle = 'rgba(12,15,24,0.86)'; ctx.fillRect(60, 228, 546, 314);
+  ctx.strokeStyle = 'rgba(240,199,106,0.22)'; ctx.strokeRect(60, 228, 546, 314);
+  ctx.fillStyle = '#151928'; ctx.fillRect(78, 246, 92, 92);
+  ctx.strokeStyle = 'rgba(240,199,106,0.45)'; ctx.strokeRect(78, 246, 92, 92);
+  const curTg = curItem.tag || curItem.code || itemTags[state.itemIdx % 7];
+  drawSprite('ui_items', curTg, 124, 292, { scale: 1.85, t: state.t });
+  txt(curItem.name, 190, 266, 22, '#f0c76a', 'left', 'display');
+  txt(`[ ${curItem.role || 'Kỷ Vật'} ] · ${curItem.code || curTg}`, 190, 294, 12, '#8df5ff', 'left', 'mono');
+  wrap(`Tác dụng: ${curItem.effect || ''}`, 395, 13, 'ui').slice(0, 2).forEach((ln, i) => txt(ln, 190, 318 + i * 18, 13, '#d8d0bc', 'left', 'ui'));
+
+  const ctxKey = state.bagCtx === 'solo' ? 'descSolo' : (state.bagCtx === 'act4' ? 'descAct4' : 'descEarly');
+  const usePurify = curTg === 'memoria_coin' && (state.purifyBurstT > 0 || state.purifyCount > 0) && curItem.descPurify;
+  const descBody = usePurify ? curItem.descPurify : (curItem[ctxKey] || curItem.descEarly || curItem.descAct4 || '');
+  txt(usePurify ? 'TRẠNG THÁI ĐÃ THANH TẨY:' : 'LỜI KỂ THEO NGỮ CẢNH:', 80, 366, 11, usePurify ? '#ffd66b' : '#9a9380', 'left', 'mono');
+  wrap(descBody, 504, 15, 'story').slice(0, 5).forEach((ln, i) => txt(ln, 80, 392 + i * 24, 15, usePurify ? '#fff3cc' : '#f4ecd8', 'left', 'story'));
+
+  // Bottom Purify / Crush 2.5s Simulator
+  ctx.fillStyle = 'rgba(13,18,34,0.84)'; ctx.fillRect(60, 554, 546, 110);
+  ctx.strokeStyle = state.holdT > 0 ? '#ffcb6b' : 'rgba(143,245,232,0.34)'; ctx.strokeRect(60, 554, 546, 110);
+  const rTag = state.purifyBurstT > 0 ? 'burst' : (state.holdT > 0 ? 'purify' : 'idle');
+  drawSprite('ui_memoria_ring', rTag, 112, 608, { scale: 0.72, t: state.t });
+  if (state.holdT > 0) {
+    ctx.save(); ctx.strokeStyle = '#ffcb6b'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(112, 608, 34, -Math.PI / 2, -Math.PI / 2 + (state.holdT / 2.5) * Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  txt(`BÓP VỠ / THANH TẨY 2.5s · Đã hóa ấm: ${state.purifyCount} xu`, 166, 578, 12, '#8df5ff', 'left', 'mono');
+  ctx.fillStyle = '#182036'; ctx.fillRect(166, 596, 250, 14);
+  ctx.fillStyle = '#ffcb6b'; ctx.fillRect(166, 596, Math.round(250 * (state.holdT / 2.5)), 14);
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.strokeRect(166, 596, 250, 14);
+  txt('Giữ [Space] hoặc bấm nút bên để mô phỏng', 166, 628, 12, '#cfc7b2', 'left', 'thought');
+  ctx.fillStyle = 'rgba(255,203,107,0.18)'; ctx.fillRect(430, 586, 160, 46);
+  ctx.strokeStyle = '#ffcb6b'; ctx.strokeRect(430, 586, 160, 46);
+  txt('⚡ Thanh Tẩy 2.5s', 510, 609, 13, '#ffd66b', 'center', 'label');
+  state.buttons.push({ x: 430, y: 586, w: 160, h: 46, fn: () => { state.holdT = 0; state.purifyBurstT = 0.9; state.purifyCount++; } });
+
+  // Right Column: Bách Khoa Sinh Vật & Spec Symbiosis Wheel
+  ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fillRect(640, 64, 598, 616);
+  ctx.strokeStyle = 'rgba(143,245,232,0.28)'; ctx.strokeRect(640, 64, 598, 616);
+  txt('BÁCH KHOA SINH VẬT & VÒNG CỘNG SINH (0 SÁT THƯƠNG)', 939, 84, 14, '#8ff5e8', 'center', 'label');
+
+  // 4 Beast Tabs
+  beasts.forEach((b, idx) => {
+    const bx = 656 + idx * 143, by = 104, bw = 136, bh = 38, sel = idx === (state.beastIdx % 4);
+    ctx.fillStyle = sel ? 'rgba(143,245,232,0.20)' : 'rgba(255,255,255,0.05)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = sel ? '#8ff5e8' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(bx, by, bw, bh);
+    const shortB = b.name.split(' ').slice(0, 2).join(' ');
+    txt(shortB, bx + bw / 2, by + 19, 12, sel ? '#fff6cc' : '#dcd4c0', 'center', sel ? 'label' : 'ui');
+    state.buttons.push({ x: bx, y: by, w: bw, h: bh, fn: () => { state.beastIdx = idx; state.wheelMsg = ''; } });
+  });
+
+  // Beast Sprite Stage + New Creature Portrait from hollow_portraits
+  ctx.fillStyle = 'rgba(12,15,24,0.86)'; ctx.fillRect(656, 152, 566, 260);
+  ctx.strokeStyle = 'rgba(240,199,106,0.22)'; ctx.strokeRect(656, 152, 566, 260);
+
+  const bGlow = ctx.createRadialGradient(758, 250, 12, 758, 250, 96);
+  bGlow.addColorStop(0, 'rgba(255,214,107,0.18)'); bGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = bGlow; ctx.fillRect(664, 160, 188, 170);
+  const bTag = curBeast.key === 'cre_parasite_mite' ? 'cling' : (curBeast.key === 'cre_echofox' ? 'chime' : (curBeast.key === 'cre_rustcrab' ? 'warm' : 'weave'));
+  drawSprite(curBeast.key, bTag, 758, 286, { scale: 1.65, t: state.t });
+
+  // Portrait Box (21-tag hollow_portraits fallback safely to fallbackPortrait if art not loaded)
+  ctx.fillStyle = '#151928'; ctx.fillRect(1088, 168, 114, 120);
+  ctx.strokeStyle = 'rgba(143,245,232,0.55)'; ctx.strokeRect(1088, 168, 114, 120);
+  const pMeta = ASSETS.hollow_portraits;
+  const wantPort = curBeast.port || curBeast.portrait;
+  const hasBeastPort = pMeta && pMeta.tags && pMeta.tags[wantPort];
+  const portToUse = hasBeastPort ? wantPort : (curBeast.fallbackPortrait || 'protag_warm');
+  drawSprite('hollow_portraits', portToUse, 1145, 228, { scale: 1.05, t: state.t });
+  txt(hasBeastPort ? wantPort : portToUse, 1145, 302, 10, '#8df5ff', 'center', 'mono');
+
+  txt(curBeast.name, 858, 176, 21, '#f0c76a', 'left', 'display');
+  txt(curBeast.latinName || '', 858, 198, 11, '#9ee8ff', 'left', 'mono');
+  const harvestTxt = (curBeast.econHarvest || '').replace(/^(?:Săn bắt|Thu hoạch)\s*:\s*/i, '');
+  const symTxt = (curBeast.econSymbiosis || '').replace(/^Cộng sinh\s*:\s*/i, '');
+  let byInfo = 216;
+  txt('Săn bắt:', 858, byInfo, 11, '#e87a7a', 'left', 'label');
+  byInfo += 15;
+  wrap(harvestTxt, 222, 11, 'ui').slice(0, 3).forEach((ln) => {
+    txt(ln, 858, byInfo, 11, '#cfb8b8', 'left', 'ui');
+    byInfo += 14;
+  });
+  byInfo += 5;
+  txt('Cộng sinh:', 858, byInfo, 11, '#8ff5e8', 'left', 'label');
+  byInfo += 15;
+  wrap(symTxt, 222, 11, 'ui').slice(0, 4).forEach((ln) => {
+    txt(ln, 858, byInfo, 11, '#dff8f0', 'left', 'ui');
+    byInfo += 14;
+  });
+
+  const payY = Math.max(352, byInfo + 8);
+  wrap(`★ ${curBeast.act4Payoff || curBeast.payoff || ''}`, 534, 12, 'thought').slice(0, 3).forEach((ln, i) => txt(ln, 674, payY + i * 16, 12, '#ffd66b', 'left', 'thought'));
+
+  // Symbiosis Wheel Simulator (bottom right)
+  ctx.fillStyle = 'rgba(13,18,34,0.84)'; ctx.fillRect(656, 424, 566, 240);
+  ctx.strokeStyle = 'rgba(143,245,232,0.34)'; ctx.strokeRect(656, 424, 566, 240);
+  txt('SPEC VÒNG HÀNH ĐỘNG CỘNG SINH (TopDownSymbiosisWheel)', 939, 444, 12, '#8df5ff', 'center', 'mono');
+
+  const wActions = [
+    { key: 'listen', num: '1', label: 'Lắng Nghe', col: '#9be3ff' },
+    { key: 'feed',   num: '2', label: 'Cho Ăn / Soi', col: '#ffd66b' },
+    { key: 'heal',   num: '3', label: 'Chữa Trị', col: '#8ff5e8' },
+  ];
+  wActions.forEach((wa, idx) => {
+    const bx = 674 + idx * 180, by = 468, bw = 168, bh = 86, sel = state.wheelSel === idx;
+    ctx.fillStyle = sel ? 'rgba(240,199,106,0.20)' : 'rgba(255,255,255,0.05)'; ctx.fillRect(bx, by, bw, bh);
+    ctx.strokeStyle = sel ? '#ffd66b' : wa.col; ctx.strokeRect(bx, by, bw, bh);
+    const drawn = drawSprite('ui_symbiosis_wheel', wa.key, bx + bw / 2, by + 30, { scale: 0.56, t: sel ? 0.25 : 0 });
+    if (!drawn) {
+      ctx.fillStyle = wa.col;
+      ctx.beginPath(); ctx.arc(bx + bw / 2, by + 30, 12, 0, Math.PI * 2); ctx.fill();
+    }
+    const wObj = curBeast.wheel && curBeast.wheel[wa.key];
+    const lbl = (wObj && wObj.label) ? `${wa.num} · ${wObj.label}` : `${wa.num} · ${wa.label}`;
+    txt(lbl, bx + bw / 2, by + 70, 11, '#f4ecd8', 'center', 'label');
+    state.buttons.push({
+      x: bx, y: by, w: bw, h: bh,
+      fn: () => {
+        state.wheelSel = idx;
+        state.wheelMsg = typeof wObj === 'string' ? wObj : (wObj && (wObj.reaction || wObj.text)) || '';
+      },
+    });
+  });
+
+  const activeWheel = wActions[state.wheelSel % 3];
+  const defaultWheelObj = curBeast.wheel && curBeast.wheel[activeWheel.key];
+  const shownReaction = state.wheelMsg || (typeof defaultWheelObj === 'string' ? defaultWheelObj : (defaultWheelObj && (defaultWheelObj.reaction || defaultWheelObj.text)) || '');
+  ctx.fillStyle = 'rgba(8,10,16,0.88)'; ctx.fillRect(674, 570, 530, 78);
+  ctx.strokeStyle = 'rgba(240,199,106,0.28)'; ctx.strokeRect(674, 570, 530, 78);
+  const activeLbl = (defaultWheelObj && defaultWheelObj.label) || activeWheel.label;
+  txt(`Phản hồi (${activeWheel.num} · ${activeLbl}):`, 690, 588, 11, activeWheel.col, 'left', 'mono');
+  wrap(shownReaction, 496, 13, 'story').slice(0, 2).forEach((ln, i) => txt(ln, 690, 610 + i * 19, 13, '#f4ecd8', 'left', 'story'));
+}
+
+function drawEndingsView() {
+  ctx.fillStyle = '#0c0e16'; ctx.fillRect(0, 0, W, H);
+  txt('3 NHÁNH KẾT THÚC CHÍNH & BẢNG ĐIỀU KIỆN STATE FLAGS (v4.3)', W / 2, 68, 16, '#f0c76a', 'center', 'display');
+
+  const endings = getEndingsList();
+  endings.forEach((ed, idx) => {
+    const x = 42 + idx * 402, y = 86, w = 390, h = 414;
+    ctx.fillStyle = 'rgba(255,255,255,0.028)'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = ed.toneColor || '#f0c76a'; ctx.strokeRect(x, y, w, h);
+
+    // Diorama Stage Preview Box
+    const sx = x + 12, sy = y + 10, sw = w - 24, sh = 148;
+    const d = ed.diorama || {};
+    ctx.fillStyle = ed.bgTone || (idx === 0 ? '#1f1620' : (idx === 1 ? '#131d2d' : '#10121c'));
+    ctx.fillRect(sx, sy, sw, sh);
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.strokeRect(sx, sy, sw, sh);
+
+    if (idx === 0) {
+      const glow = ctx.createRadialGradient(sx + sw / 2, sy + 82, 8, sx + sw / 2, sy + 82, 120);
+      glow.addColorStop(0, 'rgba(255,196,96,0.28)'); glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow; ctx.fillRect(sx, sy, sw, sh);
+      drawSprite(d.hut || 'env_hut_lantern', d.hutTag || 'lit', sx + 74, sy + 128, { scale: 0.78, t: state.t });
+      drawSprite(d.fire || 'prop_campfire', d.fireTag || 'warm', sx + sw / 2, sy + 132, { scale: 0.75, t: state.t });
+      if (ASSETS[d.music || 'fx_music_box']) drawSprite(d.music || 'fx_music_box', d.musicTag || 'intact', sx + sw - 68, sy + 128, { scale: 0.9, t: state.t });
+      drawSprite('comp_kael', 'soup', sx + sw / 2 - 42, sy + 130, { scale: 0.65, t: state.t });
+      drawSprite('comp_linh', 'idle', sx + sw / 2 + 42, sy + 130, { scale: 0.65, t: state.t });
+      for (let i = 0; i < 6; i++) drawSprite('fx_hearth_wisp', d.wispTag || (i % 2 === 0 ? 'gold' : 'mint'), sx + 48 + i * 56, sy + 28 + Math.sin(state.t * 2 + i) * 8, { scale: 0.68, t: state.t });
+    } else if (idx === 1) {
+      drawSprite('prop_leviathan', 'idle', sx + 104, sy + 102, { scale: 0.48, t: state.t });
+      drawSprite(d.puddle || 'prop_puddle', d.puddleTag || 'solo_fade', sx + sw / 2 + 30, sy + 134, { scale: 0.72, t: state.t });
+      drawSprite('char_protag', 'idle', sx + sw / 2 + 12, sy + 126, { scale: 0.74, t: state.t });
+      drawSprite('cre_echofox', 'chime', sx + sw / 2 + 72, sy + 128, { scale: 0.72, t: state.t });
+      for (let i = 0; i < 5; i++) drawSprite('fx_hearth_wisp', d.wispTag || 'mint', sx + 56 + i * 64, sy + 26 + Math.cos(state.t * 2 + i) * 8, { scale: 0.62, t: state.t });
+    } else {
+      ctx.save();
+      for (let c = -2; c <= 2; c++) {
+        if (c === 0) continue;
+        ctx.strokeStyle = 'rgba(143,247,255,0.45)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(sx + sw / 2 + c * 10, sy + 56); ctx.lineTo(sx + sw / 2 + c * 30, sy); ctx.stroke();
+      }
+      ctx.restore();
+      drawSprite('prop_debt_pillar', 'locked', sx + 58, sy + 132, { scale: 0.48, t: state.t });
+      drawSprite('prop_debt_pillar', 'locked', sx + sw - 58, sy + 132, { scale: 0.48, t: state.t });
+      drawSprite(d.vaelen || 'boss_vaelen', d.vaelenTag || 'cabled', sx + sw / 2, sy + 110, { scale: 0.68, t: state.t });
+      if (ASSETS[d.music || 'fx_music_box']) drawSprite(d.music || 'fx_music_box', d.musicTag || 'shattered', sx + 114, sy + 134, { scale: 0.85, t: state.t });
+      drawSprite(d.puddle || 'prop_puddle', d.puddleTag || 'corrupt', sx + sw / 2, sy + 136, { scale: 0.68, t: state.t });
+    }
+
+    txt(ed.title, x + w / 2, y + 172, 16, ed.toneColor || '#f0c76a', 'center', 'display');
+    wrap(ed.flagCondition || '', w - 26, 10, 'mono').slice(0, 2).forEach((ln, i) => txt(ln, x + w / 2, y + 192 + i * 13, 10, '#9ee8ff', 'center', 'mono'));
+    wrap(`"${ed.puddleQuote || ''}"`, w - 30, 12, 'thought').slice(0, 3).forEach((ln, i) => txt(ln, x + 16, y + 224 + i * 16, 12, '#fff1d4', 'left', 'thought'));
+
+    let by = y + 282;
+    for (const det of (ed.details || []).slice(0, 3)) {
+      wrap('· ' + det, w - 30, 11, 'ui').slice(0, 2).forEach((ln) => {
+        txt(ln, x + 16, by, 11, '#d4ccb8', 'left', 'ui');
+        by += 15;
+      });
+      by += 6;
+    }
+  });
+
+  // Bottom State Flags Table (10 vars wrapped cleanly within 1196px)
+  ctx.fillStyle = 'rgba(13,18,34,0.84)'; ctx.fillRect(42, 508, 1196, 176);
+  ctx.strokeStyle = 'rgba(143,245,232,0.28)'; ctx.strokeRect(42, 508, 1196, 176);
+  txt('BẢNG ĐỒNG BỘ STATE FLAGS & BIẾN HỆ THỐNG (PHẦN V · v4.3)', 640, 523, 12, '#8df5ff', 'center', 'mono');
+  const rows = getStateFlagsRows().slice(0, 10);
+  rows.forEach((row, idx) => {
+    const col = idx < 5 ? 0 : 1, rIdx = idx % 5;
+    const rx = 56 + col * 594, ry = 544 + rIdx * 28;
+    const keyName = Array.isArray(row) ? row[0] : (row.name || row.key || '');
+    const descTxt = Array.isArray(row) ? row[1] : (row.desc || row.description || '');
+    txt(keyName, rx, ry, 10, '#ffd66b', 'left', 'mono');
+    wrap(descTxt, 366, 10, 'ui').slice(0, 2).forEach((ln, li) => txt(ln, rx + 206, ry + li * 12, 10, '#dcd4c0', 'left', 'ui'));
+  });
+}
+
+function drawHUD() {
+  if (state.hudHidden || state.cutsceneMode) return;
+  ctx.fillStyle = 'rgba(10,12,18,0.88)'; ctx.fillRect(0, 0, W, 48);
+  ctx.strokeStyle = 'rgba(240,199,106,0.25)'; ctx.beginPath(); ctx.moveTo(0, 48); ctx.lineTo(W, 48); ctx.stroke();
+
+  const pills = [
+    { label: 'Tab Hồ Sơ', fn: () => { state.view = state.view === 'chars' ? 'world' : 'chars'; state.dlg = null; }, active: state.view === 'chars' },
+    { label: 'I Cận Cảnh', fn: () => { state.view = state.view === 'gallery' ? 'world' : 'gallery'; state.dlg = null; }, active: state.view === 'gallery' },
+    { label: 'B Boss H4', fn: () => { state.view = state.view === 'boss' ? 'world' : 'boss'; state.dlg = null; }, active: state.view === 'boss' },
+    { label: 'J Túi & SV', fn: () => { state.view = state.view === 'bag' ? 'world' : 'bag'; state.dlg = null; }, active: state.view === 'bag' },
+    { label: 'O 3 Kết Thúc', fn: () => { state.view = state.view === 'endings' ? 'world' : 'endings'; state.dlg = null; }, active: state.view === 'endings' },
+    { label: 'C Cutscene', fn: () => { state.cutsceneMode = !state.cutsceneMode; state.dlg = null; }, active: state.cutsceneMode },
+    { label: 'L Kit Cũ', fn: () => { state.view = state.view === 'legacy' ? 'world' : 'legacy'; state.dlg = null; }, active: state.view === 'legacy' },
+    { label: 'T Top-Down', fn: () => { location.href = 'topdown_maps.html'; }, active: false },
+    { label: '1 Phế Liệu', fn: () => { state.view = 'world'; setAct('act1'); }, active: state.view === 'world' && state.act === 'act1' },
+    { label: '2 Kình Ngư', fn: () => { state.view = 'world'; setAct('act2'); }, active: state.view === 'world' && state.act === 'act2' },
+    { label: '3 Hầm', fn: () => { state.view = 'world'; setAct('act3'); }, active: state.view === 'world' && state.act === 'act3' },
+    { label: '4 Lõi', fn: () => { state.view = 'world'; setAct('act4'); }, active: state.view === 'world' && state.act === 'act4' },
+    { label: 'M ' + (state.corrupt ? 'Tha Hóa' : 'Tuyến'), fn: () => { state.corrupt = !state.corrupt; }, active: state.corrupt },
+    { label: 'S ' + (state.solo ? 'Độc Hành' : 'Đoàn Tụ'), fn: () => { state.solo = !state.solo; if (state.view === 'gallery') state.hudAlt = state.solo; }, active: state.solo },
+    { label: 'U ' + (state.hooded ? 'Mũ' : 'Mặt'), fn: () => { state.hooded = !state.hooded; }, active: state.hooded },
+    { label: 'H Ẩn', fn: () => { state.hudHidden = true; }, active: false },
+  ];
+  let bx = 8;
+  for (const p of pills) {
+    const pw = Math.round(measureW(p.label, 10, 'ui') + 8);
+    ctx.fillStyle = p.active ? 'rgba(240,199,106,0.22)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(bx, 10, pw, 28);
+    ctx.strokeStyle = p.active ? '#f0c76a' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(bx, 10, pw, 28);
+    txt(p.label, bx + pw / 2, 24, 10, p.active ? '#f0c76a' : '#e8e0cc', 'center', 'ui');
+    state.buttons.push({ x: bx, y: 10, w: pw, h: 28, fn: p.fn });
+    bx += pw + 3;
+  }
+
+  ctx.fillStyle = 'rgba(8,9,14,0.82)'; ctx.fillRect(0, H - 28, W, 28);
+  txt('A/D: đi · E: thoại/đổi · 1..4: Hồi · Tab/I/B/J/O/C/L/T: Hồ sơ / Cận cảnh / Boss / Túi & SV / 3 Kết thúc / Cutscene / Kit cũ / Top-Down · U/M/S/H', W / 2, H - 14, 11, '#b8b09a', 'center', 'ui');
+}
+
+function drawFrame() {
+  state.buttons = [];
+  if (state.view === 'world') drawWorld();
+  else if (state.view === 'chars') drawCharSheet();
+  else if (state.view === 'gallery') drawGallery();
+  else if (state.view === 'boss') drawBossSpec();
+  else if (state.view === 'bag') drawBagBestiaryView();
+  else if (state.view === 'endings') drawEndingsView();
+  else drawLegacyKit();
+  if (state.cutsceneMode) drawCutsceneOverlay();
+  drawHUD();
+}
+
+let last = performance.now() / 1000, acc = 0;
+function loop() {
+  const now = performance.now() / 1000;
+  acc += Math.min(now - last, 0.25); last = now;
+  while (acc >= STEP) { stepOnce(); hit.clear(); acc -= STEP; }
+  drawFrame(); requestAnimationFrame(loop);
+}
+
+window.hollowShowcase = {
+  get state() { return state; },
+  ready: Promise.all(READY_PROMISES),
+  setView(v) { state.view = v; state.dlg = null; drawFrame(); },
+  setAct(id) { setAct(id); drawFrame(); },
+  selectItem(idx) { state.itemIdx = ((idx % 7) + 7) % 7; drawFrame(); },
+  selectBeast(idx) { state.beastIdx = ((idx % 4) + 4) % 4; state.wheelMsg = ''; drawFrame(); },
+  setBagContext(c) { state.bagCtx = c; drawFrame(); },
+  pickWheel(actOrIdx) {
+    const beasts = getBestiaryList();
+    const b = beasts[state.beastIdx % beasts.length];
+    const keys = ['listen', 'feed', 'heal'];
+    const idx = typeof actOrIdx === 'number' ? actOrIdx : keys.indexOf(actOrIdx);
+    state.wheelSel = idx >= 0 ? idx : 0;
+    const k = keys[state.wheelSel];
+    const wObj = b.wheel && b.wheel[k];
+    state.wheelMsg = typeof wObj === 'string' ? wObj : (wObj && (wObj.reaction || wObj.text)) || '';
+    drawFrame();
+  },
+  setRoute(corrupt) { state.corrupt = !!corrupt; drawFrame(); },
+  setSolo(solo) { state.solo = !!solo; state.hudAlt = state.solo; drawFrame(); },
+  setHooded(h) { state.hooded = !!h; drawFrame(); },
+  setCutscene(on, idx) { state.cutsceneMode = !!on; if (idx !== undefined) state.csIdx = ((idx % CUTSCENES.length) + CUTSCENES.length) % CUTSCENES.length; state.dlg = null; drawFrame(); },
+  setMiteRemoved(v) { state.miteRemoved = !!v; drawFrame(); },
+  breakPillar(idx, v = true) { if (idx >= 0 && idx < 4) state.pillars[idx] = !!v; drawFrame(); },
+  setBossPurified(v) { if (v) state.pillars = [true, true, true, true]; state.bossPurified = !!v; drawFrame(); },
+  setFoxRescue(v) { state.foxRescue = !!v; drawFrame(); },
+  press(code) { hit.add(code); },
+  hold(code, on) { on ? down.add(code) : down.delete(code); },
+  step(n = 1, draw = true) { for (let i = 0; i < n; i++) { stepOnce(); hit.clear(); } if (draw) drawFrame(); },
+};
+
+if (params.get('manual') === '1') drawFrame();
+else requestAnimationFrame(loop);
+</script>
+</body>
+</html>

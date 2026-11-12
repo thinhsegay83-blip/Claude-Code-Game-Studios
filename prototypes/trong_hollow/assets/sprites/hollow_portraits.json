@@ -1,0 +1,223 @@
+{ "frames": [
+   {
+    "filename": "hollow_portraits 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 1.aseprite",
+    "frame": { "x": 48, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 2.aseprite",
+    "frame": { "x": 96, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 3.aseprite",
+    "frame": { "x": 144, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 4.aseprite",
+    "frame": { "x": 192, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 5.aseprite",
+    "frame": { "x": 240, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 6.aseprite",
+    "frame": { "x": 288, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 7.aseprite",
+    "frame": { "x": 336, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 8.aseprite",
+    "frame": { "x": 384, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 9.aseprite",
+    "frame": { "x": 432, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 10.aseprite",
+    "frame": { "x": 480, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 11.aseprite",
+    "frame": { "x": 528, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 12.aseprite",
+    "frame": { "x": 576, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 13.aseprite",
+    "frame": { "x": 624, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 14.aseprite",
+    "frame": { "x": 672, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 15.aseprite",
+    "frame": { "x": 720, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 16.aseprite",
+    "frame": { "x": 768, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 17.aseprite",
+    "frame": { "x": 816, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 18.aseprite",
+    "frame": { "x": 864, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 19.aseprite",
+    "frame": { "x": 912, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   },
+   {
+    "filename": "hollow_portraits 20.aseprite",
+    "frame": { "x": 960, "y": 0, "w": 48, "h": 52 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 48, "h": 52 },
+    "sourceSize": { "w": 48, "h": 52 },
+    "duration": 300
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "hollow_portraits.png",
+  "format": "RGBA8888",
+  "size": { "w": 1008, "h": 52 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "protag_hooded", "from": 0, "to": 0, "direction": "forward", "color": "#000000ff" },
+   { "name": "protag_warm", "from": 1, "to": 1, "direction": "forward", "color": "#000000ff" },
+   { "name": "protag_shock", "from": 2, "to": 2, "direction": "forward", "color": "#000000ff" },
+   { "name": "protag_fading", "from": 3, "to": 3, "direction": "forward", "color": "#000000ff" },
+   { "name": "linh_smile", "from": 4, "to": 4, "direction": "forward", "color": "#000000ff" },
+   { "name": "linh_shock", "from": 5, "to": 5, "direction": "forward", "color": "#000000ff" },
+   { "name": "linh_teary", "from": 6, "to": 6, "direction": "forward", "color": "#000000ff" },
+   { "name": "kael_warm", "from": 7, "to": 7, "direction": "forward", "color": "#000000ff" },
+   { "name": "kael_sad", "from": 8, "to": 8, "direction": "forward", "color": "#000000ff" },
+   { "name": "kael_glow", "from": 9, "to": 9, "direction": "forward", "color": "#000000ff" },
+   { "name": "mira_smirk", "from": 10, "to": 10, "direction": "forward", "color": "#000000ff" },
+   { "name": "mira_fierce", "from": 11, "to": 11, "direction": "forward", "color": "#000000ff" },
+   { "name": "mira_gentle", "from": 12, "to": 12, "direction": "forward", "color": "#000000ff" },
+   { "name": "vaelen_cold", "from": 13, "to": 13, "direction": "forward", "color": "#000000ff" },
+   { "name": "vaelen_pained", "from": 14, "to": 14, "direction": "forward", "color": "#000000ff" },
+   { "name": "vaelen_old", "from": 15, "to": 15, "direction": "forward", "color": "#000000ff" },
+   { "name": "vex_smug", "from": 16, "to": 16, "direction": "forward", "color": "#000000ff" },
+   { "name": "fox_happy", "from": 17, "to": 17, "direction": "forward", "color": "#000000ff" },
+   { "name": "crab_warm", "from": 18, "to": 18, "direction": "forward", "color": "#000000ff" },
+   { "name": "weaver_spark", "from": 19, "to": 19, "direction": "forward", "color": "#000000ff" },
+   { "name": "mite_clean", "from": 20, "to": 20, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}

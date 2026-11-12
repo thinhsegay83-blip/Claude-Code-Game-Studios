@@ -1,0 +1,1034 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TRONG: Bản Đồ Top-Down 4 Hồi & Đội Hình Caterpillar</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #090910; overflow: hidden; }
+  canvas { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script src="assets.js"></script>
+<script src="topdown_blueprints.js"></script>
+<script src="narrative_extras.js"></script>
+<script>
+'use strict';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const W = 1280, H = 720;
+const PIXEL_SCALE = 2;
+const TILE = 32; // 16x16 * 2
+const params = new URLSearchParams(location.search);
+const STEP = 1 / 60;
+
+function fit() {
+  const k = Math.min(innerWidth / W, innerHeight / H);
+  const r = k * (devicePixelRatio || 1);
+  canvas.width = Math.round(W * r); canvas.height = Math.round(H * r);
+  canvas.style.width = Math.round(W * k) + 'px';
+  canvas.style.height = Math.round(H * k) + 'px';
+  canvas.style.marginTop = Math.max(0, Math.floor((innerHeight - H * k) / 2)) + 'px';
+  ctx.setTransform(r, 0, 0, r, 0, 0);
+}
+addEventListener('resize', fit); fit();
+
+const ROLES = {
+  display: '600 {s}px "Sitka Display", Georgia, serif',
+  story:   '500 {s}px "Sitka Text", Georgia, serif',
+  thought: 'italic 400 {s}px "Sitka Text", Georgia, serif',
+  ui:      '600 {s}px "Candara", "Segoe UI", sans-serif',
+  label:   '700 {s}px "Candara", "Segoe UI", sans-serif',
+  mono:    '600 {s}px "Cascadia Mono", Consolas, monospace',
+};
+const fnt = (s, r = 'ui') => (ROLES[r] || ROLES.ui).replace('{s}', Math.round(s));
+function measureW(s, size, role = 'ui') { ctx.save(); ctx.font = fnt(size, role); const w = ctx.measureText(String(s)).width; ctx.restore(); return w; }
+function txt(s, x, y, size, col, align = 'center', role = 'ui') {
+  ctx.save(); ctx.font = fnt(size, role); ctx.textAlign = align; ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(6,8,14,0.9)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1.5;
+  ctx.fillStyle = col; ctx.fillText(String(s), Math.round(x), Math.round(y)); ctx.restore();
+}
+function wrap(s, maxW, size, role = 'story') {
+  const words = String(s).split(' '), out = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (measureW(t, size, role) > maxW && cur) { out.push(cur); cur = w; } else cur = t; }
+  if (cur) out.push(cur); return out;
+}
+
+const ASSETS = window.HOLLOW_ASSETS || {};
+const MAPS = window.HOLLOW_TOPDOWN_MAPS || {};
+const SPRITES = {};
+const READY_PROMISES = Object.entries(ASSETS).map(([k, v]) => {
+  const img = new Image(); SPRITES[k] = img;
+  return new Promise(res => { img.onload = () => { if (params.get('manual') === '1') drawFrame(); res(); }; img.onerror = res; img.src = v.src; });
+});
+
+function animFrame(key, tag, t, frozen) {
+  const meta = ASSETS[key]; if (!meta || !meta.frames.length) return null;
+  const tg = tag && meta.tags ? meta.tags[tag] : null;
+  const from = tg ? tg.from : 0, to = tg ? tg.to : meta.frames.length - 1;
+  if (from === to || frozen) return meta.frames[from];
+  let total = 0; for (let i = from; i <= to; i++) total += meta.frames[i].dur || 200;
+  let ms = (Math.max(0, t || 0) * 1000) % total;
+  for (let i = from; i <= to; i++) { const d = meta.frames[i].dur || 200; if (ms < d) return meta.frames[i]; ms -= d; }
+  return meta.frames[from];
+}
+function drawSprite(key, tag, x, y, opts = {}) {
+  const img = SPRITES[key], meta = ASSETS[key];
+  if (!img || !meta || !img.complete || !img.naturalWidth) return false;
+  const fr = animFrame(key, tag, opts.t, opts.frozen); if (!fr) return false;
+  const sc = (opts.scale !== undefined ? opts.scale : 1) * PIXEL_SCALE;
+  const fx = opts.facing !== undefined ? opts.facing : 1;
+  const fy = opts.flipY ? -1 : 1;
+  const ax = opts.ax !== undefined ? opts.ax : meta.ax;
+  const ay = opts.ay !== undefined ? opts.ay : meta.ay;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  if (opts.alpha !== undefined) ctx.globalAlpha *= opts.alpha;
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(fx * sc, fy * sc);
+  ctx.drawImage(img, fr.x, fr.y, fr.w, fr.h, -ax, -ay, fr.w, fr.h);
+  ctx.restore();
+  return true;
+}
+
+const COMP_KEYS = { linh: 'td_comp_linh', kael: 'td_comp_kael', mira: 'td_comp_mira' };
+const BEAST_KEYS = new Set(['cre_echofox', 'cre_rustcrab', 'cre_prismweaver', 'cre_parasite_mite']);
+const WHEEL_ACTIONS = [
+  { key: 'listen', num: '1', label: 'Lắng Nghe', col: '#9be3ff' },
+  { key: 'feed',   num: '2', label: 'Cho Ăn / Soi', col: '#ffd66b' },
+  { key: 'heal',   num: '3', label: 'Chữa Trị', col: '#8ff5e8' },
+];
+
+const state = {
+  t: 0, act: 'act1',
+  px: 0, py: 0, dir: 'down', facing: 1, moving: false,
+  hooded: true, corrupt: false, solo: false, hudHidden: false,
+  miteRemoved: false, forceFlash: false,
+  pillars: [false, false, false, false], bossPurified: false,
+  holdT: 0, purifyCount: 0, purifyBurstT: 0,
+  dlg: null, wheel: null, beastBubble: null, linhBumpT: 0, trail: [], buttons: [],
+  fx: { dust: [], dissolve: [], stepTick: 0 },
+};
+
+function initAct(id) {
+  const a = MAPS.acts[id]; if (!a) return;
+  state.act = id;
+  state.px = a.spawn.x * TILE; state.py = a.spawn.y * TILE;
+  state.dir = 'down'; state.facing = 1; state.moving = false;
+  state.hooded = !!a.hoodedDefault;
+  state.forceFlash = false;
+  state.holdT = 0;
+  state.dlg = null; state.wheel = null; state.beastBubble = null; state.linhBumpT = 0;
+  state.trail = [];
+  state.fx = { dust: [], dissolve: [], stepTick: 0 };
+  for (let i = 0; i < 60; i++) state.trail.push({ x: state.px - i * 1.6, y: state.py, dir: 'right', facing: 1 });
+}
+initAct('act1');
+
+const down = new Set(), hit = new Set();
+const pressed = c => hit.has(c);
+addEventListener('keydown', e => {
+  if (!e.repeat) { down.add(e.code); hit.add(e.code); }
+  if (['Space', 'Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e => down.delete(e.code));
+addEventListener('blur', () => down.clear());
+canvas.addEventListener('pointerdown', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  for (const b of state.buttons) { if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) { b.fn(); drawFrame(); return; } }
+  if (state.wheel) { state.wheel = null; drawFrame(); }
+});
+
+function isSolidAt(wx, wy) {
+  const a = MAPS.acts[state.act];
+  const tx = Math.floor(wx / TILE), ty = Math.floor(wy / TILE);
+  if (ty < 0 || ty >= a.rows.length || tx < 0 || tx >= a.rows[0].length) return true;
+  const ch = a.rows[ty][tx];
+  const def = MAPS.tileLegend[ch];
+  if (!def || def.solid) return true;
+  for (const dec of a.decor) {
+    if (dec.solid && Math.abs(wx - dec.x * TILE) < 28 && Math.abs(wy - dec.y * TILE) < 20) return true;
+  }
+  return false;
+}
+
+function nearEntity() {
+  const a = MAPS.acts[state.act];
+  let best = null, bestD = 54;
+  for (const en of a.entities) {
+    const d = Math.hypot(state.px - en.x * TILE, state.py - en.y * TILE);
+    if (d < bestD) { bestD = d; best = en; }
+  }
+  return best;
+}
+
+function isBeastEntity(en) { return !!(en && BEAST_KEYS.has(en.k)); }
+
+function nearBeast(maxD = 76) {
+  const a = MAPS.acts[state.act];
+  let best = null, bestD = maxD;
+  for (const en of a.entities) {
+    if (!isBeastEntity(en)) continue;
+    const d = Math.hypot(state.px - en.x * TILE, state.py - en.y * TILE);
+    if (d < bestD) { bestD = d; best = en; }
+  }
+  return best;
+}
+
+function getBeastReaction(beastKey, actKey) {
+  const extra = window.HOLLOW_NARRATIVE_EXTRAS && window.HOLLOW_NARRATIVE_EXTRAS.BESTIARY_SPECS;
+  const spec = Array.isArray(extra) ? extra.find(b => b.key === beastKey) : (extra && extra[beastKey]);
+  if (spec && spec.wheel && spec.wheel[actKey]) {
+    const w = spec.wheel[actKey];
+    return typeof w === 'string' ? w : (w.reaction || w.text || '');
+  }
+  const fb = {
+    cre_echofox: {
+      listen: 'Đuôi chuông khẽ ngân lại giọng an ủi dịu dàng của cậu.',
+      feed: 'Cáo bốn tai nhai bánh mì rồi dụi má: "Ọc… ọc… ♫"',
+      heal: 'Chải nhẹ lớp lông tơ, bốn tai hồ ly dựng lên rạng rỡ.',
+    },
+    cre_rustcrab: {
+      listen: 'Tiếng lửa lò rèn cổ đập nhịp ấm áp bên dưới mai sắt.',
+      feed: 'Đốm sáng sưởi ấm khe mai, cua giơ càng chào lễ phép.',
+      heal: 'Gỡ vụn gỉ kẹt bên khớp càng — cua phát sáng cam dịu.',
+    },
+    cre_prismweaver: {
+      listen: 'Sợi tơ bảy sắc rung lên bản hòa âm lấp lánh trong hang.',
+      feed: 'Ánh sáng ấm khiến bụng tinh thể phản chiếu cầu vồng.',
+      heal: 'Tháo nút tơ rối, nhện tặng một sợi vòng sáng đeo tay.',
+    },
+    cre_parasite_mite: {
+      listen: 'Nghe tiếng Kình Ngư thở khẽ bên dưới lớp bọ bám.',
+      feed: 'Chia một đốm quang thừa để bọ tự nhả ngàm hút máu.',
+      heal: 'Nhổ sạch bọ ký sinh! Da Kình Ngư phát sáng vàng êm — giảm 20% thuế chợ!',
+    },
+  };
+  return (fb[beastKey] && fb[beastKey][actKey]) || 'Sinh vật khẽ dụi đầu đầy tin cậy.';
+}
+
+function openSymbiosisWheel(forceAny = false) {
+  const near = nearBeast(forceAny ? 120 : 76) || (forceAny ? MAPS.acts[state.act].entities.find(isBeastEntity) : null);
+  if (!near) return false;
+  state.dlg = null;
+  state.wheel = { entity: near, sel: 0 };
+  return true;
+}
+
+function pickSymbiosisAction(actOrIdx) {
+  if (!state.wheel) return false;
+  const idx = typeof actOrIdx === 'number'
+    ? actOrIdx
+    : WHEEL_ACTIONS.findIndex(w => w.key === actOrIdx);
+  const item = WHEEL_ACTIONS[idx >= 0 && idx < 3 ? idx : state.wheel.sel];
+  const en = state.wheel.entity;
+  if (item.key === 'heal' && en.k === 'cre_parasite_mite') state.miteRemoved = true;
+  if (en.k === 'cre_rustcrab' && item.key === 'feed') state.corrupt = false;
+  const text = getBeastReaction(en.k, item.key);
+  state.beastBubble = { entity: en, label: item.label, text, t: 3.8 };
+  for (let i = 0; i < 10; i++) {
+    state.fx.dissolve.push({
+      x: en.x * TILE + (fxRand(state.t * 60 + i) - 0.5) * 24,
+      y: en.y * TILE - 16,
+      vx: (fxRand(state.t * 60 + i + 10) - 0.5) * 32,
+      vy: -(22 + fxRand(state.t * 60 + i + 20) * 22),
+      life: 0.9, maxLife: 0.9, sz: 3, col: item.col,
+    });
+  }
+  state.wheel = null;
+  return true;
+}
+
+function stepOnce() {
+  state.t += STEP;
+  if (state.linhBumpT > 0) state.linhBumpT = Math.max(0, state.linhBumpT - STEP);
+  if (state.purifyBurstT > 0) state.purifyBurstT = Math.max(0, state.purifyBurstT - STEP);
+  if (state.beastBubble) {
+    state.beastBubble.t -= STEP;
+    if (state.beastBubble.t <= 0) state.beastBubble = null;
+  }
+  if (pressed('KeyH')) state.hudHidden = !state.hudHidden;
+  if (pressed('KeyM')) state.corrupt = !state.corrupt;
+  if (pressed('KeyU')) state.hooded = !state.hooded;
+  if (pressed('KeyS')) state.solo = !state.solo;
+  if (pressed('KeyF')) state.forceFlash = !state.forceFlash;
+  if (state.act === 'act4' && pressed('KeyP')) {
+    const nxt = state.pillars.indexOf(false);
+    if (nxt !== -1) state.pillars[nxt] = true;
+    else { state.pillars = [false, false, false, false]; state.bossPurified = false; }
+  }
+  if (state.act === 'act4' && pressed('KeyB')) {
+    if (!state.pillars.every(Boolean)) state.pillars = [true, true, true, true];
+    state.bossPurified = !state.bossPurified;
+  }
+
+  // Symbiosis Wheel modal input (1/2/3 pick wheel action ONLY when wheel is open!)
+  if (state.wheel) {
+    if (pressed('Escape') || pressed('KeyG') || pressed('Digit4')) { state.wheel = null; return; }
+    if (pressed('Digit1')) { pickSymbiosisAction(0); return; }
+    if (pressed('Digit2')) { pickSymbiosisAction(1); return; }
+    if (pressed('Digit3')) { pickSymbiosisAction(2); return; }
+    if (pressed('ArrowLeft') || pressed('KeyA') || pressed('ArrowUp') || pressed('KeyW')) state.wheel.sel = (state.wheel.sel + 2) % 3;
+    if (pressed('ArrowRight') || pressed('KeyD') || pressed('ArrowDown')) state.wheel.sel = (state.wheel.sel + 1) % 3;
+    if (pressed('Enter') || pressed('Space') || pressed('KeyE')) { pickSymbiosisAction(state.wheel.sel); return; }
+    stepEffects();
+    return;
+  }
+
+  if (pressed('Digit1')) initAct('act1');
+  if (pressed('Digit2')) initAct('act2');
+  if (pressed('Digit3')) initAct('act3');
+  if (pressed('Digit4')) initAct('act4');
+
+  if (state.dlg) {
+    if (pressed('Space') || pressed('Enter') || pressed('KeyE') || pressed('Escape')) state.dlg = null;
+    return;
+  }
+
+  if (pressed('KeyG')) {
+    if (openSymbiosisWheel(false)) return;
+  }
+
+  let vx = 0, vy = 0;
+  if (down.has('ArrowLeft') || down.has('KeyA')) vx -= 1;
+  if (down.has('ArrowRight') || down.has('KeyD')) vx += 1;
+  if (down.has('ArrowUp') || down.has('KeyW')) vy -= 1;
+  if (down.has('ArrowDown')) vy += 1;
+  // Note: S is solo toggle ONLY when pressed once without holding direction OR let KeyK / KeyS handle neatly:
+  // wait: let's support KeyS ONLY if Arrow keys or UI toggles Solo, OR let's bind Solo to KeyV / button so WASD walking works cleanly!
+  // Let's keep WASD smooth AND check: if pressed('KeyX') toggles Solo! Let's check HUD hint & key handling carefully.
+  const wasMoving = state.moving;
+  state.moving = (vx !== 0 || vy !== 0);
+  if (state.moving) {
+    const len = Math.hypot(vx, vy);
+    const spd = 165 * STEP;
+    const nx = state.px + (vx / len) * spd;
+    const ny = state.py + (vy / len) * spd;
+    if (!isSolidAt(nx, state.py)) state.px = nx;
+    if (!isSolidAt(state.px, ny)) state.py = ny;
+    if (Math.abs(vx) >= Math.abs(vy)) {
+      state.dir = 'side'; state.facing = vx >= 0 ? 1 : -1;
+    } else {
+      state.dir = vy > 0 ? 'down' : 'up'; state.facing = 1;
+    }
+    state.trail.unshift({ x: state.px, y: state.py, dir: state.dir, facing: state.facing });
+    if (state.trail.length > 90) state.trail.pop();
+  } else if (wasMoving && !(state.act === 'act3' && state.solo)) {
+    state.linhBumpT = 0.75; // Linh gently bumps into Protag's back when halting suddenly!
+  }
+
+  if (pressed('KeyE')) {
+    const en = nearEntity();
+    if (en) {
+      if (en.k === 'prop_statue') state.hooded = false; // Statue reveal unmasks Protag!
+      if (en.k === 'cre_parasite_mite') state.miteRemoved = !state.miteRemoved;
+      if (en.pillarIdx !== undefined) state.pillars[en.pillarIdx] = !state.pillars[en.pillarIdx];
+      if (en.k === 'boss_vaelen' && state.pillars.every(Boolean)) state.bossPurified = true;
+      const text = typeof en.text === 'function' ? en.text(state) : en.text;
+      const port = typeof en.port === 'function' ? en.port(state) : en.port;
+      state.dlg = { name: en.name, text, port };
+    }
+  }
+
+  // MemoriaPurificationHold: Hold Space 2.5s to shatter nearby Debt Pillar OR purify Memoria coin!
+  if (state.act === 'act4') {
+    if (down.has('Space')) {
+      state.holdT = Math.min(2.5, state.holdT + STEP);
+      if (state.holdT >= 2.5) {
+        state.holdT = 0; state.purifyBurstT = 0.75; state.purifyCount++;
+        const en = nearEntity();
+        if (en && en.pillarIdx !== undefined) state.pillars[en.pillarIdx] = true;
+      }
+    } else if (state.holdT > 0) {
+      state.holdT = Math.max(0, state.holdT - STEP * 2.5);
+    }
+  }
+
+  stepEffects();
+}
+
+function fxRand(seedVal) {
+  const s = Math.sin(seedVal * 12.9898 + 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+function stepEffects() {
+  const fx = state.fx;
+  fx.stepTick++;
+  const act = MAPS.acts[state.act];
+  const followers = (state.act === 'act3' && state.solo) ? [] : act.followersDefault;
+
+  // Footstep dust emission for Protag & Caterpillar companions
+  if (state.moving && fx.stepTick % 7 === 0) {
+    const dustCol = state.act === 'act2' ? '#f4e4c4' : (state.act === 'act3' ? '#95adc4' : (state.act === 'act4' ? '#f5dba0' : '#cab896'));
+    fx.dust.push({
+      x: state.px + (fxRand(fx.stepTick) - 0.5) * 10,
+      y: state.py + 2,
+      vx: -state.facing * (12 + fxRand(fx.stepTick + 1) * 10),
+      vy: -(8 + fxRand(fx.stepTick + 2) * 10),
+      life: 0.48, maxLife: 0.48, r: 3, col: dustCol,
+    });
+    if (followers.length && fx.stepTick % 14 === 0) {
+      const fIdx = Math.floor(fx.stepTick / 14) % followers.length;
+      const sample = state.trail[Math.min(state.trail.length - 1, (fIdx + 1) * 12)];
+      if (sample) {
+        fx.dust.push({
+          x: sample.x + (fxRand(fx.stepTick + 5) - 0.5) * 8,
+          y: sample.y + 2,
+          vx: (fxRand(fx.stepTick + 6) - 0.5) * 12,
+          vy: -(6 + fxRand(fx.stepTick + 7) * 8),
+          life: 0.42, maxLife: 0.42, r: 2.5, col: dustCol,
+        });
+      }
+    }
+  }
+
+  // Pixel Dissolve around Protag's shoulders (Act 1 hooded/before Linh & Act 3 Solo)
+  const isAct1Dissolve = state.act === 'act1' && (state.hooded || state.px < 24 * TILE);
+  const isAct3SoloDissolve = state.act === 'act3' && state.solo;
+  if ((isAct1Dissolve || isAct3SoloDissolve) && fx.stepTick % 4 === 0) {
+    const side = fxRand(fx.stepTick * 1.7) < 0.5 ? -1 : 1;
+    const isWarm = state.act === 'act1' && !state.corrupt;
+    fx.dissolve.push({
+      x: state.px + side * (5 + fxRand(fx.stepTick + 3) * 7),
+      y: state.py - 20 - fxRand(fx.stepTick + 4) * 10,
+      vx: side * (5 + fxRand(fx.stepTick + 8) * 9),
+      vy: -(16 + fxRand(fx.stepTick + 9) * 16),
+      life: 0.95, maxLife: 0.95,
+      sz: fxRand(fx.stepTick + 10) > 0.55 ? 2 : 2,
+      col: isWarm ? (fxRand(fx.stepTick + 11) > 0.4 ? '#ffd984' : '#f4ecd8') : '#96f2ea',
+    });
+  }
+
+  for (let i = fx.dust.length - 1; i >= 0; i--) {
+    const p = fx.dust[i];
+    p.x += p.vx * STEP; p.y += p.vy * STEP; p.life -= STEP;
+    if (p.life <= 0) fx.dust.splice(i, 1);
+  }
+  if (fx.dust.length > 72) fx.dust.splice(0, fx.dust.length - 72);
+
+  for (let i = fx.dissolve.length - 1; i >= 0; i--) {
+    const p = fx.dissolve[i];
+    p.x += (p.vx + Math.sin(state.t * 4 + i) * 6) * STEP;
+    p.y += p.vy * STEP;
+    p.life -= STEP;
+    if (p.life <= 0) fx.dissolve.splice(i, 1);
+  }
+  if (fx.dissolve.length > 48) fx.dissolve.splice(0, fx.dissolve.length - 48);
+}
+
+function partyTag(key, dir, moving, hooded, soloFade) {
+  if (key === 'td_char_protag') {
+    if (soloFade) return 'dissolve';
+    if (hooded) return 'hooded_' + (dir === 'side' ? 'side' : dir);
+    return (dir === 'side' ? 'side' : dir) + (moving ? '_walk' : '_walk');
+  }
+  return (dir === 'side' ? 'side' : dir) + '_walk';
+}
+
+function drawPointLight(x, y, r, rgb, alpha) {
+  if (x < -r || x > W + r || y < -r || y > H + r || alpha <= 0.005) return;
+  const g = ctx.createRadialGradient(Math.round(x), Math.round(y), 2, Math.round(x), Math.round(y), r);
+  g.addColorStop(0, `rgba(${rgb},${alpha})`);
+  g.addColorStop(0.42, `rgba(${rgb},${alpha * 0.45})`);
+  g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(Math.round(x), Math.round(y), r, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawAct2CloudSea(camX, camY) {
+  const corr = state.corrupt;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  if (corr) {
+    g.addColorStop(0.0, '#131d2e');
+    g.addColorStop(0.5, '#253650');
+    g.addColorStop(1.0, '#3e4862');
+  } else {
+    g.addColorStop(0.0, '#224a74');
+    g.addColorStop(0.45, '#3b739c');
+    g.addColorStop(0.82, '#96a89c');
+    g.addColorStop(1.0, '#e3c07c');
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Diagonal sunlight beams piercing the cloud sea
+  ctx.save();
+  for (let i = 0; i < 4; i++) {
+    const bx = 140 + i * 330 - (camX * 0.08) + Math.sin(state.t * 0.35 + i) * 24;
+    const bg = ctx.createLinearGradient(bx, 0, bx + 220, H);
+    const col = corr ? '155,212,240' : '255,232,164';
+    const ba = (corr ? 0.05 : 0.11) * (0.75 + 0.25 * Math.sin(state.t * 0.8 + i * 1.4));
+    bg.addColorStop(0, `rgba(${col},${ba})`);
+    bg.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(bx, 0); ctx.lineTo(bx + 110, 0);
+    ctx.lineTo(bx + 360, H); ctx.lineTo(bx + 190, H);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // Multi-layer drifting pixel cloud banks across the horizon & below Leviathan boardwalk
+  const bands = [
+    { sp: 8,  par: 0.12, y0: 40,  stepY: 112, w: 184, h: 32, alpha: 0.26, hi: corr ? '#6b7e9c' : '#fff0c6', sh: corr ? '#36455c' : '#8cb0cc' },
+    { sp: 16, par: 0.24, y0: 78,  stepY: 128, w: 230, h: 40, alpha: 0.36, hi: corr ? '#7d92b0' : '#fff7dc', sh: corr ? '#445570' : '#a9c6d9' },
+    { sp: 26, par: 0.38, y0: 116, stepY: 148, w: 268, h: 46, alpha: 0.28, hi: corr ? '#98aecb' : '#fffbe8', sh: corr ? '#536580' : '#d2dfde' },
+  ];
+  const puffs = [[-0.30, -3, 0.24, 0.68], [-0.06, -9, 0.30, 0.96], [0.22, -4, 0.24, 0.74], [0.05, 3, 0.48, 0.56]];
+  for (let b = 0; b < bands.length; b++) {
+    const bd = bands[b];
+    const spanX = W + 440;
+    for (let i = 0; i < 8; i++) {
+      const cx = (((i * 256 + state.t * bd.sp - camX * bd.par) % spanX) + spanX) % spanX - 220;
+      const cy = ((bd.y0 + i * bd.stepY - camY * bd.par * 0.5 + Math.sin(state.t * 0.5 + i + b) * 6) % (H + 140) + H + 140) % (H + 140) - 70;
+      const rx = Math.round(cx), ry = Math.round(cy);
+      ctx.globalAlpha = bd.alpha;
+      ctx.fillStyle = bd.sh;
+      ctx.fillRect(rx - Math.round(bd.w * 0.44), ry + 6, Math.round(bd.w * 0.88), Math.round(bd.h * 0.44));
+      ctx.fillStyle = bd.hi;
+      for (const [ox, oy, rw, rh] of puffs) {
+        const pw = Math.round(bd.w * rw), ph = Math.round(bd.h * rh);
+        const px = Math.round(rx + ox * bd.w - pw / 2), py = Math.round(ry + oy - ph / 2);
+        ctx.fillRect(px + 4, py, Math.max(4, pw - 8), ph);
+        ctx.fillRect(px, py + 4, pw, Math.max(4, ph - 8));
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawPuddleRipples(ex, ey, isRain) {
+  ctx.save();
+  const count = isRain ? 3 : 2;
+  const speed = isRain ? 1.15 : 0.65;
+  for (let i = 0; i < count; i++) {
+    const phase = (state.t * speed + i / count) % 1;
+    const rx = 10 + phase * 26;
+    const ry = 4 + phase * 11;
+    const a = (1 - phase) * (state.corrupt ? 0.28 : 0.42);
+    ctx.strokeStyle = state.corrupt ? `rgba(155,227,255,${a})` : `rgba(222,248,255,${a})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(Math.round(ex), Math.round(ey), rx, ry, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawParticles(camX, camY) {
+  const fx = state.fx;
+  ctx.save();
+  for (const p of fx.dust) {
+    const a = Math.max(0, p.life / p.maxLife) * 0.52;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x - camX), Math.round(p.y - camY), Math.round(p.r), Math.round(p.r));
+  }
+  for (const p of fx.dissolve) {
+    const a = Math.max(0, p.life / p.maxLife) * 0.85;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = p.col;
+    ctx.fillRect(Math.round(p.x - camX), Math.round(p.y - camY), p.sz, p.sz);
+  }
+  // Deterministic shoulder dissolve motes so idle/manual frames also show the signature Pixel Dissolve
+  const isAct1Dissolve = state.act === 'act1' && (state.hooded || state.px < 24 * TILE);
+  const isAct3SoloDissolve = state.act === 'act3' && state.solo;
+  if (isAct1Dissolve || isAct3SoloDissolve) {
+    for (let i = 0; i < 6; i++) {
+      const prog = (state.t * 0.75 + i * 0.17) % 1;
+      const side = (i % 2 === 0) ? -1 : 1;
+      const dx = state.px - camX + side * (8 + prog * 8 + Math.sin(state.t * 3 + i) * 3);
+      const dy = state.py - camY - 24 - prog * 22;
+      ctx.globalAlpha = Math.sin(prog * Math.PI) * 0.85;
+      ctx.fillStyle = (state.act === 'act1' && !state.corrupt) ? (i % 2 === 0 ? '#ffd984' : '#f5ecd8') : '#92f5ec';
+      ctx.fillRect(Math.round(dx), Math.round(dy), i % 3 === 0 ? 2 : 1, i % 3 === 0 ? 2 : 1);
+    }
+  }
+  ctx.restore();
+}
+
+function drawAtmosphereAndLighting(camX, camY, followers) {
+  const act = MAPS.acts[state.act];
+  ctx.save();
+
+  // Act-specific atmospheric motes & rain
+  if (state.act === 'act1') {
+    for (let i = 0; i < 20; i++) {
+      const prog = (state.t * 0.14 + i * 0.29) % 1;
+      const mx = ((i * 197 + state.t * 14 - camX * 0.35) % (W + 80) + W + 80) % (W + 80) - 40;
+      const my = H - 30 - prog * (H - 60) + Math.sin(state.t * 1.6 + i) * 10;
+      ctx.globalAlpha = Math.sin(prog * Math.PI) * 0.45;
+      ctx.fillStyle = state.corrupt ? '#9eb2c7' : (i % 3 === 0 ? '#ffcf76' : '#ffeab3');
+      ctx.fillRect(Math.round(mx), Math.round(my), 2, 2);
+    }
+  } else if (state.act === 'act2') {
+    // Sunlit mist wisps drifting lightly across the floating Leviathan boardwalk
+    for (let i = 0; i < 16; i++) {
+      const mx = ((i * 233 + state.t * 34 - camX * 0.5) % (W + 160) + W + 160) % (W + 160) - 80;
+      const my = 72 + (i * 97) % (H - 120) + Math.sin(state.t + i) * 6;
+      ctx.globalAlpha = 0.14 + 0.08 * Math.sin(state.t * 1.4 + i);
+      ctx.fillStyle = state.corrupt ? '#9cb3c9' : '#fff7dc';
+      ctx.fillRect(Math.round(mx), Math.round(my), 28 + (i % 3) * 14, 3);
+    }
+  } else if (state.act === 'act3') {
+    // Subtle dark cavern gloom veil + iron-dust rain streaks & splash rings
+    ctx.fillStyle = 'rgba(6, 9, 18, 0.22)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(176, 200, 224, 0.38)';
+    for (let i = 0; i < 34; i++) {
+      const rx = ((i * 73 - state.t * 105) % W + W) % W;
+      const ry = (i * 59 + state.t * 410) % H;
+      ctx.fillRect(Math.round(rx), Math.round(ry), 2, 11);
+    }
+    for (let i = 0; i < 5; i++) {
+      const phase = (state.t * 1.3 + i * 0.21) % 1;
+      const sx = ((i * 271 + 140 - camX * 0.9) % (W - 160) + W - 160) % (W - 160) + 80;
+      const sy = 150 + (i * 119) % (H - 220);
+      ctx.strokeStyle = `rgba(175, 215, 240, ${(1 - phase) * 0.32})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(Math.round(sx), Math.round(sy), 3 + phase * 12, 1.5 + phase * 5, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+  } else if (state.act === 'act4') {
+    for (let i = 0; i < 22; i++) {
+      const prog = (state.t * 0.18 + i * 0.23) % 1;
+      const mx = ((i * 179 + Math.sin(state.t + i) * 24 - camX * 0.3) % W + W) % W;
+      const my = H - 30 - prog * (H - 60);
+      ctx.globalAlpha = Math.sin(prog * Math.PI) * 0.55;
+      ctx.fillStyle = (state.bossPurified || !state.corrupt) ? (i % 3 === 0 ? '#9fffe0' : '#ffd66b') : '#9be3ff';
+      ctx.fillRect(Math.round(mx), Math.round(my), 3, 3);
+    }
+  }
+  ctx.restore();
+
+  // 2D Point Lighting Layer (soft balanced 'lighter' halos BEFORE HUD/Dialog!)
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  // Linh's guiding light in dark Act 3 (or subtle lonely soul light when solo)
+  if (state.act === 'act3') {
+    if (!state.solo && followers.includes('linh')) {
+      const stride = (followers.indexOf('linh') + 1) * 12;
+      const sample = state.trail[Math.min(state.trail.length - 1, stride)] || { x: state.px, y: state.py };
+      drawPointLight(sample.x - camX, sample.y - camY - 22, 145, '255,212,132', 0.24);
+      drawPointLight(sample.x - camX, sample.y - camY - 22, 68, '255,238,186', 0.16);
+    } else {
+      drawPointLight(state.px - camX, state.py - camY - 20, 92, '143,245,232', 0.14);
+    }
+  }
+
+  for (const d of act.decor) {
+    const dx = d.x * TILE - camX, dy = d.y * TILE - camY;
+    if (d.tg === 'lantern_post') drawPointLight(dx, dy - 22, 92, '255,204,116', 0.20);
+    else if (d.tg === 'warm_stone') drawPointLight(dx, dy - 10, 68, '255,186,104', 0.14);
+    else if (d.k === 'fx_ambient_flora') {
+      if (d.tg === 'scrap_blossom') drawPointLight(dx, dy - 14, 62, '255,196,112', 0.16);
+      else if (d.tg === 'lantern_sway') drawPointLight(dx, dy - 18, 84, '255,208,118', 0.21);
+      else if (d.tg === 'prism_crystal') drawPointLight(dx, dy - 16, 78, '155,218,255', 0.22);
+      else if (d.tg === 'core_ember') drawPointLight(dx, dy - 14, 86, '255,206,108', 0.24);
+    }
+  }
+
+  for (const en of act.entities) {
+    const ex = en.x * TILE - camX, ey = en.y * TILE - camY;
+    if (en.k === 'prop_campfire') {
+      const warm = !state.corrupt;
+      drawPointLight(ex, ey - 18, warm ? 132 : 76, warm ? '255,176,82' : '120,174,210', warm ? 0.26 : 0.12);
+    } else if (en.k === 'prop_solo_stove') {
+      drawPointLight(ex, ey - 16, 72, '182,118,86', 0.11);
+    } else if (en.k === 'prop_cocoon') {
+      drawPointLight(ex, ey - 28, 118, '255,194,96', 0.22);
+    } else if (en.k === 'prop_fox_egg') {
+      drawPointLight(ex, ey - 16, 86, '255,232,168', 0.20);
+    } else if (en.k === 'prop_stele_trong') {
+      drawPointLight(ex, ey - 32, 112, state.corrupt ? '138,178,208' : '255,214,116', state.corrupt ? 0.13 : 0.22);
+    } else if (en.k === 'prop_debt_pillar') {
+      const brk = state.pillars && state.pillars[en.pillarIdx];
+      drawPointLight(ex, ey - 32, 116, brk ? '255,206,104' : '120,236,255', brk ? 0.24 : 0.22);
+    } else if (en.k === 'battle_soul') {
+      drawPointLight(ex, ey, 94, state.corrupt ? '232,122,122' : '255,218,128', 0.18);
+    } else if (en.k === 'cre_prismweaver') {
+      drawPointLight(ex, ey - 12, 82, '168,236,255', 0.18);
+    } else if (en.k === 'fx_music_box') {
+      const intact = (typeof en.tg === 'function' ? en.tg(state) : en.tg) === 'intact';
+      if (intact) drawPointLight(ex, ey - 12, 86, '255,214,116', 0.20);
+    }
+  }
+  ctx.restore();
+}
+
+function drawTheaterVignette() {
+  ctx.save();
+  const vg = ctx.createRadialGradient(W / 2, H / 2, W * 0.30, W / 2, H / 2, W * 0.72);
+  vg.addColorStop(0, 'rgba(4,6,12,0)');
+  vg.addColorStop(1, state.act === 'act2' ? 'rgba(10,18,30,0.30)' : 'rgba(4,6,12,0.42)');
+  ctx.fillStyle = vg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+function drawTopDownWorld() {
+  const act = MAPS.acts[state.act];
+  const mapW = act.rows[0].length * TILE, mapH = act.rows.length * TILE;
+  const camX = Math.max(0, Math.min(Math.max(0, mapW - W), state.px - W / 2));
+  const camY = Math.max(0, Math.min(Math.max(0, mapH - H), state.py - H / 2));
+
+  if (state.act === 'act2') {
+    drawAct2CloudSea(camX, camY);
+  } else {
+    ctx.fillStyle = state.act === 'act3' ? '#070a12' : (state.act === 'act4' ? '#0b0c16' : '#0f121a');
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Tilemap Layer
+  for (let r = 0; r < act.rows.length; r++) {
+    const row = act.rows[r];
+    for (let c = 0; c < row.length; c++) {
+      const ch = row[c];
+      const def = MAPS.tileLegend[ch];
+      if (!def) continue;
+      if (state.act === 'act2' && ch === '~') continue; // Floating boardwalk over open cloud sea!
+      let tg = def.tag;
+      if (tg === 'grass_gray_0' && (r + c) % 3 === 0) tg = 'grass_gray_1';
+      if (tg === 'cavern_floor_0' && (r * 7 + c * 3) % 5 === 0) tg = 'cavern_floor_1';
+      if (tg === 'wood_0' && r % 2 === 1) tg = 'wood_1';
+      const tx = c * TILE - camX, ty = r * TILE - camY;
+      drawSprite('td_tiles', tg, tx, ty, { scale: 1, frozen: true });
+      // Floating deck underside lip & cloud mist skirt in Act 2
+      if (state.act === 'act2' && r + 1 < act.rows.length && act.rows[r + 1][c] === '~') {
+        ctx.fillStyle = '#24160d';
+        ctx.fillRect(Math.round(tx), Math.round(ty + TILE), TILE, 6);
+        ctx.fillStyle = 'rgba(255,248,224,0.16)';
+        ctx.fillRect(Math.round(tx), Math.round(ty + TILE + 6), TILE, 3);
+      }
+    }
+  }
+
+  // Reflections & Concentric Water Ripples on Puddles
+  const followers = (state.act === 'act3' && state.solo) ? [] : act.followersDefault;
+  for (const en of act.entities) {
+    if (!en.puddle) continue;
+    const ex = en.x * TILE - camX, ey = en.y * TILE - camY;
+    const nearPuddle = Math.hypot(state.px - en.x * TILE, state.py - en.y * TILE) < 110;
+    const thunderFlash = (state.act === 'act3' && nearPuddle && (((state.t % 3.2) < 0.14) || state.forceFlash));
+    const tg = thunderFlash ? 'corrupt' : (typeof en.tg === 'function' ? en.tg(state) : en.tg);
+    drawSprite(en.k, tg, ex, ey, { scale: 1.0, t: state.t });
+    drawPuddleRipples(ex, ey, state.act === 'act3');
+    if (nearPuddle) {
+      if (thunderFlash) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(155,227,255,0.22)';
+        ctx.beginPath(); ctx.ellipse(ex, ey - 2, 26, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(216,248,255,0.88)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(ex - 16, ey - 10); ctx.lineTo(ex - 3, ey - 1); ctx.lineTo(ex + 10, ey + 7); ctx.stroke();
+        ctx.restore();
+        drawSprite('td_boss_vaelen', 'down', ex, ey + 2, { scale: 0.58, flipY: true, alpha: 0.88, t: state.t });
+        if (!state.hudHidden) txt('⚡ 0.1s Sấm Vaelen', ex, ey + 34, 11, '#9be3ff', 'center', 'mono');
+      } else {
+        const pt = state.hooded ? 'hooded_down' : 'down_walk';
+        drawSprite('td_char_protag', pt, ex, ey + 2, { scale: 0.55, flipY: true, alpha: 0.48, t: state.t });
+        followers.forEach((f, idx) => {
+          drawSprite(COMP_KEYS[f], 'down_walk', ex + (idx - 1) * 14, ey + 2, { scale: 0.5, flipY: true, alpha: 0.42, t: state.t });
+        });
+      }
+    }
+  }
+
+  // Footstep dust & Pixel Dissolve behind/around actors
+  drawParticles(camX, camY);
+
+  // Act 4 Boss Arena Ground Tethers (4 Corner Debt Pillars -> Vaelen) & Orbiting Bullet Arena
+  if (state.act === 'act4') {
+    const vx = 27.5 * TILE - camX, vy = 10.5 * TILE - camY;
+    for (const en of act.entities) {
+      if (en.pillarIdx === undefined) continue;
+      if (state.pillars[en.pillarIdx]) continue;
+      const px = en.x * TILE - camX, py = en.y * TILE - camY - 56;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(143,247,255,0.28)'; ctx.lineWidth = 6;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(vx, vy - 26); ctx.stroke();
+      ctx.strokeStyle = 'rgba(216,252,255,0.85)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(vx, vy - 26); ctx.stroke();
+      ctx.restore();
+    }
+    if (!state.bossPurified) {
+      const cx = 21.5 * TILE - camX, cy = 10.5 * TILE - camY;
+      for (let i = 0; i < 6; i++) {
+        const ang = state.t * 1.15 + (i / 6) * Math.PI * 2;
+        const rad = 64 + Math.sin(state.t * 2 + i) * 14;
+        drawSprite('battle_bullets', i % 2 === 0 ? 'shard' : 'orb', cx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad * 0.65, { scale: 0.9, t: state.t });
+      }
+    }
+  }
+
+  // Collect Y-Sorted Actors, Decor & Entities
+  const drawList = [];
+  for (const d of act.decor) {
+    if (!ASSETS[d.k]) continue;
+    drawList.push({ y: d.y * TILE, fn: () => drawSprite(d.k, d.tg, d.x * TILE - camX, d.y * TILE - camY, { scale: d.scale || 1, t: state.t + (d.x + d.y) * 0.13 }) });
+  }
+  for (const en of act.entities) {
+    if (en.puddle || !ASSETS[en.k]) continue;
+    const tg = typeof en.tg === 'function' ? en.tg(state) : en.tg;
+    drawList.push({ y: en.y * TILE, fn: () => drawSprite(en.k, tg, en.x * TILE - camX, en.y * TILE - camY, { scale: 0.95, t: state.t }) });
+  }
+
+  // Player
+  const isSoloFade = (state.act === 'act3' && state.solo);
+  const pTag = partyTag('td_char_protag', state.dir, state.moving, state.hooded, isSoloFade);
+  drawList.push({
+    y: state.py,
+    fn: () => drawSprite('td_char_protag', pTag, state.px - camX, state.py - camY, { scale: 1, facing: state.facing, frozen: !state.moving && !isSoloFade, t: state.t })
+  });
+
+  // Caterpillar Followers walking strictly along recorded trail indices!
+  followers.forEach((fid, idx) => {
+    const stride = (idx + 1) * 12;
+    const bumpOffset = (idx === 0 && state.linhBumpT > 0) ? -4 : 0;
+    const sample = state.trail[Math.min(state.trail.length - 1, Math.max(0, stride + bumpOffset))] || state.trail[0];
+    if (!sample) return;
+    const ck = COMP_KEYS[fid];
+    const cTag = partyTag(ck, sample.dir, state.moving, false, false);
+    drawList.push({
+      y: sample.y - 0.1 * (idx + 1),
+      fn: () => {
+        drawSprite(ck, cTag, sample.x - camX, sample.y - camY, { scale: 1, facing: sample.facing, frozen: !state.moving, t: state.t });
+        if (idx === 0 && state.linhBumpT > 0.1) {
+          txt('!', sample.x - camX, sample.y - camY - 56, 15, '#ffd66b', 'center', 'label');
+        }
+      }
+    });
+  });
+
+  drawList.sort((a, b) => a.y - b.y);
+  for (const item of drawList) item.fn();
+
+  // Act 4 Boss Arena Foreground: 6 Overhead Tower Cables vs CS_07 Ten Thousand Hearths Wisps
+  if (state.act === 'act4') {
+    const vx = 27.5 * TILE - camX, vy = 10.5 * TILE - camY;
+    if (!state.bossPurified) {
+      ctx.save();
+      for (let c = -3; c <= 3; c++) {
+        if (c === 0) continue;
+        const topX = vx + c * 32, rootX = vx + c * 5, rootY = vy - 30;
+        ctx.strokeStyle = 'rgba(130,210,235,0.45)'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(rootX, rootY); ctx.quadraticCurveTo(rootX + c * 14, 150, topX, 48); ctx.stroke();
+        ctx.strokeStyle = '#9be3ff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(rootX, rootY); ctx.quadraticCurveTo(rootX + c * 14, 150, topX, 48); ctx.stroke();
+      }
+      ctx.restore();
+    } else {
+      drawSprite('cre_echofox', 'chime', 18.5 * TILE - camX, 13.5 * TILE - camY, { scale: 0.85, t: state.t });
+      drawSprite('cre_rustcrab', 'warm', 18.5 * TILE - camX, 7.8 * TILE - camY, { scale: 0.85, t: state.t });
+      drawSprite('cre_prismweaver', 'weave', 24.5 * TILE - camX, 13.5 * TILE - camY, { scale: 0.85, t: state.t });
+      for (let i = 0; i < 16; i++) {
+        const fx = ((vx + Math.sin(state.t * 0.9 + i * 1.7) * 320 + i * 37) % (W - 80)) + 40;
+        const fy = 580 - (((state.t * 42 + i * 53) % 480));
+        drawSprite('fx_hearth_wisp', i % 3 === 0 ? 'mint' : 'gold', fx, fy, { scale: 0.95, t: state.t });
+      }
+    }
+  }
+
+  // Atmosphere Motes, 2D Point Lighting & Soft Theater Vignette (ALWAYS before Prompts/Dialog/HUD!)
+  drawAtmosphereAndLighting(camX, camY, followers);
+  drawTheaterVignette();
+
+  // Prompt, Symbiosis Wheel, Beast Reaction Bubble & Dialog
+  const near = nearEntity();
+  const nearB = nearBeast(76);
+  if (state.beastBubble) {
+    const bb = state.beastBubble;
+    const lines = wrap(bb.text, 356, 13, 'story').slice(0, 4);
+    const bw = Math.min(392, Math.max(measureW(bb.label, 12, 'label') + 36, ...lines.map(l => measureW(l, 13, 'story'))) + 30);
+    const bh = 30 + lines.length * 18;
+    const bx = Math.max(bw / 2 + 12, Math.min(W - bw / 2 - 12, bb.entity.x * TILE - camX));
+    const by = Math.max(62 + bh / 2, bb.entity.y * TILE - camY - 56 - bh / 2);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, bb.t * 2);
+    ctx.fillStyle = 'rgba(12,14,22,0.92)'; ctx.fillRect(bx - bw / 2, by - bh / 2, bw, bh);
+    ctx.strokeStyle = '#8ff5e8'; ctx.strokeRect(bx - bw / 2, by - bh / 2, bw, bh);
+    txt(`✦ ${bb.label}`, bx, by - bh / 2 + 13, 11, '#8ff5e8', 'center', 'label');
+    lines.forEach((ln, i) => txt(ln, bx, by - bh / 2 + 31 + i * 18, 13, '#f4ecd8', 'center', 'story'));
+    ctx.restore();
+  }
+
+  if (state.wheel) {
+    const en = state.wheel.entity;
+    const cx = Math.max(145, Math.min(W - 145, en.x * TILE - camX));
+    const cy = Math.max(140, Math.min(H - 135, en.y * TILE - camY - 12));
+    const ringR = 64;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(240,199,106,0.42)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(10,12,20,0.45)';
+    ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI * 2); ctx.fill();
+    txt(en.name, cx, cy - ringR - 26, 13, '#f4d98c', 'center', 'label');
+    const offsets = [
+      { dx: -72, dy: -42 },
+      { dx: 72,  dy: -42 },
+      { dx: 0,   dy: 68 },
+    ];
+    WHEEL_ACTIONS.forEach((actItem, idx) => {
+      const sel = state.wheel.sel === idx;
+      const nx = cx + offsets[idx].dx, ny = cy + offsets[idx].dy;
+      const pw = 118, ph = 52;
+      ctx.fillStyle = sel ? 'rgba(240,199,106,0.24)' : 'rgba(12,14,22,0.90)';
+      ctx.fillRect(nx - pw / 2, ny - ph / 2, pw, ph);
+      ctx.strokeStyle = sel ? '#ffcb6b' : actItem.col;
+      ctx.lineWidth = sel ? 2 : 1.2;
+      ctx.strokeRect(nx - pw / 2, ny - ph / 2, pw, ph);
+      const drawn = drawSprite('ui_symbiosis_wheel', actItem.key, nx - 32, ny, {
+        scale: 0.48,
+        t: sel ? 0.25 : 0, // frame 1 pulse when selected, frame 0 idle otherwise
+      });
+      if (!drawn) {
+        ctx.fillStyle = actItem.col;
+        ctx.beginPath(); ctx.arc(nx - 32, ny, 10, 0, Math.PI * 2); ctx.fill();
+      }
+      txt(`[${actItem.num}]`, nx + 18, ny - 10, 11, actItem.col, 'center', 'mono');
+      txt(actItem.label, nx + 18, ny + 10, 12, '#f4ecd8', 'center', 'label');
+      state.buttons.push({ x: nx - pw / 2, y: ny - ph / 2, w: pw, h: ph, fn: () => pickSymbiosisAction(idx) });
+    });
+    ctx.restore();
+  } else if (near && !state.dlg && !state.hudHidden && !state.beastBubble) {
+    const sx = state.px - camX, sy = state.py - camY - 64;
+    const bw = measureW(near.name, 14, 'ui') + 44;
+    ctx.fillStyle = 'rgba(10,11,18,0.86)'; ctx.fillRect(sx - bw / 2, sy, bw, 28);
+    ctx.strokeStyle = 'rgba(240,199,106,0.55)'; ctx.strokeRect(sx - bw / 2, sy, bw, 28);
+    txt('E · ' + near.name, sx, sy + 14, 14, '#f0c76a', 'center', 'ui');
+    if (nearB) {
+      const gw = measureW('G · Vòng Cộng Sinh', 13, 'ui') + 26;
+      ctx.fillStyle = 'rgba(10,14,22,0.88)'; ctx.fillRect(sx - gw / 2, sy - 32, gw, 26);
+      ctx.strokeStyle = 'rgba(143,245,232,0.65)'; ctx.strokeRect(sx - gw / 2, sy - 32, gw, 26);
+      txt('G · Vòng Cộng Sinh', sx, sy - 19, 13, '#8ff5e8', 'center', 'ui');
+    }
+  }
+
+  if (state.dlg) {
+    ctx.fillStyle = 'rgba(10,11,18,0.92)'; ctx.fillRect(60, H - 178, W - 120, 146);
+    ctx.strokeStyle = 'rgba(240,199,106,0.5)'; ctx.strokeRect(60, H - 178, W - 120, 146);
+    if (state.dlg.port) {
+      ctx.fillStyle = '#151724'; ctx.fillRect(82, H - 160, 102, 108);
+      ctx.strokeStyle = 'rgba(240,199,106,0.45)'; ctx.strokeRect(82, H - 160, 102, 108);
+      drawSprite('hollow_portraits', state.dlg.port, 133, H - 106, { scale: 0.96, t: state.t });
+    }
+    txt(state.dlg.name, 204, H - 146, 18, '#f0c76a', 'left', 'label');
+    wrap(state.dlg.text, W - 300, 19, 'story').slice(0, 3).forEach((ln, i) => txt(ln, 204, H - 110 + i * 27, 19, '#f3ebd8', 'left', 'story'));
+    txt('Space / E: đóng', W - 82, H - 44, 12, '#9a9380', 'right', 'ui');
+  } else if (!state.hudHidden) {
+    const subLines = wrap(act.sub, 430, 13, 'thought');
+    const bw = 460, bh = 44 + subLines.length * 18;
+    ctx.fillStyle = 'rgba(10,12,20,0.8)'; ctx.fillRect(20, 58, bw, bh);
+    ctx.strokeStyle = 'rgba(240,199,106,0.3)'; ctx.strokeRect(20, 58, bw, bh);
+    txt(act.name, 34, 78, 17, '#f0e8d0', 'left', 'display');
+    subLines.forEach((ln, i) => txt(ln, 34, 102 + i * 18, 13, '#cfc7b2', 'left', 'thought'));
+
+    if (!(state.act === 'act3' && state.solo)) {
+      drawSprite('ui_hud_linh', state.corrupt ? 'low' : 'active', 896, 58, { scale: 0.5, t: state.t });
+      drawSprite('ui_hud_kael', state.corrupt ? 'cold' : 'warm', 1026, 58, { scale: 0.5, t: state.t });
+      drawSprite('ui_hud_mira', state.corrupt ? 'zero' : 'active', 1140, 58, { scale: 0.5, t: state.t });
+    } else {
+      ctx.fillStyle = 'rgba(10,12,20,0.75)'; ctx.fillRect(948, 58, 312, 34);
+      ctx.strokeStyle = 'rgba(143,245,232,0.35)'; ctx.strokeRect(948, 58, 312, 34);
+      txt('Mất đồng đội — Diegetic HUD đã tắt', 1104, 75, 13, '#9a9380', 'center', 'thought');
+    }
+
+    // Act 4 Top-Center Boss Shield Banner & Bottom-Right 2.5s Memoria Purification Gauge
+    if (state.act === 'act4') {
+      const brokenN = state.pillars.filter(Boolean).length;
+      const bTag = state.bossPurified ? 'purified' : (brokenN >= 4 ? 'broken' : (brokenN >= 2 ? 'shielded_2' : 'shielded_4'));
+      drawSprite('ui_boss_shield', bTag, 526, 58, { scale: 0.9, t: state.t });
+      const bMsg = state.bossPurified ? 'CS_07 · MUÔN VẠN ĐỐM LỬA TRẠI (6 CÁP ĐÃ GỠ)' : (brokenN === 4 ? 'KHIÊN ĐÃ SẬP! BẤM [B] ĐỐT KHẾ ƯỚC' : `VAELEN SHIELD · ĐÃ PHÁ ${brokenN}/4 TRỤ NỢ`);
+      txt(bMsg, 688, 146, 11, state.bossPurified ? '#ffd66b' : '#9be3ff', 'center', 'mono');
+
+      // 2.5s Hold Memoria Gauge (bottom-right floating widget clear of arena pillars)
+      ctx.fillStyle = 'rgba(10,12,20,0.84)'; ctx.fillRect(1022, 576, 240, 102);
+      ctx.strokeStyle = state.holdT > 0 ? '#ffcb6b' : 'rgba(143,245,232,0.38)'; ctx.strokeRect(1022, 576, 240, 102);
+      const rTag = state.purifyBurstT > 0 ? 'burst' : (state.holdT > 0 ? 'purify' : 'idle');
+      drawSprite('ui_memoria_ring', rTag, 1068, 626, { scale: 0.68, t: state.t });
+      if (state.holdT > 0) {
+        ctx.save(); ctx.strokeStyle = '#ffcb6b'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(1068, 626, 31, -Math.PI / 2, -Math.PI / 2 + (state.holdT / 2.5) * Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+      txt('THANH TẨY MEMORIA', 1112, 598, 11, '#8df5ff', 'left', 'mono');
+      txt(`Giữ [Space] ${state.holdT.toFixed(1)}s / 2.5s`, 1112, 622, 12, '#f0e8d0', 'left', 'ui');
+      txt(`Đã thanh tẩy: ${state.purifyCount} xu`, 1112, 646, 11, '#ffd66b', 'left', 'mono');
+    }
+  }
+}
+
+function drawHUD() {
+  if (state.hudHidden) return;
+  ctx.fillStyle = 'rgba(10,12,18,0.88)'; ctx.fillRect(0, 0, W, 48);
+  ctx.strokeStyle = 'rgba(240,199,106,0.25)'; ctx.beginPath(); ctx.moveTo(0, 48); ctx.lineTo(W, 48); ctx.stroke();
+
+  const pills = [
+    { label: '← Quay Lại Showcase', fn: () => { location.href = 'design_showcase.html'; }, active: false },
+    { label: MAPS.acts.act1.short, fn: () => initAct('act1'), active: state.act === 'act1' },
+    { label: MAPS.acts.act2.short, fn: () => initAct('act2'), active: state.act === 'act2' },
+    { label: MAPS.acts.act3.short, fn: () => initAct('act3'), active: state.act === 'act3' },
+    { label: MAPS.acts.act4.short, fn: () => initAct('act4'), active: state.act === 'act4' },
+    { label: 'U · ' + (state.hooded ? 'Đang Trùm Mũ' : 'Lộ Mặt Vaelen'), fn: () => { state.hooded = !state.hooded; }, active: !state.hooded },
+    { label: 'S · ' + (state.solo ? 'Độc Hành' : 'Đội 4 Người'), fn: () => { state.solo = !state.solo; }, active: state.solo },
+    { label: 'M · ' + (state.corrupt ? 'Tha Hóa' : 'Cộng Sinh'), fn: () => { state.corrupt = !state.corrupt; }, active: state.corrupt },
+    ...(state.act === 'act3' ? [{ label: 'F · Chớp Vaelen', fn: () => { state.forceFlash = !state.forceFlash; }, active: state.forceFlash }] : []),
+    ...(state.act === 'act4' ? [
+      { label: `P · Phá Trụ (${state.pillars.filter(Boolean).length}/4)`, fn: () => { const i = state.pillars.indexOf(false); if (i !== -1) state.pillars[i] = true; else { state.pillars = [false,false,false,false]; state.bossPurified = false; } }, active: state.pillars.every(Boolean) },
+      { label: 'B · Đốt Khế Ước', fn: () => { if (!state.pillars.every(Boolean)) state.pillars = [true,true,true,true]; state.bossPurified = !state.bossPurified; }, active: state.bossPurified }
+    ] : []),
+    { label: 'H · Ẩn HUD', fn: () => { state.hudHidden = true; }, active: false },
+  ];
+  let bx = 12;
+  for (const p of pills) {
+    const pw = Math.round(measureW(p.label, 12, 'ui') + 12);
+    ctx.fillStyle = p.active ? 'rgba(240,199,106,0.22)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(bx, 9, pw, 30);
+    ctx.strokeStyle = p.active ? '#f0c76a' : 'rgba(255,255,255,0.16)'; ctx.strokeRect(bx, 9, pw, 30);
+    txt(p.label, bx + pw / 2, 24, 12, p.active ? '#f0c76a' : '#e8e0cc', 'center', 'ui');
+    state.buttons.push({ x: bx, y: 9, w: pw, h: 30, fn: p.fn });
+    bx += pw + 4;
+  }
+
+  ctx.fillStyle = 'rgba(8,9,14,0.84)'; ctx.fillRect(0, H - 26, W, 26);
+  txt('Mũi tên / A,W,D: đi 4 hướng · E: thoại/tương tác · G: Vòng Cộng Sinh · U: mũ trùm · S: Độc Hành · M: Tuyến · 1..4: đổi Map', W / 2, H - 13, 12, '#b8b09a', 'center', 'ui');
+}
+
+function drawFrame() {
+  state.buttons = [];
+  drawTopDownWorld();
+  drawHUD();
+}
+
+let last = performance.now() / 1000, acc = 0;
+function loop() {
+  const now = performance.now() / 1000;
+  acc += Math.min(now - last, 0.25); last = now;
+  while (acc >= STEP) { stepOnce(); hit.clear(); acc -= STEP; }
+  drawFrame(); requestAnimationFrame(loop);
+}
+
+window.topdownDesign = {
+  get state() { return state; },
+  ready: Promise.all(READY_PROMISES),
+  setAct(id) { initAct(id); drawFrame(); },
+  setHooded(h) { state.hooded = !!h; drawFrame(); },
+  setSolo(s) { state.solo = !!s; drawFrame(); },
+  setRoute(c) { state.corrupt = !!c; drawFrame(); },
+  setFlash(f) { state.forceFlash = !!f; drawFrame(); },
+  setMiteRemoved(v) { state.miteRemoved = !!v; drawFrame(); },
+  breakPillar(idx, v = true) { if (idx >= 0 && idx < 4) state.pillars[idx] = !!v; drawFrame(); },
+  setBossPurified(v) { if (v) state.pillars = [true, true, true, true]; state.bossPurified = !!v; drawFrame(); },
+  openWheel() { const ok = openSymbiosisWheel(true); drawFrame(); return ok; },
+  pickWheel(action) { const ok = pickSymbiosisAction(action); drawFrame(); return ok; },
+  press(code) { hit.add(code); },
+  hold(code, on) { on ? down.add(code) : down.delete(code); },
+  step(n = 1, draw = true) { for (let i = 0; i < n; i++) { stepOnce(); hit.clear(); } if (draw) drawFrame(); },
+};
+
+if (params.get('manual') === '1') drawFrame();
+else requestAnimationFrame(loop);
+</script>
+</body>
+</html>

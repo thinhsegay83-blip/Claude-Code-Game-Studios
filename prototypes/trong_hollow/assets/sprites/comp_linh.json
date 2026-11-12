@@ -1,0 +1,198 @@
+{ "frames": [
+   {
+    "filename": "comp_linh 0.aseprite",
+    "frame": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 210
+   },
+   {
+    "filename": "comp_linh 1.aseprite",
+    "frame": { "x": 40, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 210
+   },
+   {
+    "filename": "comp_linh 2.aseprite",
+    "frame": { "x": 80, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 210
+   },
+   {
+    "filename": "comp_linh 3.aseprite",
+    "frame": { "x": 120, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 210
+   },
+   {
+    "filename": "comp_linh 4.aseprite",
+    "frame": { "x": 160, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 220
+   },
+   {
+    "filename": "comp_linh 5.aseprite",
+    "frame": { "x": 200, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 220
+   },
+   {
+    "filename": "comp_linh 6.aseprite",
+    "frame": { "x": 240, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 220
+   },
+   {
+    "filename": "comp_linh 7.aseprite",
+    "frame": { "x": 280, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 220
+   },
+   {
+    "filename": "comp_linh 8.aseprite",
+    "frame": { "x": 320, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 170
+   },
+   {
+    "filename": "comp_linh 9.aseprite",
+    "frame": { "x": 360, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 170
+   },
+   {
+    "filename": "comp_linh 10.aseprite",
+    "frame": { "x": 400, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 170
+   },
+   {
+    "filename": "comp_linh 11.aseprite",
+    "frame": { "x": 440, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 170
+   },
+   {
+    "filename": "comp_linh 12.aseprite",
+    "frame": { "x": 480, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 13.aseprite",
+    "frame": { "x": 520, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 14.aseprite",
+    "frame": { "x": 560, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 15.aseprite",
+    "frame": { "x": 600, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 16.aseprite",
+    "frame": { "x": 640, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 17.aseprite",
+    "frame": { "x": 680, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 18.aseprite",
+    "frame": { "x": 720, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   },
+   {
+    "filename": "comp_linh 19.aseprite",
+    "frame": { "x": 760, "y": 0, "w": 40, "h": 48 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 48 },
+    "sourceSize": { "w": 40, "h": 48 },
+    "duration": 160
+   }
+ ],
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.3.18.6-dev",
+  "image": "comp_linh.png",
+  "format": "RGBA8888",
+  "size": { "w": 800, "h": 48 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "idle", "from": 0, "to": 3, "direction": "forward", "color": "#000000ff" },
+   { "name": "listen", "from": 4, "to": 7, "direction": "forward", "color": "#000000ff" },
+   { "name": "wrench", "from": 8, "to": 11, "direction": "forward", "color": "#000000ff" },
+   { "name": "walk_up", "from": 12, "to": 15, "direction": "forward", "color": "#000000ff" },
+   { "name": "walk_side", "from": 16, "to": 19, "direction": "forward", "color": "#000000ff" }
+  ]
+ }
+}
