@@ -1,0 +1,32 @@
+GIMP Palette
+Name: Trong
+Columns: 8
+#
+# PROTOTYPE - NOT FOR PRODUCTION. Bảng màu Hồi 1; ký tự đầu mỗi dòng chú thích là khoá dùng trong art/maps/*.txt
+ 26  20  32	k vien toi
+ 58  48  64	K bong sau
+ 42  38  48	e mat
+244 236 220	w ao sang (Ke Trang Tay)
+201 188 166	W ao bong
+ 58  52  64	h toc
+236 210 180	s da
+196 154 122	S da bong
+217 138  58	o khan quang
+168  96  42	O khan bong
+255 200 112	y ho phach sang
+184  90  72	r ma moi
+ 90 122 138	b ao tho (Linh)
+ 62  88 102	B ao tho bong
+217 162  74	g dong
+168 120  58	G dong bong
+138 138 144	m thep
+200 122  74	f long Moc
+255 242 224	F long Moc trang
+226 218 203	c gom sang (Kaelen)
+168 160 144	C gom bong
+232 184  64	u vang han
+ 74  68  64	p noi
+ 90  72 112	v ao tim (Mira)
+ 58  46  74	V ao tim bong
+ 30  26  36	n toc Mira
+200 240 255	x pha le

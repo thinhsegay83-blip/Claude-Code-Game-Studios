@@ -1,0 +1,6 @@
+boss sẽ đứng ở phía trên màn hình	boss drawn above the dodge box in every fight (drawFight: crab/scale/bugs at a.y-40)	evidence/fight-crab.png
+né skill	soul moves in the arena box with arrows, Shift to slow; bullets: sparks, slag, fire pillars, glass shards, acid spit	evidence/fight-crab.png
+đợi phản đòn	after each wave a Khoảng Lặng panel opens with per-creature actions and a timer	evidence/fight-quiet.png
+giống của undertale nhưng ta sẽ cải tiến thêm	box dodging + spare/kill, improved with graze resonance, companion warnings, wider arena with party, no fixed menu (see nearest-game.txt)	evidence/fight-crab.png
+2D	canvas side-view, layered parallax; the only "2d" in the brief is the old commit id 2d8a4da	evidence/play.png
+top-down	boss fights play on a top-down 3/4 arena: ground telegraphs, 8-way walk and dash; the walking map stays side-view this round (another session designs the top-down map)	evidence/arena-fan.png

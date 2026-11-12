@@ -1,0 +1,41 @@
+L1	pass	evidence/play.png	hollow-planet sky: upside-down continents, beating Pulse Core, rust valley, layered parallax, hero brightest; double pulse vignette at index.html:647 after stage 1
+L2	pass	evidence/nearest-game.txt	Undertale taken as spirit only: no heart, no FIGHT/ACT/ITEM/MERCY, no names or UI
+L3	pass	evidence/fight-crab.png	side view follows hero; in fights the boss is above the box and the world stays visible behind
+F1	pass	evidence/field-chonoi.png	two maps (phelieu, chonoi) with the hollow sky and the beating core; evidence/play.png for the valley
+F2	pass	evidence/fight-quiet.png	boss above, box below, two orbiting heartbeats (index.html:1161), graze fills Cộng Hưởng, quiet window with spare or strike
+F3	pass	evidence/arena-tired.png	two fights: the crab in the top-down arena and the optional bugs (evidence/bug-rings.png); the scale now explodes in a narrated scene
+F4	pass	index.html:163	Story.set/add clamp each Bước 4 variable and emit var:<name>; listeners at index.html:204 reprice bread, hide the fox, ring the debt book, cool the puddles
+F5	pass	index.html:375	puddle counts int_puddle_check_count, saves, picks the handover line by stage and corruption (story.js:78); items describe themselves from state (story.js:89); cleanse at index.html:432
+F6	pass	story.js:249	Linh, Kaelen, Mira seed lines word for word; Kịch bản 1 at story.js:249 and Kịch bản 2 at story.js:304 with their set_flags as fx
+F7	pass	story.js:297	echo fox feeds and follows (evidence/flow-fox.png), crab spare closes its furnace (story.js:164), whale shields the fire after the bugs (story.js:297)
+S1	pass	evidence/fight-quiet.png	dodge then counter in the quiet window
+S2	pass	index.html:163	StoryStateManager with the handover variables and the event bus
+S3	pass	index.html:199	Lumen and Memoria live, bread price from eco and tax, Vex buys and pays, cleanse spends Memoria
+S4	pass	evidence/fight-bug.png	party walks behind, widens the arena, bonds move with choices; no combo assist (later)
+S5	pass	index.html:204	eco_balance moves with feed, kill, help; the fox hides below 40
+S6	pass	index.html:375	puddle save with handover lines
+M1	pass	evidence/play.png	the wake scene over the rust valley under the beating core
+M2	pass	story.js:124	the wake scene gives the blank deed and a crust of bread
+M3	pass	evidence/flow-fox.png	walk line shown at the bottom while walking
+M4	pass	index.html:375	the first puddle check shows the handover stage-0 line and saves
+M5	pass	evidence/flow-fox.png	three choices: share, keep, catch for 150 Lumen
+M6	pass	story.js:142	Ọc ọc line and the fox following in evidence/flow-fox.png
+C1	pass	evidence/flow-crab.png	the crab scene starts around the valley middle with Linh trapped
+C2	pass	evidence/arena-rain.png	the first fight now plays on the ground: falling fire circles, rolling slag lanes (evidence/arena-slag.png) and claw slams, each warned before it burns
+C3	pass	index.html:933	a fall restarts the phase and keeps what was understood; since iteration 6 Linh charges a bandage fee to the green book
+C4	pass	index.html:594	pull works only under the calm line; strike is faster and costs eco and corruption at index.html:622
+C5	pass	evidence/fight-bug.png	scale burst and optional bugs on the whale
+L4	pass	evidence/bug-rings.png	side view follows the hero; every fight keeps the boss above, the dodge box below and the world behind
+F8	pass	evidence/puzzle-song.png	song door, broken bridge and mirror lock read clues from the journal (J); evidence/puzzle-light.png, evidence/journal.png
+F9	pass	evidence/ask-menu.png	four asks on world objects, fill-in board with per-line check and hints (evidence/board-chest.png), journal 2.0 (evidence/journal2.png)
+F10	pass	evidence/board-chest.png	old smith chest: 7 askable objects, 2 board lines, seeded keywords, +1 fragment and +40 Lumen
+F11	pass	evidence/boss-ring-open.png	telegraph, attack, opening; counter ring by intent; three emotional phases plus the strike path; retry from phase start
+F12	pass	evidence/boss-glint.png	crab: Linh hears the joint, the glint shows the shard, the fox echo unlocks warming; fan gap points at the wound
+F13	pass	evidence/boss-quiet-intent.png	asks happen while dodging, ring shows a second early and needs E, quiet only on news, falls add debt, slow-dodge in pause (evidence/pause-slow.png)
+F14	pass	evidence/scale-glyph.png	scale survive mode reads OVERFLOW from the glass in three touches; bugs mode hears the leader (evidence/bug-rings.png); old engine removed
+F15	pass	evidence/arena-fan.png	top-down arena: ground telegraphs then fire, 8-way walk, Space dash, perfect dodge fills resonance, tired window with E heal at the claw and F strike (evidence/arena-tired.png, evidence/arena-rain.png, evidence/arena-slag.png)
+F16	missing	-	the bug fight still runs in the old dodge box; moving it is the next round
+S7	pass	evidence/puzzle-song.png	three clue puzzles and the smith chest are in the slice
+S8	pass	index.html:1209	fragments go up by one per solved puzzle (pz_fragment) and by cleansing Memoria; 0–12 cap from the handover
+F17	pass	index.html:20	sprite pipeline: game draws with code until sprites.js has frames (art/ folder, art/PROMPT_MSI.md)
+F18	missing	-	sprites are drawn on the MSI machine per art/PROMPT_MSI.md; none delivered yet
