@@ -166,6 +166,48 @@ Mỗi đòn khai báo trong `story.js` gồm: nguồn bắn (miệng, càng, v�
   - Dữ liệu cua thiếu khai báo máu, nên thanh máu pha Cùng đường làm sập game.
   - Gỡ đầu đàn sau cùng bị tính là gỡ đầu đàn trước.
 
+## 7. Đánh boss top-down (iteration 8)
+
+Người dùng đổi hướng: bỏ khung né có "linh hồn", cậu đối đầu trực tiếp với boss trên mặt đất nhìn từ trên xuống. Boss mệt thì ra đòn, chọn **Đánh** hoặc **Chữa lành / giải cứu**. Trận Cân Định Giá bỏ, thành cảnh kể.
+
+### 7.1 Luật
+- **Đấu trường:** một khoảng đất nhìn theo góc 3/4 (đất nhìn từ trên, người đứng thẳng; ai ở thấp hơn trên màn hình thì vẽ đè lên). Đi 8 hướng (WASD). **Space lướt né**: bất tử 0,24 giây, hồi 0,55 giây.
+- **Chiêu:** vẽ vùng đỏ trên đất, lõi đầy dần, báo trước ≥ 0,6 giây rồi mới cháy. Chiêu vừa trúng mình nhấp nháy lại.
+- **Né sát:** lướt đúng lúc một vùng cháy trúng chỗ mình thì +35 Cộng hưởng. Cộng hưởng đầy thì **lần Chữa lành kế gấp đôi**. Cộng hưởng không nhân đôi Đánh: hai nhịp tim đồng điệu là để chữa.
+- **Boss mệt:** hết một chuỗi chiêu (2 chiêu; pha Tin 1 chiêu), con cua thở dốc 4,5 giây (pha Tin 5 giây).
+  - **E: Chữa lành**, phải đứng ở khớp càng trái. Chưa Nghe: không có tác dụng. Pha Đau: tin cậu thêm +1 (+2 nếu hồ ly đã Vọng lại). Pha Tin, đã Soi: gỡ mảnh sắt, cứu nó. Pha Tin, chưa Soi: nó chờ nhưng cậu không biết gỡ gì.
+  - **F: Đánh**, đứng sát thân. Lần đầu hỏi lại. Đánh rồi sang Cùng đường, không quay lại.
+- **Hiểu bằng hành động:**
+  - Nghe: đứng sát khớp càng 1,5 giây (cộng dồn); có sóng âm chỉ chỗ.
+  - Soi: đứng sát khớp càng lúc lò bừng; ánh kim loé trên càng.
+  - Vọng lại: hồ ly lên tiếng khi cậu trúng chiêu lần đầu hoặc khi sang pha Đau.
+- Gục: Linh băng bó, ghi nợ sổ xanh, thử lại từ đầu pha. Giữ: khiên Kaelen, Né chậm, tạm dừng giữa trận, Sổ (J).
+
+### 7.2 Chiêu của Cua Giáp Lò Rèn
+| Pha | Chiêu | Cách né |
+|---|---|---|
+| Giận | Đập càng: 3 quạt nhắm vào chỗ cậu đứng | đi ngang khỏi quạt |
+| Giận | Mưa lửa: 9 đốm, cứ 3 đốm có 1 rơi đúng chỗ cậu | đi tiếp, đừng đứng yên |
+| Giận | Xỉ lăn: 4 làn ngang, luôn trống 1 làn, có mũi tên hướng lăn | đứng vào làn trống |
+| Đau | Quạt lửa: phủ cả khoảng đất trừ túi sát vết thương | lại sát nỗi đau |
+| Tin | Lửa thở: 4 đốm chậm, tránh xa vết thương | dễ, như điệu múa |
+| Cùng đường | đập càng, xỉ, mưa, quạt: nhanh hơn ×1,4, nhiều hơn ×1,4 | khó |
+
+### 7.3 Số đo
+| Đường | Thời gian | Bot né thật trúng |
+|---|---|---|
+| Đánh | **22 giây** (2 đòn) | 5 lần |
+| Tha, có cáo | 30,8 giây | 1 lần |
+| Tha, không cáo | 39,5 giây | 3 lần |
+
+- Đứng yên không né: gục 3 lần trong 60 giây, ghi nợ 15 Lumen.
+- Đi bộ từ góc xa tới khớp càng mất 3,5 giây, nên boss mệt 4,5 giây (dư 1 giây; lướt còn nhanh hơn).
+- Lỗi lộ ra khi đo, đã sửa: Cộng hưởng nhân đôi Đánh làm 1 đòn là chết, bỏ qua cả pha Cùng đường.
+
+### 7.4 Còn lại
+- Bọ Ký Sinh còn chạy engine khung né cũ (nhánh `bugs`); chuyển sang đấu trường ở lượt sau rồi xoá hẳn engine khung (cả nhánh `understand` không còn ai dùng).
+- Bản đồ đi lại top-down: người dùng giao cho một phiên Claude Code khác.
+
 ## Nguồn
 - [Game Developer: deep-dive hệ thống đánh của Undertale](https://gamedeveloper.com/design/game-design-deep-dive-i-undertale-i-s-action-based-rpg-battles)
 - [Game Developer: boss Psychonauts 2 bằng hệ "maneuver" (GDC 2023)](https://www.gamedeveloper.com/marketing/using-a-modular-system-of-maneuvers-to-design-i-psychonauts-2-i-s-boss-fights-in-a-hurry)

@@ -57,12 +57,34 @@ window.CONFIG = {
   crab_fan_gap: { value: 26, min: 10, max: 60, step: 1 },          // độ: khe an toàn hướng về vết thương
   crab_breath_rate: { value: 2.2, min: 0.5, max: 8, step: 0.1 },   // pha Tin: lửa thở chậm
 
-  // ---- Cân Định Giá nổ (sống sót) ----
-  scale_time: { value: 8, min: 3, max: 20, step: 0.5 },            // giây
-  scale_shard_rate: { value: 9, min: 2, max: 25, step: 0.5 },      // mảnh mỗi giây
-  scale_shard_speed: { value: 210, min: 80, max: 400, step: 10 },
-  shard_hit: { value: 2, min: 1, max: 10, step: 1 },               // máu mất mỗi mảnh kính
-  scale_glyph_every: { value: 2.2, min: 1, max: 5, step: 0.1 },    // giây: chữ cổ loé lên trên mặt kính mỗi chừng này (3 lần chạm là đọc đủ)
+  // ---- Đấu trường top-down (BOSS_DESIGN mục 7): né chiêu ngay trên mặt đất, boss mệt thì ra đòn ----
+  td_speed: { value: 260, min: 140, max: 420, step: 10 },          // px/giây: đi 8 hướng trong đấu trường
+  dash_speed: { value: 760, min: 400, max: 1200, step: 20 },       // px/giây khi lướt (Space)
+  dash_time: { value: 0.16, min: 0.08, max: 0.4, step: 0.01 },     // giây lướt
+  dash_inv: { value: 0.24, min: 0.1, max: 0.5, step: 0.01 },       // giây bất tử tính từ lúc lướt
+  dash_cd: { value: 0.55, min: 0.2, max: 2, step: 0.05 },          // giây hồi lướt
+  perfect_gain: { value: 35, min: 5, max: 100, step: 5 },          // Cộng hưởng mỗi lần né sát (lướt đúng lúc chiêu nổ trúng chỗ mình)
+  td_hit_r: { value: 10, min: 4, max: 20, step: 1 },               // px: vùng trúng ở chân nhân vật (nhỏ hơn hình)
+  crab_scale: { value: 1.4, min: 0.8, max: 2.2, step: 0.1 },       // cỡ con cua trong đấu trường
+  hazard_active: { value: 0.2, min: 0.08, max: 0.6, step: 0.02 },  // giây một vùng chiêu cháy sau khi báo trước
+  tired_time: { value: 4.5, min: 1.5, max: 8, step: 0.25 },        // giây boss thở dốc sau một chuỗi chiêu (đi bộ từ góc xa tới khớp càng mất 3,5 giây)
+  tired_tin: { value: 5, min: 2, max: 10, step: 0.25 },            // pha Tin: nghỉ lâu hơn, đang chờ cậu
+  heal_r: { value: 60, min: 30, max: 120, step: 5 },               // px quanh khớp càng: đứng trong này bấm E là chữa lành
+  strike_r: { value: 80, min: 30, max: 160, step: 5 },             // px quanh thân boss: đứng trong này bấm F là đánh
+  look_r: { value: 110, min: 40, max: 200, step: 5 },              // px: đứng gần khớp càng lúc ánh kim loé thì Soi thấy
+  slam_warn: { value: 0.8, min: 0.6, max: 2, step: 0.05 },         // đập càng: báo trước
+  slam_r: { value: 420, min: 150, max: 700, step: 10 },            // tầm quạt đập càng
+  slam_spread: { value: 55, min: 20, max: 120, step: 5 },          // độ rộng quạt đập càng
+  rain_warn: { value: 0.9, min: 0.6, max: 2, step: 0.05 },         // mưa lửa: báo trước mỗi vòng
+  rain_r: { value: 50, min: 20, max: 100, step: 2 },               // bán kính một đốm lửa rơi
+  rain_count: { value: 9, min: 3, max: 20, step: 1 },              // số đốm mỗi đợt mưa
+  slag_warn: { value: 0.9, min: 0.6, max: 2, step: 0.05 },         // xỉ lăn: báo trước cả làn
+  slag_speed: { value: 600, min: 200, max: 1000, step: 20 },       // px/giây khối xỉ lăn
+  slag_r: { value: 30, min: 12, max: 60, step: 2 },
+  fan_warn: { value: 1, min: 0.6, max: 2, step: 0.05 },            // quạt lửa pha Đau: báo trước
+  fan_inner: { value: 95, min: 50, max: 200, step: 5 },            // px: túi an toàn sát vết thương
+  breath_warn: { value: 1.6, min: 0.6, max: 3, step: 0.05 },       // pha Tin: lửa thở chậm
+  breath_r: { value: 60, min: 20, max: 120, step: 2 },
 
   // ---- Bọ Ký Sinh (tuỳ chọn) ----
   bug_count: { value: 3, min: 1, max: 6, step: 1 },

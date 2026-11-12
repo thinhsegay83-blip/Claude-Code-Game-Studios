@@ -14,6 +14,7 @@ After play: bạn hãy giành thời nghiên cứu và phát triển cơ chế g
 After play: Thiết kế cơ chế đánh boss · Duyệt = làm nền + trận cua · tài liệu: prototypes/trong/BOSS_DESIGN.md
 After play: review lại cơ chế đánh boss và điểm hạn chế cần cải tiến · Chọn = A+B (hỏi bằng hành động, phản đòn bấm E), D+F (nhịp mới, gục có giá), G (nhắc, hỗ trợ; chuyển Cân và Bọ để sau) · tài liệu: BOSS_DESIGN.md mục 6
 After play: Làm bước 6 trong BOSS_DESIGN.md: chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss mới, rồi xoá engine cũ · Duyệt = làm cả 6.1–6.5
+After play: bỏ phần cân định giá đi, thay cơ chế đánh boss bằng đối đầu với boss, né chiêu trong thế giới topdown 2d sau đó thì phản công sau né tránh · Phản công = 2 lựa chọn: đánh, hoặc chữa lành / giải cứu boss, ra đòn khi boss mệt · Chữa lành = phải hiểu trước · Phím = E chữa lành, F đánh · Lượt này = trận cua trước (bản đồ top-down do phiên khác làm)
 After play: Prompt vai trò: Story-to-Systems, Data-Driven, StoryStateManager cho các biến Bước 4, Event Bus, phản hồi vi mô kiểu Undertale, đề xuất cải tiến gameplay.
 
 **Pitch:** Bạn tỉnh dậy trong một cái kén hổ phách vỡ, trắng tay và mất trí nhớ, bên trong lòng một tinh cầu rỗng; mỗi sinh vật bạn tha hay giết, mỗi đồng xu bạn tiêu hay thanh tẩy, đều viết lại câu trả lời cho câu hỏi "cậu là ai".
@@ -55,7 +56,7 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 ## Features
 - [x] Hai vùng nhìn ngang: Thung Lũng Phế Liệu và Chợ Nổi Lưng Kình Ngư, bầu trời tinh cầu rỗng với Lõi Nhịp Tim đập
 - [x] Màn né đòn: boss ở trên, khung né ở dưới, linh hồn hai nhịp tim, sượt đạn tích cộng hưởng, khoảng lặng chọn hành động, tha hoặc đánh
-- [x] 3 màn đấu khác nhau: Cua Giáp Lò Rèn (boss), Cân Định Giá nổ (sống sót), Bọ Ký Sinh (tuỳ chọn)
+- [x] 2 trận đấu: Cua Giáp Lò Rèn (boss, đấu trường top-down), Bọ Ký Sinh (tuỳ chọn); Cân Định Giá nổ thành cảnh kể
 - [x] StoryStateManager + Event Bus giữ đủ biến Bước 4 của handover; giá chợ, mô tả vật phẩm, lời bạn đồng hành, vũng nước đổi theo
 - [x] Vũng nước lưu game với dòng chữ theo giai đoạn và theo tha hoá; túi đồ với mô tả đổi theo lựa chọn; Thanh Tẩy đồng xu ký ức
 - [x] Ba bạn đồng hành Linh, Kaelen, Mira với câu thoại gieo hạt Hồi 1; Kịch bản 1 (Chợ Đen) và Kịch bản 2 (Lửa Trại) theo đúng lời handover
@@ -67,7 +68,9 @@ Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Li
 - [x] Đánh boss là hiểu một sinh vật: nhịp báo trước → đánh → sơ hở, chạm vòng sáng để phản đòn theo ý định; khoảng lặng dùng Bốn cách hỏi lên chính boss (mở pha, mở động từ); ba pha Giận → Đau → Tin, Đánh là sang Cùng đường không quay lại; thử lại từ đầu pha; viên trúng nhấp nháy lại; khiên Kaelen
 - [x] Trận Cua Giáp Lò Rèn làm lại: Linh nghe ra chỗ đau, Soi thấy mảnh sắt, hồ ly vọng lại giọng xưa mở Ngồi sưởi; pha Đau: khe an toàn sát vết thương
 - [x] Boss sau review: hiểu bằng hành động trong lúc né (đứng gần khớp càng để Linh nghe, chạm ánh kim lúc lò bừng để Soi, hồ ly tự vọng lại khi cậu trúng đòn hoặc khi sang pha Đau); vòng sáng hiện mờ 1 giây trước sơ hở, phản đòn phải bấm E trong vòng; khoảng lặng chỉ mở khi có điều mới (tối đa 4 giây, chỉ định ý); gục thì Linh băng bó và ghi nợ vào sổ xanh; Linh nhắc ở pha Tin; Né chậm trong menu tạm dừng (phím N); vòng sáng phân biệt bằng hình (nét đứt, nét liền, hình thoi), không chỉ bằng màu
-- [x] Chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss (Soi thấy OVERFLOW, Nghe ra bọ chúa), xoá engine cũ
+- [x] Chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss (Soi thấy OVERFLOW, Nghe ra bọ chúa), xoá engine cũ; sau đó Cân thành cảnh kể (lượt 8)
+- [x] Đánh boss top-down: cậu và Cua Giáp Lò Rèn chung một khoảng đất; chiêu vẽ vùng đỏ trên đất rồi mới cháy; đi 8 hướng, Space lướt né, né sát đầy Cộng hưởng; boss mệt sau mỗi chuỗi chiêu: E chữa lành ở khớp càng (phải Nghe trước, gỡ mảnh sắt cần Soi), F đánh (hỏi lại lần đầu); Nghe, Soi, Vọng lại bằng hành động
+- [ ] Bọ Ký Sinh sang đấu trường top-down, xoá engine khung né
 - [x] Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa
 - [ ] Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)
 

@@ -344,12 +344,15 @@ window.STORY = {
       { w: 'nar', t: '(Cổng Chợ Nổi. Một chiếc cân bằng đồng và pha lê, cao hơn cả Kaelen. Ai qua cổng cũng phải đặt tay lên.)' },
       { w: 'nar', t: '(Linh đặt tay: kim cân rung rồi dừng ở một con số nhỏ. Kaelen: con số lớn hơn. Mira: chiếc cân kêu lên một tiếng như cười.)' },
       { w: 'nar', t: '(Đến lượt cậu.)' },
-      { do: 'fight:scale' },
+      { w: 'nar', t: '(Cậu đặt tay lên mặt kính. Kim cân quay tít, không dừng. Mặt kính nứt toác.)' }, // handover: chạm vào thì cân nổ tung
+      { w: 'kael', f: 'neutral', t: 'Nằm xuống!' }, // guessed
+      { w: 'nar', t: '(Chiếc cân nổ tung. Kaelen giơ khiên gốm che cả nhóm. Mảnh kính rơi lách tách như mưa.)' }, // guessed
+      { do: 'flag:flag_scale_exploded' }, { do: 'clue:scale_overflow' },
+      { go: 'scale_after' },
     ],
     scale_after: [
       { w: 'nar', t: '(Trên mặt kính vỡ còn một dòng chữ cổ ngữ đang sáng:)' },
       { w: 'nar', t: 'OVERFLOW: ORIGIN_ENTITY' }, // handover
-      { w: 'mira', f: 'think', when: s => s.flags.scale_read, t: 'Cậu đọc được thứ chữ đó à? Thương Đoàn chỉ dạy nó cho người giữ cân. Thú vị thật.' }, // guessed: chỉ khi đã Soi đủ trong lúc né
       { w: 'linh', f: 'afraid', t: 'Mảnh sắt sượt qua vai cậu mà... không chảy giọt máu nào. Chỉ có mấy hạt bụi sáng bay lên.' }, // guessed, theo lời Linh ở Kịch bản 2
       { w: 'mira', f: 'think', t: 'Một chiếc cân của Thương Đoàn vừa nổ tung vì cậu. Tôi bắt đầu thấy khoản đầu tư này thú vị rồi đấy.' }, // guessed
       { w: 'kael', f: 'neutral', t: 'Đêm nay đốt lửa ở mũi tàu. Có chuyện gì thì nói sau khi ăn.' }, // guessed
@@ -511,7 +514,7 @@ window.STORY = {
     scale_glass: { case: 'light', title: 'Mặt kính cân vỡ', text: 'Một tấm kính của Cân Định Giá còn nguyên, phẳng, soi được: một tấm gương.' },
     crab_pain: { case: 'crab', title: 'Linh nghe con cua', text: 'Khớp càng trái có tiếng rít, như sắt cứa vào thịt.' },
     crab_shard: { case: 'crab', title: 'Soi khớp càng', text: 'Một mảnh sắt gỉ cắm sâu ở khớp càng trái.' },
-    scale_overflow: { case: 'scale', title: 'Chữ trên mặt kính cân', text: 'OVERFLOW: ORIGIN_ENTITY. Cậu đọc được thứ chữ không ai dạy.' }, // handover: dòng chữ; guessed: cậu tự đọc
+    scale_overflow: { case: 'scale', title: 'Chữ trên mặt kính cân', text: 'OVERFLOW: ORIGIN_ENTITY. Dòng chữ cổ hiện lên khi chiếc cân nổ vì cậu.' }, // handover
     bug_queen: { case: 'bug', title: 'Con bọ đầu đàn', text: 'Một con đập chậm, nặng, lệch nhịp; cả đàn đập theo nó. Gỡ nó là cả đàn bỏ đi.' }, // guessed
     crab_memory: { case: 'crab', title: 'Hồ ly vọng lại', text: 'Một giọng rất xưa: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua nhận ra giọng ấy.' },
     need_heat: { case: 'bridge', title: 'Chốt còn lỏng', text: 'Mảnh sắt vừa khớp lỗ chốt nhưng còn lỏng. Phải nung cho chảy mép.' },
@@ -548,7 +551,7 @@ window.STORY = {
       { q: 'Lấy cái chốt ở đâu?', clues: ['shard_marks'] },
       { q: 'Lấy gì nung chốt?', clues: ['need_heat'] },
     ] },
-    crab: { title: 'Con cua lò rèn', region: 'Trong trận: đứng gần, nhìn kỹ con cua trong lúc né', questions: [
+    crab: { title: 'Con cua lò rèn', region: 'Trong trận: đứng sát khớp càng trái trong lúc né', questions: [
       { q: 'Nó đau ở đâu?', clues: ['crab_pain'] },
       { q: 'Cái gì làm nó đau?', clues: ['crab_shard'] },
       { q: 'Nó có nhớ ai không?', clues: ['crab_memory'] },
@@ -559,7 +562,7 @@ window.STORY = {
       { q: 'Giấu dưới đống nào?', clues: ['copper_listen', 'forge_echo'] },
       { q: 'Khi nào, vì sao vội?', clues: ['forge_order', 'belt_look'] },
     ] },
-    scale: { title: 'Cân Định Giá Linh Hồn', region: 'Cổng Chợ Nổi: chữ loé trên mặt kính khi cân nổ', questions: [
+    scale: { title: 'Cân Định Giá Linh Hồn', region: 'Cổng Chợ Nổi: dòng chữ trên mặt kính khi cân nổ', questions: [
       { q: 'Chiếc cân nói gì về cậu?', clues: ['scale_overflow'] },
     ] },
     bug: { title: 'Bọ Ký Sinh', region: 'Lưng Kình Ngư: nghe từng con trong lúc né', questions: [
@@ -649,78 +652,60 @@ window.STORY = {
   // đã chọn ở khoảng lặng. Khoảng lặng dùng Bốn cách hỏi lên chính boss; câu trả lời mở pha và động từ.
   // Pha: gian (đầu trận) → dau (khi hỏi ra chỗ đau) → tin (đủ phản đòn tử tế) ; Đánh thì sang cung (Cùng đường).
   bosses: {
-    crab: {
-      title: 'Cua Giáp Lò Rèn',
+    crab: { // Đấu trường top-down (BOSS_DESIGN mục 7): né chiêu trên mặt đất; boss mệt thì E chữa lành, F đánh
+      title: 'Cua Giáp Lò Rèn', mode: 'arena',
       hp: 'crab_hp',       // tên thông số máu trong config.js (chỉ dùng khi chọn Đánh)
       intro: 'Con cua gầm lên. Lò trên mai phun lửa.',
-      pain: [0.2, 0.22],   // vị trí khớp càng trái trong khung né (tỉ lệ ngang, dọc)
-      body: [0.5, 0.16],   // chỗ vòng sáng hiện ra khi chưa biết nó đau ở đâu
-      shard: [0.24, 0.3],  // chỗ ánh kim của mảnh sắt loé lên lúc lò bừng (sát khớp càng)
-      phases: {
-        gian: { name: 'Giận', attacks: ['rain', 'slag', 'pillars'] },
-        dau: { name: 'Đau', attacks: ['fan', 'rain'] },
-        tin: { name: 'Tin', attacks: ['breath'] },
-        cung: { name: 'Cùng đường', attacks: ['rain', 'fan', 'slag', 'pillars'] },
+      // vị trí tính từ chân con cua, nhân với crab_scale
+      wound: [-108, 18],   // chỗ đứng ngay dưới khớp càng trái: nghe, soi, chữa lành ở đây
+      shard: [-90, -65],   // mảnh sắt trên khớp càng (chỗ ánh kim loé)
+      body: [0, -12, 80, 30], // thân để va chạm: tâm x, y và bán trục ngang, dọc
+      phases: { // combo: số chiêu trước khi nó mệt
+        gian: { name: 'Giận', attacks: ['slam', 'rain', 'slag'], combo: 2 },
+        dau: { name: 'Đau', attacks: ['fan', 'rain'], combo: 2 },
+        tin: { name: 'Tin', attacks: ['breath'], combo: 1 },
+        cung: { name: 'Cùng đường', attacks: ['slam', 'slag', 'rain', 'fan'], combo: 2 },
       },
-      warn: { // Linh nghe trước từng đòn (kẹt dưới càng nhưng vẫn nghe được)
-        rain: 'Linh: "Nó sắp rũ lửa trên mai xuống!"', slag: 'Linh: "Xỉ sắt! Nó lăn ngang, nhảy qua khe hở!"',
-        pillars: 'Linh: "Chỗ nào đỏ lên là chỗ đó phụt lửa!"', fan: 'Linh: "Lửa phụt ra từ khớp càng! Lại gần chỗ đau mới tránh được!"',
+      warn: { // Linh nghe trước từng chiêu (kẹt dưới càng nhưng vẫn nghe được)
+        slam: 'Linh: "Nó vung càng! Tránh khỏi phía trước mặt nó!"', rain: 'Linh: "Nó sắp rũ lửa trên mai xuống! Chỗ nào đỏ là chỗ đó rơi!"',
+        slag: 'Linh: "Xỉ sắt lăn ngang! Tìm làn không đỏ!"', fan: 'Linh: "Lửa phụt ra từ khớp càng! Lại sát chỗ đau mới tránh được!"',
         breath: 'Linh: "Nó... đang thở chậm lại."',
-      },
-      // Bốn cách hỏi lên chính con cua, làm bằng hành động trong lúc né chứ không bằng menu.
-      // how: 'near' = đứng gần chỗ đau đủ lâu; 'glint' = chạm ánh kim lúc lò bừng; 'hurt' = tự đến khi cậu trúng đòn lần đầu
-      // (hoặc khi vừa sang pha Đau). Mira chưa nhập đội nên không có Định giá.
+      }, // guessed
+      // Hỏi bằng hành động trong lúc né: near = đứng gần khớp càng đủ lâu; glint = đứng gần khớp càng lúc lò bừng
+      // (ánh kim loé); hurt = hồ ly tự lên tiếng khi cậu trúng đòn lần đầu hoặc khi sang pha Đau.
       asks: {
         listen: { how: 'near', need: () => true, t: 'Khớp càng trái! Có tiếng rít, như sắt cứa vào thịt. Nó đau chỗ đó!', who: 'linh', clue: 'crab_pain', phase: 'dau' }, // guessed
-        look: { how: 'glint', need: () => true, t: '(Cậu nhìn xuyên qua làn lửa. Ở khớp càng trái có gì đó lấp lánh: một mảnh sắt gỉ, cắm sâu.)', who: 'nar', clue: 'crab_shard', verb: 'pull' }, // guessed
-        echo: { how: 'hurt', need: s => s.flags.fox_fed && !s.foxShy, t: '(Cái đuôi chuông gió của hồ ly phát lại một giọng rất xưa, rất dịu: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua khựng lại, như nhận ra.)', who: 'nar', clue: 'crab_memory', verb: 'warm' }, // handover: dòng khắc trên mai cua
-      },
-      verbs: {
-        whisper: { label: 'Nói khẽ', hint: 'Mặc định. Có tác dụng khi nó đã thôi điên vì đau' },
-        warm: { label: 'Ngồi sưởi cạnh nó', hint: 'Nó nhớ giọng ấy. Dịu nhanh gấp đôi' },
-        pull: { label: 'Gỡ mảnh sắt', hint: 'Chỉ khi nó đã tin cậu' },
-        strike: { label: 'Đánh', hint: 'Nhanh hơn. Không quay lại được' },
+        look: { how: 'glint', need: () => true, t: '(Cậu nhìn xuyên qua làn lửa. Ở khớp càng trái có gì đó lấp lánh: một mảnh sắt gỉ, cắm sâu.)', who: 'nar', clue: 'crab_shard' }, // guessed
+        echo: { how: 'hurt', need: s => s.flags.fox_fed && !s.foxShy, t: '(Cái đuôi chuông gió của hồ ly phát lại một giọng rất xưa, rất dịu: "Đừng chạm vào, coi chừng phỏng tay nhé." Con cua khựng lại, như nhận ra.)', who: 'nar', clue: 'crab_memory' }, // handover: dòng khắc trên mai cua
       },
       lines: {
-        gianWhisper: 'Nó không nghe thấy gì. Nó đau quá.', gianWarm: 'Nó gầm lên, nhưng không quật cậu.',
-        dauWhisper: 'Cậu nói khẽ. Con cua nghiêng đầu nghe.', dauWarm: 'Cậu ngồi sát cái lò, chìa tay ra sưởi. Con cua nhìn cậu rất lâu, rồi khép bớt cửa lò lại.',
-        tinWhisper: 'Con cua đứng im, giơ cái càng bị kẹt ra. Nó đang chờ.', pullEarly: 'Cậu chạm vào mảnh sắt. Nó giật càng lại, gầm lên. Chưa được.',
-        pullNoKnow: 'Cậu không biết phải gỡ cái gì. Hãy nhìn kỹ đã.',
+        tired: 'Con cua thở dốc. Lò trên mai tối đi một nhịp.', // guessed
+        tiredTin: 'Con cua đứng im, giơ cái càng bị kẹt ra. Nó đang chờ.',
+        recover: 'Nó lấy lại hơi.', // guessed
+        healNoKnow: 'Cậu chạm vào nó, nhưng không biết nó đau ở đâu. Nó gạt cậu ra.', // guessed
+        healGian: 'Nó không nghe thấy gì. Nó đau quá.',
+        healDau: 'Cậu đặt tay lên khớp càng, nói khẽ. Con cua nghiêng đầu nghe.', // guessed
+        healDauWarm: 'Cậu ngồi sát cái lò, chìa tay ra sưởi, khẽ nhắc lại giọng nói xưa. Con cua nhìn cậu rất lâu, rồi khép bớt cửa lò lại.',
+        healTinNoLook: 'Nó giơ càng ra chờ, nhưng cậu không biết phải gỡ cái gì. Nhìn kỹ khớp càng đã.', // guessed
+        healCung: 'Nó không còn nghe thấy gì nữa. Chỉ còn lửa.', // guessed: đường đánh không quay lại được
+        strikeAsk: 'Đánh thì không quay lại được nữa. Bấm F lần nữa nếu cậu chắc.', // guessed
         strike: 'Cậu đánh vào khớp càng. Con cua rú lên. Lửa trên mai bùng cao, dữ hơn, tuyệt vọng hơn.',
         toDau: 'Giờ cậu biết nó đau ở đâu. Lửa của nó bắt đầu toả ra từ chính chỗ đó.',
         toTin: 'Con cua thôi gầm. Lửa trên mai hạ xuống, chỉ còn thở.',
         resonance: 'Hai nhịp tim trong ngực cậu đập cùng một lúc.',
+        perfect: 'Né sát!',
         down: [ // gục: Linh băng bó và ghi nợ vào sổ xanh (handover: câu đùa 5 Lumen); n = số Lumen
           n => `Cậu gục xuống. Linh lôi cậu ra sau tảng sắt, quấn băng quanh tay cậu, rồi rút cuốn sổ xanh ra. "Băng gạc: ${n} Lumen. Ghi nợ."`,
           n => `Lại gục. Linh băng tiếp, không nói gì, chỉ ghi thêm ${n} Lumen vào sổ xanh.`,
           n => `Linh thở dài, ghi thêm ${n} Lumen. "Cậu mà gục nữa là tôi phá sản trước cậu đấy."`,
         ], // guessed: lời thoại khi gục
-        listenHint: 'Linh: "Cậu nghe không? Có tiếng rít, ở phía bên trái... Lại gần đó, tôi nghe rõ hơn."', // guessed
+        listenHint: 'Linh: "Cậu nghe không? Có tiếng rít, ở khớp càng bên trái... Lại sát đó, tôi nghe rõ hơn."', // guessed
         glintFirst: '(Lò bừng lên. Ở khớp càng trái có gì đó loé sáng.)', // guessed
-        tinHint: 'Linh: "Nó đang chờ cậu. Lúc lò bừng lên, nhìn kỹ khớp càng trái. Có gì lấp lánh ở đó!"', // guessed
-        newVerb: 'mới',
-        shield: 'Kaelen giơ khiên gốm đỡ trọn đòn ấy.',
-        missed: 'Sơ hở trôi qua.',
-        cungSoft: 'Nó không còn nghe thấy gì nữa. Chỉ còn lửa.', // guessed: đường đánh không quay lại được
-        intent: v => `Lần sơ hở tới: ${v}.`,
+        tinHint: 'Linh: "Nó đang chờ cậu. Lúc lò bừng lên, đứng sát khớp càng trái mà nhìn. Có gì lấp lánh ở đó!"', // guessed
+        tiredHint: 'Linh: "Nó mệt rồi! Lại khớp càng mà chữa (E), hoặc..." Linh không nói hết câu.', // guessed
+        shield: 'Kaelen giơ khiên gốm đỡ trọn chiêu ấy.',
       },
-    },
-    scale: { // Cân Định Giá Linh Hồn (BOSS_DESIGN 4.3): sống sót; Soi chữ cổ trên mặt kính trong lúc né
-      title: 'Cân Định Giá Linh Hồn', mode: 'survive',
-      intro: 'Kim cân quay tít. Mặt kính nứt toác. Nó sắp nổ!',
-      glyph: [0.5, 0.12],  // chữ loé lên ngay chỗ mảnh kính bắn ra: muốn đọc phải dám lại gần
-      glyphs: ['OVERFLOW: ', 'ORIGIN_', 'ENTITY'], // handover: dòng chữ OVERFLOW: ORIGIN_ENTITY, chia ba lần đọc
-      clue: 'scale_overflow',
-      phases: { gian: { name: 'Sắp nổ', attacks: ['burst'] } },
-      warn: { burst: 'Kaelen: "Nằm xuống! Mảnh kính bay tứ phía!"' },
-      lines: {
-        end: 'Tiếng nổ tắt. Kaelen hạ chiếc khiên gốm xuống.',
-        down: 'Một mảnh kính sượt qua vai cậu. Kaelen kéo cậu ra sau khiên.',
-        shield: 'Kaelen giơ khiên gốm đỡ trọn đợt kính ấy.',
-        readMore: '(Trên mặt kính có chữ đang sáng. Cậu đọc được thêm một đoạn.)', // guessed
-        readDone: '(Cậu đọc hết dòng chữ trên mặt kính. Không ai dạy cậu thứ chữ này. Vậy mà cậu đọc được.)', // guessed
-        missed: '', intent: () => '',
-      },
+      keys: { heal: 'E: Chữa lành', strike: 'F: Đánh', tiredNow: 'Nó đang mệt: ra đòn đi' },
     },
     bug: { // Bọ Ký Sinh (BOSS_DESIGN 4.2): Nghe ra con đầu đàn; gỡ nó trước thì cả đàn bỏ đi
       title: 'Bọ Ký Sinh', mode: 'bugs',
@@ -788,6 +773,7 @@ window.STORY = {
     inv: 'Túi đồ', invHint: 'Mũi tên: chọn · E: dùng · I: đóng', invEmpty: '(Trống.)', cleanse: 'E: Bóp vỡ / Thanh Tẩy', eat: 'E: Ăn',
     advance: 'Space', choose: 'Phím số, hoặc mũi tên rồi Enter',
     hp: 'Máu', resonance: 'Cộng hưởng', phase: 'Pha', ask: l => `Hỏi: ${l}`, plan: l => `Định: ${l}`, planNow: 'đang định', known: 'Đã hiểu', rage: 'Giận', hpBoss: 'Máu', left: n => `Còn ${n} con`, survive: n => `Chịu thêm ${n} giây`,
+    arenaKeys: 'WASD: đi · Space: lướt né · E: chữa lành · F: đánh (khi nó mệt)',
     quietTitle: 'Khoảng lặng', quietPick: 'Chọn ý định cho lần sơ hở tới', counterKey: 'E', slow: 'Né chậm', slowHint: 'N: bật, tắt né chậm (đạn chậm hơn, sơ hở dài hơn)', on: 'bật', off: 'tắt', quietHint: 'Phím số để chọn', again: 'Enter: chơi lại từ đầu',
   },
 };

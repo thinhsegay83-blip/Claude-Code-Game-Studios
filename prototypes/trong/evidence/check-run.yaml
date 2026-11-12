@@ -57,8 +57,8 @@ brief_checklist:
     item: "Màn né đòn: boss ở trên, khung né ở dưới, linh hồn hai nhịp tim, sượt đạn tích cộng hưởng, khoảng lặng chọn hành động, tha hoặc đánh"
   - id: F3
     result: pass
-    evidence: "evidence/fight-scale.png"
-    item: "3 màn đấu khác nhau: Cua Giáp Lò Rèn (boss), Cân Định Giá nổ (sống sót), Bọ Ký Sinh (tuỳ chọn)"
+    evidence: "evidence/arena-tired.png"
+    item: "2 trận đấu: Cua Giáp Lò Rèn (boss, đấu trường top-down), Bọ Ký Sinh (tuỳ chọn); Cân Định Giá nổ thành cảnh kể"
   - id: F4
     result: pass
     evidence: "index.html:163"
@@ -102,12 +102,20 @@ brief_checklist:
   - id: F14
     result: pass
     evidence: "evidence/scale-glyph.png"
-    item: "Chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss (Soi thấy OVERFLOW, Nghe ra bọ chúa), xoá engine cũ"
+    item: "Chuyển Cân Định Giá và Bọ Ký Sinh sang engine boss (Soi thấy OVERFLOW, Nghe ra bọ chúa), xoá engine cũ; sau đó Cân thành cảnh kể (lượt 8)"
   - id: F15
+    result: pass
+    evidence: "evidence/arena-fan.png"
+    item: "Đánh boss top-down: cậu và Cua Giáp Lò Rèn chung một khoảng đất; chiêu vẽ vùng đỏ trên đất rồi mới cháy; đi 8 hướng, Space lướt né, né sát đầy Cộng hưởng; boss mệt sau mỗi chuỗi chiêu: E chữa lành ở khớp càng (phải Nghe trước, gỡ mảnh sắt cần Soi), F đánh (hỏi lại lần đầu); Nghe, Soi, Vọng lại bằng hành động"
+  - id: F16
+    result: fail
+    why: missing
+    item: "Bọ Ký Sinh sang đấu trường top-down, xoá engine khung né"
+  - id: F17
     result: pass
     evidence: "index.html:20"
     item: "Đường ống sprite Aseprite: bản vẽ chữ → .aseprite → PNG + JSON → sprites.js; game dùng sprite khi có, vẽ bằng code khi chưa"
-  - id: F16
+  - id: F18
     result: fail
     why: missing
     item: "Sprite Aseprite cho Kẻ Trắng Tay, Linh & Mốc, Kaelen, Mira: đứng, đi, 6 nét mặt chân dung (vẽ trên máy MSI)"
@@ -141,7 +149,7 @@ brief_checklist:
     item: "giải đố · in the slice"
   - id: S8
     result: pass
-    evidence: "index.html:933"
+    evidence: "index.html:1209"
     item: "Mảnh Phản Chiếu (0–12) · thin stand-in: 3 mảnh từ câu đố + thanh tẩy Memoria *(guessed: handover không nói nguồn)*"
   - id: M1
     result: pass
@@ -173,11 +181,11 @@ brief_checklist:
     item: "Phút 3–5: Cua Giáp Lò Rèn nổi điên vì mảnh sắt gỉ, đè lên Linh."
   - id: C2
     result: pass
-    evidence: "evidence/fight-crab.png"
+    evidence: "evidence/arena-rain.png"
     item: "Màn né đầu tiên: tia lửa rơi, xỉ sắt lăn, cột lửa báo trước."
   - id: C3
     result: pass
-    evidence: "index.html:579"
+    evidence: "index.html:933"
     item: "Trúng đòn mất máu; hết máu thì đứng dậy thử lại từ đầu trận (không mất gì)."
   - id: C4
     result: pass
